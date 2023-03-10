@@ -188,6 +188,90 @@ class Resize:
         return kwargs
 
 
+def get_gripper_control_points_open3d(grasp, show_sweep_volume=False, color=(0.2, 0.8, 0.)):
+    """
+    Open3D Visualization of parallel-jaw grasp.
+    From https://github.com/adithyamurali/TaskGrasp/blob/master/visualize.py
+
+    Arguments:
+        grasp: [4, 4] np array
+    """
+    import trimesh.transformations as tra
+    import open3d
+
+    meshes = []
+    align = tra.euler_matrix(np.pi / 2, -np.pi / 2, 0)
+
+    # Cylinder 3,5,6
+    cylinder_1 = open3d.geometry.TriangleMesh.create_cylinder(
+        radius=0.005, height=0.139)
+    transform = np.eye(4)
+    transform[0, 3] = -0.03
+    transform = np.matmul(align, transform)
+    transform = np.matmul(grasp, transform)
+    cylinder_1.paint_uniform_color(color)
+    cylinder_1.transform(transform)
+
+    # Cylinder 1 and 2
+    cylinder_2 = open3d.geometry.TriangleMesh.create_cylinder(
+        radius=0.005, height=0.07)
+    transform = tra.euler_matrix(0, np.pi / 2, 0)
+    transform[0, 3] = -0.065
+    transform = np.matmul(align, transform)
+    transform = np.matmul(grasp, transform)
+    cylinder_2.paint_uniform_color(color)
+    cylinder_2.transform(transform)
+
+    # Cylinder 5,4
+    cylinder_3 = open3d.geometry.TriangleMesh.create_cylinder(
+        radius=0.005, height=0.06)
+    transform = tra.euler_matrix(0, np.pi / 2, 0)
+    transform[2, 3] = 0.065
+    transform = np.matmul(align, transform)
+    transform = np.matmul(grasp, transform)
+    cylinder_3.paint_uniform_color(color)
+    cylinder_3.transform(transform)
+
+    # Cylinder 6, 7
+    cylinder_4 = open3d.geometry.TriangleMesh.create_cylinder(
+        radius=0.005, height=0.06)
+    transform = tra.euler_matrix(0, np.pi / 2, 0)
+    transform[2, 3] = -0.065
+    transform = np.matmul(align, transform)
+    transform = np.matmul(grasp, transform)
+    cylinder_4.paint_uniform_color(color)
+    cylinder_4.transform(transform)
+
+    cylinder_1.compute_vertex_normals()
+    cylinder_2.compute_vertex_normals()
+    cylinder_3.compute_vertex_normals()
+    cylinder_4.compute_vertex_normals()
+
+    meshes.append(cylinder_1)
+    meshes.append(cylinder_2)
+    meshes.append(cylinder_3)
+    meshes.append(cylinder_4)
+
+    # Just for visualizing - sweep volume
+    if show_sweep_volume:
+        finger_sweep_volume = open3d.geometry.TriangleMesh.create_box(
+            width=0.06, height=0.02, depth=0.14)
+        transform = np.eye(4)
+        transform[0, 3] = -0.06 / 2
+        transform[1, 3] = -0.02 / 2
+        transform[2, 3] = -0.14 / 2
+
+        transform = np.matmul(align, transform)
+        transform = np.matmul(grasp, transform)
+        finger_sweep_volume.paint_uniform_color(color)
+        finger_sweep_volume.transform(transform)
+        finger_sweep_volume.compute_vertex_normals()
+
+        meshes.append(finger_sweep_volume)
+
+    return meshes
+
+
 class Rotate:
     """
     Rotate the point cloud, current gripper, and next ground-truth gripper, while
@@ -199,13 +283,19 @@ class Rotate:
         self.yaw_range = np.deg2rad(yaw_range)
         self.num_tries = num_tries
 
-    def __call__(self, pcds, gripper, action, mask):
+    def __call__(self, pcds, rgbs, gripper, action, mask):
+        orig_pcd = pcds.clone()
+        orig_gripper = gripper.clone()
+        orig_action = action.clone()
+
         if self.yaw_range == 0.0:
             return pcds, gripper, action
 
         augmentation_rot_4x4 = self._sample_rotation()
         gripper_rot_4x4 = self._gripper_action_to_matrix(gripper)
         action_rot_4x4 = self._gripper_action_to_matrix(action)
+        orig_gripper_rot_4x4 = gripper_rot_4x4.clone()
+        orig_action_rot_4x4 = action_rot_4x4.clone()
 
         for i in range(self.num_tries):
             gripper_rot_4x4 = augmentation_rot_4x4 @ gripper_rot_4x4
@@ -221,6 +311,60 @@ class Rotate:
                     augmentation_rot_4x4[:3, :3], pcds[mask], "c2 c1, t ncam c1 h w -> t ncam c2 h w")
                 break
 
+        import open3d
+        import cv2
+        vis = open3d.visualization.Visualizer()
+        vis.create_window()
+
+        for i in range(3):
+            points1 = orig_pcd[0, i].cpu().numpy().transpose(1, 2, 0).reshape(-1, 3)
+            colors1 = rgbs[0, i, :3].cpu().numpy().transpose(1, 2, 0).reshape(-1, 3)
+            points2 = pcds[0, i].cpu().numpy().transpose(1, 2, 0).reshape(-1, 3)
+
+            opcd1 = open3d.geometry.PointCloud()
+            opcd1.points = open3d.utility.Vector3dVector(points1)
+            opcd1.colors = open3d.utility.Vector3dVector(colors1)
+            vis.add_geometry(opcd1)
+            vis.update_geometry(opcd1)
+            for geometry in get_gripper_control_points_open3d(orig_gripper_rot_4x4[0], color=(1, 0, 1)):
+                vis.add_geometry(geometry)
+                vis.update_geometry(geometry)
+            for geometry in get_gripper_control_points_open3d(orig_action_rot_4x4[0], color=(0.2, 0.8, 0)):
+                vis.add_geometry(geometry)
+                vis.update_geometry(geometry)
+            # origin = orig_action_rot_4x4[0].clone()
+            # origin[:2, 3] = torch.zeros(2)
+            # for geometry in get_gripper_control_points_open3d(origin, color=(0.2, 0.8, 1)):
+            #     vis.add_geometry(geometry)
+            #     vis.update_geometry(geometry)
+            vis.poll_events()
+            vis.update_renderer()
+            vis.capture_screen_image(f"aug/orig{i}.png")
+            vis.clear_geometries()
+
+            opcd2 = open3d.geometry.PointCloud()
+            opcd2.points = open3d.utility.Vector3dVector(points2)
+            opcd2.colors = open3d.utility.Vector3dVector(colors1)
+            vis.add_geometry(opcd2)
+            vis.update_geometry(opcd2)
+            for geometry in get_gripper_control_points_open3d(gripper_rot_4x4[0], color=(1, 0, 1)):
+                vis.add_geometry(geometry)
+                vis.update_geometry(geometry)
+            for geometry in get_gripper_control_points_open3d(action_rot_4x4[0], color=(0.2, 0.8, 0)):
+                vis.add_geometry(geometry)
+                vis.update_geometry(geometry)
+            # origin = orig_action_rot_4x4[0].clone()
+            # origin[:2, 3] = torch.zeros(2)
+            # for geometry in get_gripper_control_points_open3d(origin, color=(0.2, 0.8, 1)):
+            #     vis.add_geometry(geometry)
+            #     vis.update_geometry(geometry)
+            vis.poll_events()
+            vis.update_renderer()
+            vis.capture_screen_image(f"aug/aug{i}.png")
+            vis.clear_geometries()
+
+        raise NotImplementedError
+
         return pcds, gripper, action
 
     def _check_bounds(self, gripper_position, action_position):
@@ -232,7 +376,8 @@ class Rotate:
         )
 
     def _sample_rotation(self):
-        yaw = 2 * self.yaw_range * torch.rand(1) - self.yaw_range
+        # yaw = 2 * self.yaw_range * torch.rand(1) - self.yaw_range
+        yaw = self.yaw_range * torch.ones(1)
         roll = torch.zeros_like(yaw)
         pitch = torch.zeros_like(yaw)
         rot_3x3 = torch3d_tf.euler_angles_to_matrix(torch.stack([roll, pitch, yaw], dim=1), "XYZ")
@@ -381,7 +526,7 @@ class RLBenchDataset(data.Dataset):
         tframe_ids = F.pad(tframe_ids, (0, pad_len), value=-1)
 
         if self._training:
-            pcds, gripper, action = self._rotate(pcds, gripper, action, mask)
+            pcds, gripper, action = self._rotate(pcds, rgbs, gripper, action, mask)
             modals = self._resize(rgbs=rgbs, pcds=pcds)
             rgbs = modals["rgbs"]
             pcds = modals["pcds"]
