@@ -334,8 +334,13 @@ class RLBenchDataset(data.Dataset):
         pad_len = max(0, self._max_episode_length - num_ind)
 
         states: torch.Tensor = torch.stack([episode[1][i].squeeze(0) for i in frame_ids])
+
         if states.shape[-1] != self._image_size[1] or states.shape[-2] != self._image_size[0]:
-            raise ValueError(f"{states.shape} {self._episodes[episode_id]}")
+            A, B, C, D, H, W = states.shape
+            if H == W == 256:
+                states = F.interpolate(states.reshape([A, -1, 256, 256]), scale_factor=0.5, mode='nearest-exact').reshape([A, B, C, D, 128, 128])
+            else:
+                raise ValueError(f"{states.shape} {self._episodes[episode_id]}")
         pad_vec = [0] * (2 * states.dim())
         pad_vec[-1] = pad_len
         states = F.pad(states, pad_vec)

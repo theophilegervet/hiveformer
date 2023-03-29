@@ -69,8 +69,8 @@ class TaskEnvironment(object):
     def variation_count(self) -> int:
         return self._task.variation_count()
 
-    def reset(self) -> (List[str], Observation):
-        self._scene.reset()
+    def reset(self, randomize_vp=False) -> (List[str], Observation):
+        self._scene.reset(randomize_vp=randomize_vp)
         try:
             desc = self._scene.init_episode(
                 self._variation_number, max_attempts=_MAX_RESET_ATTEMPTS,
@@ -155,6 +155,6 @@ class TaskEnvironment(object):
                     'Could not collect demos. Maybe a problem with the task?')
         return demos
 
-    def reset_to_demo(self, demo: Demo) -> (List[str], Observation):
+    def reset_to_demo(self, demo: Demo, randomize_vp=False) -> (List[str], Observation):
         demo.restore_state()
-        return self.reset()
+        return self.reset(randomize_vp=randomize_vp)

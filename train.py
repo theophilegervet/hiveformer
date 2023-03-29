@@ -53,7 +53,7 @@ class Arguments(tap.Tap):
 
     # Main training parameters
     devices: List[str] = ["cuda:0"]  # ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
-    num_workers: int = 2
+    num_workers: int = 0
     batch_size: int = 16
     batch_size_val: int = 16
     lr: float = 1e-4
@@ -608,6 +608,7 @@ if __name__ == "__main__":
         args.rotation_loss_coeff = 4.0
         args.batch_size = 32
         args.train_iters = 100_000
+        args.lr = 5e-5
 
     assert args.batch_size % len(args.devices) == 0
 

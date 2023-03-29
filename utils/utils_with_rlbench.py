@@ -94,10 +94,10 @@ class Mover:
             gripper = obs.gripper_open
             dist_pos = np.sqrt(np.square(target[:3] - pos).sum())
             dist_rot = np.sqrt(np.square(target[3:7] - rot).sum())
-            criteria = (dist_pos < 5e-2,)
-            # criteria = (dist_pos < 1e-3,)
+            criteria = dist_pos < 5e-2
+            # criteria = dist_pos < 1e-3 and dist_rot < 1e-3
 
-            if all(criteria) or reward == 1:
+            if criteria or reward == 1:
                 break
 
             print(
@@ -153,7 +153,8 @@ class Actioner:
         self, task_str: str, variation: int, demo_id: int, demo: Union[Demo, int]
     ):
         self._task = task_str
-        instructions = list(self._instructions[task_str][variation])
+        # instructions = list(self._instructions[task_str][variation])
+        instructions = list(self._instructions['stack_wine'][variation])
         self._instr = random.choice(instructions).unsqueeze(0)
         self._task_id = torch.tensor(TASK_TO_ID[task_str]).unsqueeze(0)
         self._actions = {}
@@ -190,7 +191,7 @@ class Actioner:
         self._instr = self._instr.to(rgbs.device)
         self._task_id = self._task_id.to(rgbs.device)
 
-        if type(self._model) in [Hiveformer, Baseline]:
+        if type(self._model) == Baseline:
             pred = self._model(
                 rgbs,
                 pcds,
@@ -198,6 +199,14 @@ class Actioner:
                 self._instr,
                 gripper,
                 self._task_id,
+            )
+        if type(self._model) == Hiveformer:
+            pred = self._model(
+                rgbs,
+                pcds,
+                padding_mask,
+                self._instr,
+                gripper,
             )
         elif type(self._model) == AnalogicalNetwork:
             # TODO Implement evaluation with analogical network
@@ -380,7 +389,7 @@ class RLBenchEnv:
         )
         return demos
 
-    def evaluate(
+    def evaluate_hiveformer(
         self,
         task_str: str,
         max_episodes: int,
@@ -394,7 +403,8 @@ class RLBenchEnv:
         num_videos: int = 3,
         record_demo_video: bool = False,
         offline: bool = True,
-        position_prediction_only: bool = False
+        position_prediction_only: bool = False,
+        randomize_vp: bool = False,
     ):
         """
         Evaluate the policy network on the desired demo or test environments
@@ -477,7 +487,226 @@ class RLBenchEnv:
                 grippers = torch.Tensor([]).to(device)
 
                 # descriptions, obs = task.reset()
-                descriptions, obs = task.reset_to_demo(demo)
+                descriptions, obs = task.reset_to_demo(demo, randomize_vp=randomize_vp)
+
+                lang_goal = descriptions[0]  # first description variant
+
+                actioner.load_episode(task_str, variation, demo_id, demo)
+
+                images.append(
+                    {cam: getattr(obs, f"{cam}_rgb") for cam in self.apply_cameras}
+                )
+                move = Mover(task, max_tries=max_tries)
+                reward = None
+                gt_keyframe_actions = actioner.get_action_from_demo(demo)
+                gt_keyframe_gripper_matrices = np.stack([self.get_gripper_matrix_from_action(a[-1])
+                                                         for a in gt_keyframe_actions])
+                pred_keyframe_gripper_matrices = []
+
+                for step_id in range(max_episodes):
+                    
+                    # fetch the current observation, and predict one action
+                    rgb, pcd, gripper = self.get_rgb_pcd_gripper_from_obs(obs)
+
+                    rgb = rgb.to(device)
+                    pcd = pcd.to(device)
+                    gripper = gripper.to(device)
+
+                    rgbs = torch.cat([rgbs, rgb.unsqueeze(1)], dim=1)
+                    pcds = torch.cat([pcds, pcd.unsqueeze(1)], dim=1)
+                    grippers = torch.cat([grippers, gripper.unsqueeze(1)], dim=1)
+                    output = actioner.predict(step_id, rgbs, pcds, grippers,
+                                              gt_action=torch.stack(gt_keyframe_actions[:step_id + 1]).float().to(device))
+
+                    if offline:
+                        # Follow demo
+                        try:
+                            action = gt_keyframe_actions[step_id]
+                        except:
+                            break
+                    else:
+                        # Follow trained policy
+                        action = output["action"]
+
+                        # Clamp position to workspace bounds
+                        action[:, :3] = torch.clamp(action[:, :3], min_position, max_position)
+
+                        if position_prediction_only:
+                            action[:, 3:] = gt_keyframe_actions[step_id][:, 3:]
+
+                    print(f"Step {step_id}")
+                    # print('mean')
+                    # print(torch.stack(pos_loss[step_id]).mean().item(), torch.stack(rot_loss[step_id]).mean().item())
+
+                    if record_videos and demo_id < num_videos:
+                        pred_keyframe_gripper_matrices.append(self.get_gripper_matrix_from_action(output["action"][-1]))
+                        task_recorder.take_snap(
+                            obs,
+                            # All past keyframe actions
+                            # gt_keyframe_gripper_matrices=gt_keyframe_gripper_matrices[:step_id + 1],
+                            # pred_keyframe_gripper_matrices=np.stack(pred_keyframe_gripper_matrices),
+
+                            # Just the last one
+                            gt_keyframe_gripper_matrices=gt_keyframe_gripper_matrices[[step_id]],
+                            pred_keyframe_gripper_matrices=np.stack(pred_keyframe_gripper_matrices)[[-1]],
+
+                            pred_coarse_position=output.get("coarse_position"),
+                            pred_fine_position=output.get("fine_position"),
+                            top_coarse_rgb_heatmap=output.get("top_coarse_rgb"),
+                            top_fine_rgb_heatmap=output.get("top_fine_rgb"),
+                        )
+
+                    if action is None:
+                        break
+
+                    # update the observation based on the predicted action
+                    try:
+                        action_np = action[-1].detach().cpu().numpy()
+
+                        obs, reward, terminate, step_images = move(action_np)
+
+                        images += step_images
+
+                        if reward == 1:
+                            success_rate += 1 / num_demos
+                            break
+
+                        if terminate:
+                            print("The episode has terminated!")
+
+                    except (IKError, ConfigurationPathError, InvalidActionError) as e:
+                        print(task_type, demo, step_id, success_rate, e)
+                        reward = 0
+                        break
+
+                # record video
+                if record_videos and demo_id < num_videos:
+                    record_video_file = os.path.join(
+                        log_dir,
+                        "videos",
+                        '%s_ep%s_rew%s' % (task_str, demo_id, reward)
+                    )
+                    task_recorder.save(record_video_file, lang_goal)
+                    task_recorder._cam_motion.restore_pose()
+
+                print(
+                    task_str,
+                    "Reward",
+                    reward,
+                    "Variation",
+                    variation,
+                    "Step",
+                    demo_id,
+                    "SR: %.2f" % (success_rate * 100),
+                    "Failed", failed_demos,
+                )
+
+        self.env.shutdown()
+
+        # Compensate for failed demos
+        success_rate = success_rate * num_demos / (num_demos - failed_demos)
+
+        return success_rate
+
+    def evaluate(
+        self,
+        task_str: str,
+        max_episodes: int,
+        variation: int,
+        num_demos: int,
+        log_dir: Optional[Path],
+        actioner: Actioner,
+        max_tries: int = 1,
+        save_attn: bool = False,
+        record_videos: bool = False,
+        num_videos: int = 3,
+        record_demo_video: bool = False,
+        offline: bool = True,
+        position_prediction_only: bool = False,
+        randomize_vp: bool = False,
+    ):
+        """
+        Evaluate the policy network on the desired demo or test environments
+            :param task_type: type of task to evaluate
+            :param max_episodes: maximum episodes to finish a task
+            :param num_demos: number of test demos for evaluation
+            :param model: the policy network
+            :param record_videos: whether to record videos
+            :return: success rate
+        """
+
+        self.env.launch()
+        task_type = task_file_to_task_class(task_str)
+        task = self.env.get_task(task_type)
+        task.set_variation(variation)  # type: ignore
+
+        if record_videos:
+            cam_placeholder = Dummy('cam_cinematic_placeholder')
+            cam = VisionSensor.create([480, 480])
+            cam.set_pose(cam_placeholder.get_pose())
+            cam.set_parent(cam_placeholder)
+            cam_motion = CircleCameraMotion(cam, Dummy('cam_cinematic_base'), 0.005)
+            task_recorder = TaskRecorder(
+                ("left_shoulder", "right_shoulder", "wrist"),
+                self.env, cam_motion,
+                task_str=task_str,
+                custom_cam_params=True,
+                position_prediction_only=position_prediction_only,
+                fine_sampling_ball_diameter=self.fine_sampling_ball_diameter
+            )
+            self.action_mode.arm_action_mode.set_callable_each_step(task_recorder.take_snap)
+
+            # Record demo video with keyframe actions for comparison with evaluation videos
+            if record_demo_video:
+                task_recorder._cam_motion.save_pose()
+                task.get_demos(
+                    amount=1,
+                    live_demos=True,
+                    callable_each_step=task_recorder.take_snap,
+                    max_attempts=1
+                )
+                record_video_file = os.path.join(log_dir, "videos", f"{task_str}_demo")
+                descriptions, obs = task.reset()
+                lang_goal = descriptions[0]  # first description variant
+                task_recorder.save(record_video_file, lang_goal)
+                task_recorder._cam_motion.restore_pose()
+
+        device = actioner.device
+
+        min_position = torch.tensor([
+            self.env._scene._workspace_minx + 0.01,
+            self.env._scene._workspace_miny + 0.01,
+            self.env._scene._workspace_minz + 0.01
+        ]).to(device)
+        max_position = torch.tensor([
+            self.env._scene._workspace_maxx - 0.01,
+            self.env._scene._workspace_maxy - 0.01,
+            self.env._scene._workspace_maxz - 0.01
+        ]).to(device)
+
+        success_rate = 0.0
+        failed_demos = 0
+
+        pos_loss = [[], [], [], []]
+        rot_loss = [[], [], [], []]
+        with torch.no_grad():
+            for demo_id in range(num_demos):
+                print(f"Starting demo {demo_id}")
+                try:
+                    demo = self.get_demo(task_str, variation, episode_index=demo_id)[0]
+                except:
+                    failed_demos += 1
+                    continue
+                if record_videos and demo_id < num_videos:
+                    task_recorder._cam_motion.save_pose()
+
+                images = []
+                rgbs = torch.Tensor([]).to(device)
+                pcds = torch.Tensor([]).to(device)
+                grippers = torch.Tensor([]).to(device)
+
+                # descriptions, obs = task.reset()
+                descriptions, obs = task.reset_to_demo(demo, randomize_vp=randomize_vp)
 
                 lang_goal = descriptions[0]  # first description variant
 
@@ -510,7 +739,10 @@ class RLBenchEnv:
 
                     if offline:
                         # Follow demo
-                        action = gt_keyframe_actions[step_id]
+                        try:
+                            action = gt_keyframe_actions[step_id]
+                        except:
+                            break
                     else:
                         # Follow trained policy
                         action = output["action"]

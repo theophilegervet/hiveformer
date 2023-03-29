@@ -28,7 +28,7 @@ python dataset_generator.py \
     --episodes_per_task=$train_episodes_per_task \
     --variations=1 \
     --offset=0 \
-    --processes=1
+    --processes=5
 
 python dataset_generator.py \
     --save_path=$data_dir/$val_dir \

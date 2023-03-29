@@ -222,10 +222,11 @@ class LossAndMetrics:
         final_pos_l2 = ((pred["position"] - outputs[:, :3]) ** 2).sum(1).sqrt()
         metrics["mean/pos_l2_final"] = final_pos_l2.to(dtype).mean()
         metrics["mean/pos_l2_final<0.01"] = (final_pos_l2 < 0.01).to(dtype).mean()
-
-        for i in range(len(pred["position_pyramid"])):
-            pos_l2_i = ((pred["position_pyramid"][i].squeeze(1) - outputs[:, :3]) ** 2).sum(1).sqrt()
-            metrics[f"mean/pos_l2_level{i}"] = pos_l2_i.to(dtype).mean()
+        
+        if pred.get("position_pyramid") is not None:
+            for i in range(len(pred["position_pyramid"])):
+                pos_l2_i = ((pred["position_pyramid"][i].squeeze(1) - outputs[:, :3]) ** 2).sum(1).sqrt()
+                metrics[f"mean/pos_l2_level{i}"] = pos_l2_i.to(dtype).mean()
 
         for task in np.unique(tasks):
             task_l2 = final_pos_l2[tasks == task]

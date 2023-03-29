@@ -16,9 +16,11 @@
 # main_dir=03_19_compare
 # main_dir=03_19_more_tasks
 # main_dir=03_21_10demo
-main_dir=03_22_10demo_small
-main_dir=03_22_knife
-main_dir=03_22_wine
+# main_dir=03_22_10demo_small
+# main_dir=03_22_knife
+# main_dir=03_22_wine
+main_dir=03_23
+main_dir=03_24
 
 dataset=/home/tgervet/datasets/hiveformer/packaged/2
 valset=/home/tgervet/datasets/hiveformer/packaged/3
@@ -46,18 +48,17 @@ gripper_bounds_buffer=0.04
 use_instruction=0
 weight_tying=1
 max_episodes_per_taskvar=100
-symmetric_rotation_loss=0
 num_ghost_points=1000
 num_ghost_points_val=10000
 
+symmetric_rotation_loss=1
 gp_emb_tying=1
 simplify=1
 num_sampling_level=3
 regress_position_offset=0
 seed=0
-embedding_dim=24
 embedding_dim=60
-
+n_layer=2
 
 python train.py\
      --tasks $task \
@@ -78,7 +79,9 @@ python train.py\
      --regress_position_offset $regress_position_offset\
      --num_sampling_level $num_sampling_level\
      --embedding_dim $embedding_dim\
+     --num_ghost_point_cross_attn_layers $n_layer\
+     --num_query_cross_attn_layers $n_layer\
      --seed $seed\
      --lr $lr\
-     --run_log_dir $task-offset$regress_position_offset-N$num_sampling_level-T$num_ghost_points-V$num_ghost_points_val-symrot$symmetric_rotation_loss-gptie$gp_emb_tying-simp$simplify-B$batch_size-demo$max_episodes_per_taskvar-dim$embedding_dim-lr$lr-seed$seed
+     --run_log_dir $task-offset$regress_position_offset-N$num_sampling_level-T$num_ghost_points-V$num_ghost_points_val-symrot$symmetric_rotation_loss-gptie$gp_emb_tying-simp$simplify-B$batch_size-demo$max_episodes_per_taskvar-dim$embedding_dim-L$n_layer-lr$lr-seed$seed
 

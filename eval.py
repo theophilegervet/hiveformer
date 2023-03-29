@@ -110,6 +110,7 @@ class Arguments(tap.Tap):
     global_correspondence: int = 0
     num_matching_cross_attn_layers: int = 2
     task_specific_parameters: int = 0
+    randomize_vp: int = 0
 
 
 def get_log_dir(args: Arguments) -> Path:
@@ -299,7 +300,11 @@ if __name__ == "__main__":
     max_eps_dict = load_episodes()["max_episode_length"]
     for task_str in args.tasks:
         for variation in args.variations:
-            success_rate = env.evaluate(
+            if args.model == "original":
+                evaluate = env.evaluate_hiveformer
+            else:
+                evaluate = env.evaluate
+            success_rate = evaluate(
                 task_str,
                 max_episodes=max_eps_dict[task_str] if args.max_episodes == 0 else args.max_episodes,
                 variation=variation,
@@ -310,7 +315,8 @@ if __name__ == "__main__":
                 save_attn=False,
                 record_videos=False,
                 position_prediction_only=bool(args.position_prediction_only),
-                offline=bool(args.offline)
+                offline=bool(args.offline),
+                randomize_vp=bool(args.randomize_vp)
             )
 
             print("Testing Success Rate {}: {:.04f}".format(task_str, success_rate))

@@ -19,6 +19,8 @@ from rlbench.backend.utils import rgb_handles_to_mask
 from rlbench.demo import Demo
 from rlbench.noise_model import NoiseModel
 from rlbench.observation_config import ObservationConfig, CameraConfig
+from pyrep.backend import sim
+from scipy.spatial.transform import Rotation as R
 
 STEPS_BEFORE_EPISODE_START = 10
 
@@ -145,7 +147,7 @@ class Scene(object):
         self._has_init_episode = True
         return descriptions
 
-    def reset(self) -> None:
+    def reset(self, randomize_vp=False) -> None:
         """Resets the joint angles. """
         self.robot.gripper.release()
 
@@ -164,6 +166,48 @@ class Scene(object):
             self.task.cleanup_()
             self.task.restore_state(self._initial_task_state)
         self.task.set_initial_objects_in_scene()
+
+        if randomize_vp:
+            look_at = np.array([0.4, 0., 0.75])
+            look_from = np.array([-0.175, 0.2, 1.98])
+            horizontal_dist = np.linalg.norm(look_from[:2] - look_at[:2])
+
+            theta0 = np.random.uniform(low=0.0, high=2*np.pi)
+            horizontal_x = horizontal_dist * np.cos(theta0)
+            horizontal_y = horizontal_dist * np.sin(theta0)
+
+            new_look_from = np.array([look_at[0]+horizontal_x, look_at[1]+horizontal_y, 1.98])
+            z = look_at - new_look_from # forward
+            z /= np.linalg.norm(z)
+            up = np.array([0, 0, 1])
+            x = np.cross(up, z)
+            x /= np.linalg.norm(x)
+            y = np.cross(z, x)
+
+            euler = R.from_matrix(np.vstack([x, y, z]).transpose()).as_euler('XYZ')
+
+            sim.simSetObjectPosition(self._cam_over_shoulder_left._handle, -1, new_look_from.tolist())
+            sim.simSetObjectOrientation(self._cam_over_shoulder_left._handle, -1, euler.tolist())
+
+            theta1 = np.random.uniform(low=0.0, high=2*np.pi)
+            theta1 = theta0 + np.pi/2
+            horizontal_x = horizontal_dist * np.cos(theta1)
+            horizontal_y = horizontal_dist * np.sin(theta1)
+
+            new_look_from = np.array([look_at[0]+horizontal_x, look_at[1]+horizontal_y, 1.98])
+            z = look_at - new_look_from # forward
+            z /= np.linalg.norm(z)
+            up = np.array([0, 0, 1])
+            x = np.cross(up, z)
+            x /= np.linalg.norm(x)
+            y = np.cross(z, x)
+
+            euler = R.from_matrix(np.vstack([x, y, z]).transpose()).as_euler('XYZ')
+
+            sim.simSetObjectPosition(self._cam_over_shoulder_right._handle, -1, new_look_from.tolist())
+            sim.simSetObjectOrientation(self._cam_over_shoulder_right._handle, -1, euler.tolist())
+
+
 
     def get_observation(self) -> Observation:
         tip = self.robot.arm.get_tip()
