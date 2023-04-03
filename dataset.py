@@ -44,10 +44,7 @@ class Cache(Generic[T, U]):
 
     def __call__(self, args: T) -> U:
         if self._size == 0:
-            t0 = time.time()
             value = self._loader(args)
-            t1 = time.time()
-            print("Loading time: ", t1 - t0)
 
         if args in self._cache:
             index = self._keys.index(args)
@@ -55,11 +52,9 @@ class Cache(Generic[T, U]):
             self._keys.append(args)
             return self._cache[args]
 
-        t0 = time.time()
         value = self._loader(args)
-        t1 = time.time()
-        print("Loading time: ", t1 - t0)
 
+        print("len(self._keys)", len(self._keys))
         if len(self._keys) == self._size and self._keys != []:
             key = self._keys[0]
             del self._cache[key]
@@ -131,7 +126,11 @@ def data_transform(scales, **kwargs: torch.Tensor) -> Dict[str, torch.Tensor]:
 
 def loader(file: Path) -> Optional[np.ndarray]:
     try:
-        return np.load(file, allow_pickle=True)
+        t0 = time.time()
+        value = np.load(file, allow_pickle=True)
+        t1 = time.time()
+        print("Loading time: ", t1 - t0)
+        return value
     except UnpicklingError as e:
         print(f"Can't load {file}: {e}")
     return None
