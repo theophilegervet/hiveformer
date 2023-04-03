@@ -351,6 +351,7 @@ class RLBenchDataset(data.Dataset):
 
         frame_ids = episode[0][chunk * self._max_episode_length: (chunk + 1) * self._max_episode_length]
         num_ind = len(frame_ids)
+        print("num_ind", num_ind)
         if num_ind == 0:
             # Episode ID is not valid, sample another one
             episode_id = random.randint(0, self._num_episodes - 1)
