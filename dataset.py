@@ -43,6 +43,9 @@ class Cache(Generic[T, U]):
         self._cache: Dict[T, U] = {}
 
     def __call__(self, args: T) -> U:
+        if self._size == 0:
+            return self._loader(args)
+
         if args in self._cache:
             index = self._keys.index(args)
             del self._keys[index]
