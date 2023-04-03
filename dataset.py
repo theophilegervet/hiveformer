@@ -22,6 +22,7 @@ import torchvision.transforms as transforms
 import torchvision.transforms.functional as transforms_f
 from torch.utils.data._utils.collate import default_collate
 import einops
+import time
 try:
     from pytorch3d import transforms as torch3d_tf
 except:
@@ -48,8 +49,10 @@ class Cache(Generic[T, U]):
             self._keys.append(args)
             return self._cache[args]
 
-        # print(args, len(self._keys), self._size)
+        t0 = time.time()
         value = self._loader(args)
+        t1 = time.time()
+        print("Loading time: ", t1 - t0)
 
         if len(self._keys) == self._size and self._keys != []:
             key = self._keys[0]
