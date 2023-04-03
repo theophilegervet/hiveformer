@@ -44,7 +44,10 @@ class Cache(Generic[T, U]):
 
     def __call__(self, args: T) -> U:
         if self._size == 0:
-            return self._loader(args)
+            t0 = time.time()
+            value = self._loader(args)
+            t1 = time.time()
+            print("Loading time: ", t1 - t0)
 
         if args in self._cache:
             index = self._keys.index(args)
