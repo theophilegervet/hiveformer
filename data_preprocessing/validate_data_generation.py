@@ -9,7 +9,7 @@ from utils.utils_without_rlbench import round_floats
 class Arguments(tap.Tap):
     cameras: Tuple[str, ...] = ("left_shoulder", "right_shoulder", "wrist")
     image_size: str = "256,256"
-    headless: int = 1
+    headless: int = 0
     max_tries: int = 10
     verbose: int = 0
 
@@ -18,10 +18,10 @@ class Arguments(tap.Tap):
     raw_dir: str = "/home/zhouxian/git/datasets/raw"
     packaged_dir: str = "/home/zhouxian/git/datasets/packaged"
 
-    #train_dir: str = "18_peract_tasks_train"
-    #val_dir: str = "18_peract_tasks_val"
-    train_dir: str = "74_hiveformer_tasks_train"
-    val_dir: str = "74_hiveformer_tasks_val"
+    train_dir: str = "18_peract_tasks_train"
+    val_dir: str = "18_peract_tasks_val"
+    # train_dir: str = "74_hiveformer_tasks_train"
+    # val_dir: str = "74_hiveformer_tasks_val"
     # train_dir: str = "peract_problematic_tasks_train"
     # val_dir: str = "peract_problematic_tasks_val"
 
@@ -62,7 +62,7 @@ if __name__ == "__main__":
 
         max_eps_dict = load_episodes()["max_episode_length"]
 
-        for split in [args.train_dir]:
+        for split in [args.val_dir]:
             print()
             print()
             print()
@@ -85,6 +85,10 @@ if __name__ == "__main__":
                 task_str = task_dir.split("/")[-1]
                 var_dirs = glob.glob(f"{task_dir}/*")
 
+                long_horizon = ['put_item_in_drawer']
+                if task_str not in long_horizon:
+                    continue
+
                 print("=========================================")
                 print(f"{task_str} with {len(var_dirs)} variations")
                 var_success_rates = {}
@@ -95,7 +99,7 @@ if __name__ == "__main__":
                     success_rate, valid, invalid_demos = env.verify_demos(
                         task_str=task_str,
                         variation=variation,
-                        num_demos=num_demos,
+                        num_demos=10, #num_demos,
                         max_tries=args.max_tries,
                         verbose=bool(args.verbose)
                     )
