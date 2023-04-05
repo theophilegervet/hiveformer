@@ -19,51 +19,59 @@
 # main_dir=03_22_10demo_small
 # main_dir=03_22_knife
 # main_dir=03_22_wine
-main_dir=03_23
-main_dir=03_24
+# main_dir=03_23
+# main_dir=03_24
+main_dir=04_05_multitask
 
-dataset=/home/tgervet/datasets/hiveformer/packaged/2
-valset=/home/tgervet/datasets/hiveformer/packaged/3
+# dataset=/home/tgervet/datasets/hiveformer/packaged/2
+# valset=/home/tgervet/datasets/hiveformer/packaged/3
 # dataset=/home/zhouxian/git/datasets/hiveformer/packaged/2
 # valset=/home/zhouxian/git/datasets/hiveformer/packaged/3
-dataset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_train_newkeyframe
-valset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_val_newkeyframe
+dataset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_train
+valset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_val
 # task=reach_target
 # task=push_button
 # task=slide_block_to_target
 # task=pick_up_cup
 # task=take_umbrella_out_of_umbrella_stand
 # task=pick_and_lift
-task=put_knife_on_chopping_board
+# task=put_knife_on_chopping_board
 # task=take_money_out_safe
 # task=put_money_in_safe
-task=stack_wine
+# task=stack_wine
 
+task_file=tasks/10_autolambda_tasks.csv
+task=10_tasks
+
+num_workers=10
+cache_size=0
 
 batch_size_val=4
 batch_size=16
 lr=1e-4
 
 gripper_bounds_buffer=0.04
-use_instruction=0
+use_instruction=1
 weight_tying=1
 max_episodes_per_taskvar=100
 num_ghost_points=1000
 num_ghost_points_val=10000
 
-symmetric_rotation_loss=1
+symmetric_rotation_loss=0
 gp_emb_tying=1
 simplify=1
 num_sampling_level=3
 regress_position_offset=0
 seed=0
 embedding_dim=60
-n_layer=2
+n_layer=3
 
 python train.py\
-     --tasks $task \
+     --tasks $(cat $task_file | tr '\n' ' ') \
      --dataset $dataset \
      --valset $valset \
+     --cache_size $cache_size \
+     --num_workers $num_workers \
      --weight_tying $weight_tying\
      --gp_emb_tying $gp_emb_tying\
      --simplify $simplify\

@@ -111,7 +111,8 @@ done
 
 ## 3 - Preprocess Instructions for Both Datasets
 ```
-root=/home/theophile_gervet_gmail_com
+root=/home/zhouxian/git
+
 cd $root/hiveformer
 
 task_file=tasks/82_all_tasks.csv
