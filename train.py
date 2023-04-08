@@ -105,6 +105,7 @@ class Arguments(tap.Tap):
     weight_tying: int = 1
     gp_emb_tying: int = 0
     simplify: int = 0
+    simplify_ins: int = 0
     num_ghost_points: int = 1000
     num_ghost_points_val: int = 1000
     use_ground_truth_position_for_sampling_train: int = 1  # considerably speeds up training
@@ -531,6 +532,7 @@ def get_model(args: Arguments, gripper_loc_bounds) -> Tuple[optim.Optimizer, Hiv
             weight_tying=bool(args.weight_tying),
             gp_emb_tying=bool(args.gp_emb_tying),
             simplify=bool(args.simplify),
+            simplify_ins=bool(args.simplify_ins),
             num_sampling_level=args.num_sampling_level,
             fine_sampling_ball_diameter=args.fine_sampling_ball_diameter,
             regress_position_offset=bool(args.regress_position_offset),

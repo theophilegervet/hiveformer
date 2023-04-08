@@ -22,6 +22,8 @@
 # main_dir=03_23
 # main_dir=03_24
 main_dir=04_05_multitask
+main_dir=04_06_multitask_noinstr
+main_dir=04_08_multitask_fixbug
 
 # dataset=/home/tgervet/datasets/hiveformer/packaged/2
 # valset=/home/tgervet/datasets/hiveformer/packaged/3
@@ -45,6 +47,7 @@ task=10_tasks
 
 num_workers=10
 cache_size=0
+train_iters=500000
 
 batch_size_val=4
 batch_size=16
@@ -60,21 +63,25 @@ num_ghost_points_val=10000
 symmetric_rotation_loss=0
 gp_emb_tying=1
 simplify=1
+simplify_ins=0
 num_sampling_level=3
 regress_position_offset=0
 seed=0
 embedding_dim=60
-n_layer=3
+n_layer=2
+
 
 python train.py\
      --tasks $(cat $task_file | tr '\n' ' ') \
      --dataset $dataset \
      --valset $valset \
      --cache_size $cache_size \
+     --train_iters $train_iters \
      --num_workers $num_workers \
      --weight_tying $weight_tying\
      --gp_emb_tying $gp_emb_tying\
      --simplify $simplify\
+     --simplify_ins $simplify_ins\
      --exp_log_dir $main_dir \
      --batch_size $batch_size \
      --batch_size_val $batch_size_val \
@@ -91,5 +98,5 @@ python train.py\
      --num_query_cross_attn_layers $n_layer\
      --seed $seed\
      --lr $lr\
-     --run_log_dir $task-offset$regress_position_offset-N$num_sampling_level-T$num_ghost_points-V$num_ghost_points_val-symrot$symmetric_rotation_loss-gptie$gp_emb_tying-simp$simplify-B$batch_size-demo$max_episodes_per_taskvar-dim$embedding_dim-L$n_layer-lr$lr-seed$seed
+     --run_log_dir $task-offset$regress_position_offset-N$num_sampling_level-T$num_ghost_points-V$num_ghost_points_val-symrot$symmetric_rotation_loss-gptie$gp_emb_tying-simp$simplify-B$batch_size-demo$max_episodes_per_taskvar-dim$embedding_dim-L$n_layer-lr$lr-seed$seed-simpins$simplify_ins
 

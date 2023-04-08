@@ -119,6 +119,7 @@ if __name__ == "__main__":
     )
 
     instructions: Dict[str, Dict[int, torch.Tensor]] = {}
+    instructions_text: Dict[str, Dict[int, torch.Tensor]] = {}
     tasks = set(args.tasks)
 
     for task in tqdm(tasks):
@@ -127,6 +128,7 @@ if __name__ == "__main__":
         task_inst.init_task()
 
         instructions[task] = {}
+        instructions_text[task] = {}
 
         variations = [v for v in args.variations if v < task_inst.variation_count()]
         for variation in variations:
@@ -157,6 +159,7 @@ if __name__ == "__main__":
             with torch.no_grad():
                 pred = model(tokens).last_hidden_state
             instructions[task][variation] = pred.cpu()
+            instructions_text[task][variation] = instr
 
     if args.zero:
         for instr_task in instructions.values():
@@ -168,3 +171,8 @@ if __name__ == "__main__":
     args.output.parent.mkdir(exist_ok=True)
     with open(args.output, "wb") as f:
         pickle.dump(instructions, f)
+
+    import json 
+          
+    with open("instructions.json", "w") as outfile:
+        json.dump(instructions_text, outfile, indent=4)

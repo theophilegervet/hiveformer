@@ -30,6 +30,7 @@ class PredictionHead(nn.Module):
                  weight_tying=False,
                  gp_emb_tying=False,
                  simplify=False,
+                 simplify_ins=False,
                  num_sampling_level=2,
                  fine_sampling_ball_diameter=0.08,
                  regress_position_offset=True,
@@ -55,6 +56,7 @@ class PredictionHead(nn.Module):
         self.weight_tying = weight_tying
         self.gp_emb_tying = gp_emb_tying
         self.simplify = simplify
+        self.simplify_ins = simplify_ins
 
         # Frozen backbone
         if backbone == "resnet":
@@ -227,7 +229,8 @@ class PredictionHead(nn.Module):
                     visible_rgb_features_i, "b ncam c h w -> (ncam h w) b c")
             else:
                 # Local fine RGB features
-                l2_pred_pos = ((position_pyramid[-1] - visible_pcd_pyramid[i]) ** 2).sum(-1).sqrt()
+                # l2_pred_pos = ((position_pyramid[-1] - visible_pcd_pyramid[i]) ** 2).sum(-1).sqrt()
+                l2_pred_pos = ((anchor - visible_pcd_pyramid[i]) ** 2).sum(-1).sqrt()
                 indices = l2_pred_pos.topk(k=32 * 32 * num_cameras, dim=-1, largest=False).indices
 
                 visible_rgb_features_i = einops.rearrange(
@@ -245,10 +248,13 @@ class PredictionHead(nn.Module):
                 [ghost_pcd_context_features_i, curr_gripper_features], dim=0)
             ghost_pcd_context_pos_i = torch.cat([visible_rgb_pos_i, curr_gripper_pos], dim=1)
             if self.use_instruction:
-                ghost_pcd_context_features_i = torch.cat(
-                    [ghost_pcd_context_features_i, instruction_features], dim=0)
-                ghost_pcd_context_pos_i = torch.cat(
-                    [ghost_pcd_context_pos_i, instruction_dummy_pos], dim=1)
+                if self.simplify_ins:
+                    pass
+                else:
+                    ghost_pcd_context_features_i = torch.cat(
+                        [ghost_pcd_context_features_i, instruction_features], dim=0)
+                    ghost_pcd_context_pos_i = torch.cat(
+                        [ghost_pcd_context_pos_i, instruction_dummy_pos], dim=1)
             (
                 ghost_pcd_features_i,
                 ghost_pcd_pos_i,
@@ -265,8 +271,14 @@ class PredictionHead(nn.Module):
             if i == 0:
                 query_features = self.query_embed.weight.unsqueeze(1).repeat(1, batch_size, 1)
 
-            query_context_features_i = ghost_pcd_context_features_i
-            query_context_pos_i = ghost_pcd_context_pos_i
+            if self.use_instruction and self.simplify_ins:
+                query_context_features_i = torch.cat(
+                    [ghost_pcd_context_features_i, instruction_features], dim=0)
+                query_context_pos_i = torch.cat(
+                    [ghost_pcd_context_pos_i, instruction_dummy_pos], dim=1)
+            else:
+                query_context_features_i = ghost_pcd_context_features_i
+                query_context_pos_i = ghost_pcd_context_pos_i
             
             if i == 0:
                 # Given the query is not localized yet, we don't use positional embeddings

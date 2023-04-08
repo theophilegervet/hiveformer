@@ -153,8 +153,7 @@ class Actioner:
         self, task_str: str, variation: int, demo_id: int, demo: Union[Demo, int]
     ):
         self._task = task_str
-        # instructions = list(self._instructions[task_str][variation])
-        instructions = list(self._instructions['stack_wine'][variation])
+        instructions = list(self._instructions[task_str][variation])
         self._instr = random.choice(instructions).unsqueeze(0)
         self._task_id = torch.tensor(TASK_TO_ID[task_str]).unsqueeze(0)
         self._actions = {}
