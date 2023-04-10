@@ -24,6 +24,7 @@
 main_dir=04_05_multitask
 main_dir=04_06_multitask_noinstr
 main_dir=04_08_multitask_fixbug
+main_dir=04_10_multitask_revert
 
 # dataset=/home/tgervet/datasets/hiveformer/packaged/2
 # valset=/home/tgervet/datasets/hiveformer/packaged/3
@@ -63,7 +64,7 @@ num_ghost_points_val=10000
 symmetric_rotation_loss=0
 gp_emb_tying=1
 simplify=1
-simplify_ins=0
+simplify_ins=1
 num_sampling_level=3
 regress_position_offset=0
 seed=0
