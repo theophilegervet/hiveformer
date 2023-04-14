@@ -26,8 +26,8 @@ main_dir=04_06_multitask_noinstr
 main_dir=04_08_multitask_fixbug
 main_dir=04_10_multitask_revert
 main_dir=04_12_multitask
-main_dir=debug
 main_dir=04_13_multitask
+# main_dir=debug
 
 # dataset=/home/tgervet/datasets/hiveformer/packaged/2
 # valset=/home/tgervet/datasets/hiveformer/packaged/3
@@ -38,7 +38,7 @@ main_dir=04_13_multitask
 dataset=/scratch/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_train
 valset=/scratch/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_val
 # dataset=/home/zhouxian/git/datasets/packaged/74_hiveformer_tasks_train
-# valset=/home/zhouxian/git/datasets/packaged/74_hiveformer_tasks_train
+# valset=/home/zhouxian/git/datasets/packaged/74_hiveformer_tasks_val
 # task=reach_target
 # task=push_button
 # task=slide_block_to_target
@@ -61,7 +61,6 @@ val_cache_size=0
 train_iters=1000000
 
 batch_size_val=4
-batch_size=16
 lr=1e-4
 
 gripper_bounds_buffer=0.04
@@ -78,11 +77,15 @@ num_sampling_level=3
 gp_emb_tying=1
 simplify=1
 
+batch_size=16
 symmetric_rotation_loss=0
 ins_pos_emb=1
-vis_ins_att=0
+vis_ins_att=1
+vis_ins_att_complex=1
+
 regress_position_offset=0
 
+     # --devices cuda:0 cuda:1\
 
 python train.py\
      --devices cuda:0 cuda:1\
@@ -99,6 +102,7 @@ python train.py\
      --simplify_ins $simplify_ins\
      --ins_pos_emb $ins_pos_emb\
      --vis_ins_att $vis_ins_att\
+     --vis_ins_att_complex $vis_ins_att_complex\
      --exp_log_dir $main_dir \
      --batch_size $batch_size \
      --batch_size_val $batch_size_val \
@@ -116,5 +120,5 @@ python train.py\
      --num_vis_ins_attn_layers $n_layer\
      --seed $seed\
      --lr $lr\
-     --run_log_dir $task-offset$regress_position_offset-N$num_sampling_level-T$num_ghost_points-V$num_ghost_points_val-symrot$symmetric_rotation_loss-gptie$gp_emb_tying-simp$simplify-B$batch_size-demo$max_episodes_per_taskvar-dim$embedding_dim-L$n_layer-lr$lr-seed$seed-simpins$simplify_ins-ins_pos_emb$ins_pos_emb-vis_ins_att$vis_ins_att
+     --run_log_dir $task-offset$regress_position_offset-N$num_sampling_level-T$num_ghost_points-V$num_ghost_points_val-symrot$symmetric_rotation_loss-gptie$gp_emb_tying-simp$simplify-B$batch_size-demo$max_episodes_per_taskvar-dim$embedding_dim-L$n_layer-lr$lr-seed$seed-simpins$simplify_ins-ins_pos_emb$ins_pos_emb-vis_ins_att$vis_ins_att-vis_ins_att_complex$vis_ins_att_complex
 

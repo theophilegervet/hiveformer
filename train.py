@@ -109,6 +109,7 @@ class Arguments(tap.Tap):
     simplify_ins: int = 0
     ins_pos_emb: int = 0
     vis_ins_att: int = 0
+    vis_ins_att_complex: int = 0
     num_ghost_points: int = 1000
     num_ghost_points_val: int = 1000
     use_ground_truth_position_for_sampling_train: int = 1  # considerably speeds up training
@@ -540,6 +541,7 @@ def get_model(args: Arguments, gripper_loc_bounds) -> Tuple[optim.Optimizer, Hiv
             simplify_ins=bool(args.simplify_ins),
             ins_pos_emb=bool(args.ins_pos_emb),
             vis_ins_att=bool(args.vis_ins_att),
+            vis_ins_att_complex=bool(args.vis_ins_att_complex),
             num_sampling_level=args.num_sampling_level,
             fine_sampling_ball_diameter=args.fine_sampling_ball_diameter,
             regress_position_offset=bool(args.regress_position_offset),
