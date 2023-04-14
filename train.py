@@ -33,7 +33,8 @@ class Arguments(tap.Tap):
     max_tries: int = 10
     max_episodes_per_taskvar: int = 100
     instructions: Optional[Path] = "instructions.pkl"
-    cache_size: int = 100
+    train_cache_size: int = 100
+    val_cache_size: int = 100
     seed: int = 2
     tasks: Tuple[str, ...]
     variations: Tuple[int, ...] = (0,)
@@ -106,6 +107,8 @@ class Arguments(tap.Tap):
     gp_emb_tying: int = 0
     simplify: int = 0
     simplify_ins: int = 0
+    ins_pos_emb: int = 0
+    vis_ins_att: int = 0
     num_ghost_points: int = 1000
     num_ghost_points_val: int = 1000
     use_ground_truth_position_for_sampling_train: int = 1  # considerably speeds up training
@@ -116,6 +119,7 @@ class Arguments(tap.Tap):
     embedding_dim: int = 60
     num_ghost_point_cross_attn_layers: int = 2
     num_query_cross_attn_layers: int = 2
+    num_vis_ins_attn_layers: int = 2
     rotation_parametrization: str = "quat_from_query"  # one of "quat_from_top_ghost", "quat_from_query" for now
     use_instruction: int = 0
     task_specific_biases: int = 0
@@ -407,7 +411,7 @@ def get_train_loader(args: Arguments, gripper_loc_bounds) -> DataLoader:
             instructions=instruction,
             max_episode_length=max_episode_length,
             max_episodes_per_taskvar=args.max_episodes_per_taskvar,
-            cache_size=args.cache_size,
+            cache_size=args.train_cache_size,
             num_iters=args.train_iters,
             cameras=args.cameras,  # type: ignore
             image_rescale=tuple(float(x) for x in args.image_rescale.split(",")),
@@ -424,7 +428,7 @@ def get_train_loader(args: Arguments, gripper_loc_bounds) -> DataLoader:
             instructions=instruction,
             max_episode_length=max_episode_length,
             max_episodes_per_taskvar=args.max_episodes_per_taskvar,
-            cache_size=args.cache_size,
+            cache_size=args.train_cache_size,
             num_iters=args.train_iters,
             cameras=args.cameras,  # type: ignore
             support_set_size=args.support_set_size,
@@ -470,7 +474,7 @@ def get_val_loaders(args: Arguments, gripper_loc_bounds) -> Optional[List[DataLo
                 instructions=instruction,
                 max_episode_length=max_episode_length,
                 max_episodes_per_taskvar=args.max_episodes_per_taskvar,
-                cache_size=args.cache_size,
+                cache_size=args.val_cache_size,
                 cameras=args.cameras,  # type: ignore
                 training=False,
                 image_rescale=tuple(float(x) for x in args.image_rescale.split(",")),
@@ -488,7 +492,7 @@ def get_val_loaders(args: Arguments, gripper_loc_bounds) -> Optional[List[DataLo
                 instructions=instruction,
                 max_episode_length=max_episode_length,
                 max_episodes_per_taskvar=args.max_episodes_per_taskvar,
-                cache_size=args.cache_size,
+                cache_size=args.val_cache_size,
                 cameras=args.cameras,  # type: ignore
                 training=False,
                 support_set_size=args.support_set_size,
@@ -525,6 +529,7 @@ def get_model(args: Arguments, gripper_loc_bounds) -> Tuple[optim.Optimizer, Hiv
             embedding_dim=args.embedding_dim,
             num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,
             num_query_cross_attn_layers=args.num_query_cross_attn_layers,
+            num_vis_ins_attn_layers=args.num_vis_ins_attn_layers,
             rotation_parametrization=args.rotation_parametrization,
             gripper_loc_bounds=gripper_loc_bounds,
             num_ghost_points=args.num_ghost_points,
@@ -533,6 +538,8 @@ def get_model(args: Arguments, gripper_loc_bounds) -> Tuple[optim.Optimizer, Hiv
             gp_emb_tying=bool(args.gp_emb_tying),
             simplify=bool(args.simplify),
             simplify_ins=bool(args.simplify_ins),
+            ins_pos_emb=bool(args.ins_pos_emb),
+            vis_ins_att=bool(args.vis_ins_att),
             num_sampling_level=args.num_sampling_level,
             fine_sampling_ball_diameter=args.fine_sampling_ball_diameter,
             regress_position_offset=bool(args.regress_position_offset),

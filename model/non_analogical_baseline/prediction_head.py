@@ -23,6 +23,7 @@ class PredictionHead(nn.Module):
                  num_attn_heads=4,
                  num_ghost_point_cross_attn_layers=2,
                  num_query_cross_attn_layers=2,
+                 num_vis_ins_attn_layers=2,
                  rotation_parametrization="quat_from_query",
                  gripper_loc_bounds=None,
                  num_ghost_points=1000,
@@ -31,6 +32,8 @@ class PredictionHead(nn.Module):
                  gp_emb_tying=False,
                  simplify=False,
                  simplify_ins=False,
+                 ins_pos_emb=False,
+                 vis_ins_att=False,
                  num_sampling_level=2,
                  fine_sampling_ball_diameter=0.08,
                  regress_position_offset=True,
@@ -57,6 +60,8 @@ class PredictionHead(nn.Module):
         self.gp_emb_tying = gp_emb_tying
         self.simplify = simplify
         self.simplify_ins = simplify_ins
+        self.ins_pos_emb = ins_pos_emb
+        self.vis_ins_att = vis_ins_att
 
         # Frozen backbone
         if backbone == "resnet":
@@ -151,6 +156,22 @@ class PredictionHead(nn.Module):
                         embedding_dim, num_attn_heads, num_query_cross_attn_layers)
                     self.query_cross_attn_pyramid.append(coarse_query_cross_attn)
 
+
+        # visual tokens cross-attention to language instructions
+        if self.vis_ins_att:
+            self.vis_ins_attn_pyramid = nn.ModuleList()
+            if self.weight_tying:
+                vis_ins_cross_attn = RelativeCrossAttentionModule(
+                    embedding_dim, num_attn_heads, num_vis_ins_attn_layers)
+                for i in range(self.num_sampling_level):
+                    self.vis_ins_attn_pyramid.append(vis_ins_cross_attn)
+            else:
+                for i in range(self.num_sampling_level):
+                    vis_ins_cross_attn = RelativeCrossAttentionModule(
+                        embedding_dim, num_attn_heads, num_vis_ins_attn_layers)
+                    self.vis_ins_attn_pyramid.append(vis_ins_cross_attn)
+
+        
         # Ghost point offset prediction
         if self.regress_position_offset:
             self.ghost_point_offset_predictor = nn.Sequential(
@@ -170,6 +191,10 @@ class PredictionHead(nn.Module):
         self.use_instruction = use_instruction
         if self.use_instruction:
             self.instruction_encoder = nn.Linear(512, embedding_dim)
+            if self.ins_pos_emb:
+                self._num_words = 53
+                self.instr_position_embedding = nn.Embedding(self._num_words, embedding_dim)
+                self.instr_position_norm = nn.LayerNorm(embedding_dim)
 
     def forward(self, visible_rgb, visible_pcd, curr_gripper, instruction, task_id, gt_action=None):
         """
@@ -194,7 +219,19 @@ class PredictionHead(nn.Module):
 
         # Encode instruction
         if self.use_instruction:
-            instruction_features = einops.rearrange(self.instruction_encoder(instruction), "bt l c -> l bt c")
+            instruction_features = self.instruction_encoder(instruction)
+
+            if self.ins_pos_emb:
+                position = torch.arange(self._num_words)
+                position = position.unsqueeze(0).to(instruction_features.device)
+
+                pos_emb = self.instr_position_embedding(position)
+                pos_emb = self.instr_position_norm(pos_emb)
+                pos_emb = einops.repeat(pos_emb, "1 k d -> b k d", b=instruction_features.shape[0])
+
+                instruction_features += pos_emb
+
+            instruction_features = einops.rearrange(instruction_features, "bt l c -> l bt c")
             instruction_dummy_pos = torch.zeros(batch_size, instruction_features.shape[0], 3, device=device)
             instruction_dummy_pos = self.pcd_pe_layer(instruction_dummy_pos)
         else:
@@ -251,6 +288,17 @@ class PredictionHead(nn.Module):
                 if self.simplify_ins:
                     pass
                 else:
+                    if self.vis_ins_att:
+                        # we can't affod this
+                        # ghost_pcd_context_features_i = self.vis_ins_attn_pyramid[i](
+                        #     query=ghost_pcd_context_features_i, value=torch.cat([ghost_pcd_context_features_i, instruction_features], 0),
+                        #     query_pos=ghost_pcd_context_pos_i, value_pos=torch.cat([ghost_pcd_context_pos_i, instruction_dummy_pos], 1)
+                        # )[-1]
+                        ghost_pcd_context_features_i = self.vis_ins_attn_pyramid[i](
+                            query=ghost_pcd_context_features_i, value=instruction_features,
+                            query_pos=None, value_pos=None
+                        )[-1]
+
                     ghost_pcd_context_features_i = torch.cat(
                         [ghost_pcd_context_features_i, instruction_features], dim=0)
                     ghost_pcd_context_pos_i = torch.cat(

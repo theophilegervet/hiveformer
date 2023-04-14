@@ -25,13 +25,20 @@ main_dir=04_05_multitask
 main_dir=04_06_multitask_noinstr
 main_dir=04_08_multitask_fixbug
 main_dir=04_10_multitask_revert
+main_dir=04_12_multitask
+main_dir=debug
+main_dir=04_13_multitask
 
 # dataset=/home/tgervet/datasets/hiveformer/packaged/2
 # valset=/home/tgervet/datasets/hiveformer/packaged/3
 # dataset=/home/zhouxian/git/datasets/hiveformer/packaged/2
 # valset=/home/zhouxian/git/datasets/hiveformer/packaged/3
-dataset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_train
-valset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_val
+# dataset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_train
+# valset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_val
+dataset=/scratch/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_train
+valset=/scratch/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_val
+# dataset=/home/zhouxian/git/datasets/packaged/74_hiveformer_tasks_train
+# valset=/home/zhouxian/git/datasets/packaged/74_hiveformer_tasks_train
 # task=reach_target
 # task=push_button
 # task=slide_block_to_target
@@ -43,12 +50,15 @@ valset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveform
 # task=put_money_in_safe
 # task=stack_wine
 
+# task_file=tasks/pick_and_lift.csv
+
 task_file=tasks/10_autolambda_tasks.csv
 task=10_tasks
 
 num_workers=10
-cache_size=0
-train_iters=500000
+train_cache_size=0
+val_cache_size=0
+train_iters=1000000
 
 batch_size_val=4
 batch_size=16
@@ -60,29 +70,35 @@ weight_tying=1
 max_episodes_per_taskvar=100
 num_ghost_points=1000
 num_ghost_points_val=10000
-
-symmetric_rotation_loss=0
-gp_emb_tying=1
-simplify=1
-simplify_ins=1
-num_sampling_level=3
-regress_position_offset=0
+simplify_ins=0
 seed=0
 embedding_dim=60
 n_layer=2
+num_sampling_level=3
+gp_emb_tying=1
+simplify=1
+
+symmetric_rotation_loss=0
+ins_pos_emb=1
+vis_ins_att=0
+regress_position_offset=0
 
 
 python train.py\
+     --devices cuda:0 cuda:1\
      --tasks $(cat $task_file | tr '\n' ' ') \
      --dataset $dataset \
      --valset $valset \
-     --cache_size $cache_size \
+     --train_cache_size $train_cache_size \
+     --val_cache_size $val_cache_size \
      --train_iters $train_iters \
      --num_workers $num_workers \
      --weight_tying $weight_tying\
      --gp_emb_tying $gp_emb_tying\
      --simplify $simplify\
      --simplify_ins $simplify_ins\
+     --ins_pos_emb $ins_pos_emb\
+     --vis_ins_att $vis_ins_att\
      --exp_log_dir $main_dir \
      --batch_size $batch_size \
      --batch_size_val $batch_size_val \
@@ -97,7 +113,8 @@ python train.py\
      --embedding_dim $embedding_dim\
      --num_ghost_point_cross_attn_layers $n_layer\
      --num_query_cross_attn_layers $n_layer\
+     --num_vis_ins_attn_layers $n_layer\
      --seed $seed\
      --lr $lr\
-     --run_log_dir $task-offset$regress_position_offset-N$num_sampling_level-T$num_ghost_points-V$num_ghost_points_val-symrot$symmetric_rotation_loss-gptie$gp_emb_tying-simp$simplify-B$batch_size-demo$max_episodes_per_taskvar-dim$embedding_dim-L$n_layer-lr$lr-seed$seed-simpins$simplify_ins
+     --run_log_dir $task-offset$regress_position_offset-N$num_sampling_level-T$num_ghost_points-V$num_ghost_points_val-symrot$symmetric_rotation_loss-gptie$gp_emb_tying-simp$simplify-B$batch_size-demo$max_episodes_per_taskvar-dim$embedding_dim-L$n_layer-lr$lr-seed$seed-simpins$simplify_ins-ins_pos_emb$ins_pos_emb-vis_ins_att$vis_ins_att
 

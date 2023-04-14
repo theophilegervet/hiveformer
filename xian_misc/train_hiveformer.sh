@@ -1,10 +1,12 @@
 
-main_dir=03_25_hiveformer
+main_dir=hiveformer
 
-dataset=/home/tgervet/datasets/hiveformer/packaged/2
-valset=/home/tgervet/datasets/hiveformer/packaged/3
+# dataset=/home/tgervet/datasets/hiveformer/packaged/2
+# valset=/home/tgervet/datasets/hiveformer/packaged/3
 # dataset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_train_newkeyframe
 # valset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_val_newkeyframe
+dataset=/home/zhouxian/git/datasets/hiveformer/packaged/2
+valset=/home/zhouxian/git/datasets/hiveformer/packaged/3
 task=reach_target
 task=push_button
 task=slide_block_to_target
