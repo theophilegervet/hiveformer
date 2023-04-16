@@ -84,8 +84,8 @@ class PredictionHead(nn.Module):
             # Coarse RGB features are the 3rd layer of the feature pyramid at 1/8 resolution (32x32)
             # Fine RGB features are the 1st layer of the feature pyramid at 1/2 resolution (128x128)
             if self.vis_ins_att_complex:
-                self.feature_map_pyramid = ['res4', 'res1', 'res1', 'res1']
-                self.downscaling_factor_pyramid = [16, 2, 2, 2]
+                self.feature_map_pyramid = ['res4', 'res2', 'res1', 'res1']
+                self.downscaling_factor_pyramid = [16, 4, 2, 2]
             else:
                 self.feature_map_pyramid = ['res3', 'res1', 'res1', 'res1']
                 self.downscaling_factor_pyramid = [8, 2, 2, 2]
