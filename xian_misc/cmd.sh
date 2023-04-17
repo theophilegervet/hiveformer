@@ -23,6 +23,8 @@ srun -p kate_reserved --time=72:00:00  --gres gpu:4 -c50 --mem=250g  --nodelist=
 srun -p kate_reserved --time=72:00:00  --gres gpu:2 -c20 --mem=120g  --nodelist=matrix-2-25 --pty $SHELL 
 srun -p kate_reserved --time=72:00:00  --gres gpu:1 -c10 --mem=62g  --nodelist=matrix-2-29 --pty $SHELL 
 srun -p kate_reserved --time=72:00:00  --gres gpu:2 -c20 --mem=120g  --nodelist=matrix-2-29 --pty $SHELL 
+srun -p kate_reserved --time=72:00:00  --gres gpu:2 -c20 --mem=60g  --nodelist=matrix-2-29 --pty $SHELL 
+srun -p kate_reserved --time=72:00:00  --gres gpu:0 -c1 --mem=1g  --nodelist=matrix-2-29 --pty $SHELL 
 # 2080ti
 srun -p kate_reserved --time=72:00:00  --gres gpu:1 -c10 --mem=32g  --nodelist=matrix-1-22 --pty $SHELL 
 srun -p kate_reserved --time=72:00:00  --gres gpu:4 -c40 --mem=128g  --nodelist=matrix-1-22 --pty $SHELL 

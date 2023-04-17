@@ -28,6 +28,7 @@ main_dir=04_10_multitask_revert
 main_dir=04_12_multitask
 main_dir=04_13_multitask
 main_dir=04_16_multitask_cont
+main_dir=04_17_multitask_vis_ins_att_complex
 # main_dir=debug
 
 # dataset=/home/tgervet/datasets/hiveformer/packaged/2
@@ -87,13 +88,13 @@ vis_ins_att_complex=1
 regress_position_offset=0
 
      # --devices cuda:0 cuda:1\
+     # --checkpoint /home/xianz1/git/hiveformer/train_logs/04_13_multitask/10_tasks-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B16-demo100-dim60-L2-lr1e-4-seed0-simpins0-ins_pos_emb1-vis_ins_att1_version164229/model.step=570000-value=0.00000.pth \
 
 python train.py\
      --devices cuda:0 cuda:1\
      --tasks $(cat $task_file | tr '\n' ' ') \
      --dataset $dataset \
      --valset $valset \
-     --checkpoint /home/xianz1/git/hiveformer/train_logs/04_13_multitask/10_tasks-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B16-demo100-dim60-L2-lr1e-4-seed0-simpins0-ins_pos_emb1-vis_ins_att1_version164229/model.step=570000-value=0.00000.pth \
      --train_cache_size $train_cache_size \
      --val_cache_size $val_cache_size \
      --train_iters $train_iters \
