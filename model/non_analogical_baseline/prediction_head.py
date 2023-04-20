@@ -86,8 +86,10 @@ class PredictionHead(nn.Module):
             if self.vis_ins_att_complex:
                 # self.feature_map_pyramid = ['res4', 'res2', 'res1', 'res1']
                 # self.downscaling_factor_pyramid = [16, 4, 2, 2]
-                self.feature_map_pyramid = ['res4', 'res1', 'res1', 'res1']
-                self.downscaling_factor_pyramid = [16, 2, 2, 2]
+                # self.feature_map_pyramid = ['res4', 'res1', 'res1', 'res1']
+                # self.downscaling_factor_pyramid = [16, 2, 2, 2]
+                self.feature_map_pyramid = ['res4', 'res2', 'res2', 'res1']
+                self.downscaling_factor_pyramid = [16, 4, 4, 2]
             else:
                 self.feature_map_pyramid = ['res3', 'res1', 'res1', 'res1']
                 self.downscaling_factor_pyramid = [8, 2, 2, 2]
@@ -277,8 +279,8 @@ class PredictionHead(nn.Module):
                 l2_pred_pos = ((position_pyramid[-1] - visible_pcd_pyramid[i]) ** 2).sum(-1).sqrt()
                 # l2_pred_pos = ((anchor - visible_pcd_pyramid[i]) ** 2).sum(-1).sqrt() # somehow this leads to overfitting
                 if self.vis_ins_att_complex:
-                    # indices = l2_pred_pos.topk(k=16 * 16 * num_cameras, dim=-1, largest=False).indices
-                    indices = l2_pred_pos.topk(k=32 * 32 * num_cameras, dim=-1, largest=False).indices[:, ::2]
+                    indices = l2_pred_pos.topk(k=16 * 16 * num_cameras, dim=-1, largest=False).indices
+                    # indices = l2_pred_pos.topk(k=32 * 32 * num_cameras, dim=-1, largest=False).indices[:, ::2]
                 else:
                     indices = l2_pred_pos.topk(k=32 * 32 * num_cameras, dim=-1, largest=False).indices
 

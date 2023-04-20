@@ -238,7 +238,11 @@ class LossAndMetrics:
             pred_gripper = (pred["gripper"] > 0.5).squeeze(-1)
             true_gripper = outputs[:, 7].bool()
             acc = pred_gripper == true_gripper
-            metrics["gripper"] = acc.to(dtype).mean()
+            metrics["mean/gripper"] = acc.to(dtype).mean()
+
+            for task in np.unique(tasks):
+                task_acc = acc[tasks == task]
+                metrics[f"{task}/gripper"] = task_acc.to(dtype).mean()
 
             # rotation loss
             if self.symmetric_rotation_loss:

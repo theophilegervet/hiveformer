@@ -6,13 +6,13 @@ valset=/home/zhouxian/git/datasets/raw/74_hiveformer_tasks_val
 
 task=reach_target
 task=push_button
-task=slide_block_to_target
+# task=slide_block_to_target
 # task=pick_up_cup
 # task=take_umbrella_out_of_umbrella_stand
-# task=pick_and_lift
-# task=put_knife_on_chopping_board
+task=pick_and_lift
+task=put_knife_on_chopping_board
 # task=take_money_out_safe
-# task=put_money_in_safe
+task=put_money_in_safe
 # task=stack_wine
 
 gripper_bounds_buffer=0.04
@@ -21,28 +21,47 @@ weight_tying=1
 gp_emb_tying=1
 simplify=1
 num_sampling_level=3
-regress_position_offset=0
-num_ghost_points_val=10000
+num_ghost_points_val=20000
 embedding_dim=60
 n_layer=2
 randomize_vp=0
 use_instruction=1
+
+simplify_ins=0
+ins_pos_emb=1
+vis_ins_att=1
+vis_ins_att_complex=0
+regress_position_offset=0
+
+ckpt=/home/zhouxian/git/hiveformer/train_logs/04_16_multitask_cont/10_tasks-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B32-demo100-dim60-L2-lr1e-4-seed0-simpins0-ins_pos_emb1-vis_ins_att1-vis_ins_att_complex0_version164462/model.step=220000-value=0.00000.pth
+
+# simplify_ins=0
+# ins_pos_emb=0
+# vis_ins_att=0
+# vis_ins_att_complex=0
+# regress_position_offset=0
+# ckpt=/home/zhouxian/git/hiveformer/train_logs/04_10_multitask_revert/10_tasks-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B16-demo100-dim60-L2-lr1e-4-seed0-simpins0_version163486/model.step=280000-value=0.00000.pth
+
+simplify_ins=0
+ins_pos_emb=0
+vis_ins_att=0
+vis_ins_att_complex=0
+regress_position_offset=0
 ckpt=/home/zhouxian/git/hiveformer/train_logs/04_05_multitask/10_tasks-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B16-demo100-dim60-L2-lr1e-4-seed0_version162732/model.step=200000-value=0.00000.pth
 
-# use_instruction=1
-# embedding_dim=120
-# ckpt=/home/zhouxian/git/hiveformer/train_logs/04_05_multitask/10_tasks-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B16-demo100-dim120-L2-lr1e-4-seed0_version162732/model.step=200000-value=0.00000.pth
-
-# use_instruction=0
-# ckpt=/home/zhouxian/git/hiveformer/train_logs/04_06_multitask_noinstr/10_tasks-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B16-demo100-dim60-L2-lr1e-4-seed0_version162737/model.step=170000-value=0.00000.pth
 
 python eval.py\
+     --instructions instructions_matrix.pkl \
      --tasks $task\
      --checkpoint $ckpt \
      --data_dir $valset\
      --weight_tying $weight_tying\
      --gp_emb_tying $gp_emb_tying\
      --simplify $simplify\
+     --simplify_ins $simplify_ins\
+     --ins_pos_emb $ins_pos_emb\
+     --vis_ins_att $vis_ins_att\
+     --vis_ins_att_complex $vis_ins_att_complex\
      --image_size 256,256\
      --offline 0\
      --num_episodes 100\

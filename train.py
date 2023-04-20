@@ -210,8 +210,8 @@ def training(
             for n, l in metrics.items():
                 aggregated_metrics[n].append(l)
 
-            if step_id % args.accumulate_grad_batches == args.accumulate_grad_batches - 1:
-                optimizer.step()
+            # if step_id % args.accumulate_grad_batches == args.accumulate_grad_batches - 1:
+            #     optimizer.step()
 
             if (step_id + 1) % args.val_freq == 0:
                 writer.add_scalar(f"lr/", args.lr, step_id)
@@ -594,10 +594,10 @@ def get_model(args: Arguments, gripper_loc_bounds) -> Tuple[optim.Optimizer, Hiv
         model_dict_weight = {}
         for key in model_dict["weight"]:
             _key = key[7:]
-            if 'prediction_head.feature_pyramid.inner_blocks' in _key:
-                _key = _key[:46] + _key[48:]
-            if 'prediction_head.feature_pyramid.layer_blocks' in _key:
-                _key = _key[:46] + _key[48:]
+            # if 'prediction_head.feature_pyramid.inner_blocks' in _key:
+            #     _key = _key[:46] + _key[48:]
+            # if 'prediction_head.feature_pyramid.layer_blocks' in _key:
+            #     _key = _key[:46] + _key[48:]
             model_dict_weight[_key] = model_dict["weight"][key]
         _model.load_state_dict(model_dict_weight)
         optimizer.load_state_dict(model_dict["optimizer"])

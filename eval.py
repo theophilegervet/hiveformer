@@ -89,6 +89,10 @@ class Arguments(tap.Tap):
     weight_tying: int = 1
     gp_emb_tying: int = 0
     simplify: int = 0
+    simplify_ins: int = 0
+    ins_pos_emb: int = 0
+    vis_ins_att: int = 0
+    vis_ins_att_complex: int = 0
     num_ghost_points: int = 1000
     num_ghost_points_val: int = 1000
 
@@ -198,6 +202,10 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
             weight_tying=bool(args.weight_tying),
             gp_emb_tying=bool(args.gp_emb_tying),
             simplify=bool(args.simplify),
+            simplify_ins=bool(args.simplify_ins),
+            ins_pos_emb=bool(args.ins_pos_emb),
+            vis_ins_att=bool(args.vis_ins_att),
+            vis_ins_att_complex=bool(args.vis_ins_att_complex),
             num_sampling_level=args.num_sampling_level,
             fine_sampling_ball_diameter=args.fine_sampling_ball_diameter,
             regress_position_offset=bool(args.regress_position_offset),

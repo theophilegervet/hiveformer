@@ -40,8 +40,8 @@ main_dir=debug
 # valset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_val
 dataset=/scratch/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_train
 valset=/scratch/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_val
-# dataset=/home/zhouxian/git/datasets/packaged/74_hiveformer_tasks_train
-# valset=/home/zhouxian/git/datasets/packaged/74_hiveformer_tasks_val
+dataset=/home/zhouxian/git/datasets/packaged/74_hiveformer_tasks_train
+valset=/home/zhouxian/git/datasets/packaged/74_hiveformer_tasks_val
 # task=reach_target
 # task=push_button
 # task=slide_block_to_target
@@ -53,15 +53,15 @@ valset=/scratch/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_val
 # task=put_money_in_safe
 # task=stack_wine
 
-# task_file=tasks/pick_and_lift.csv
+task_file=tasks/pick_and_lift.csv
 
-task_file=tasks/10_autolambda_tasks.csv
+# task_file=tasks/10_autolambda_tasks.csv
 task=10_tasks
 
-num_workers=10
+num_workers=0
 train_cache_size=0
 val_cache_size=0
-train_iters=1000000
+train_iters=50
 
 batch_size_val=4
 lr=1e-4
@@ -82,17 +82,25 @@ simplify=1
 
 batch_size=16
 symmetric_rotation_loss=0
-ins_pos_emb=1
-vis_ins_att=1
-vis_ins_att_complex=1
+ins_pos_emb=0
+vis_ins_att=0
+vis_ins_att_complex=0
 
 regress_position_offset=0
+ckpt=/home/zhouxian/git/hiveformer/train_logs/04_10_multitask_revert/10_tasks-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B16-demo100-dim60-L2-lr1e-4-seed0-simpins0_version163486/model.step=280000-value=0.00000.pth
+ckpt=/home/xianz1/git/hiveformer/train_logs/04_05_multitask/10_tasks-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B16-demo100-dim60-L2-lr1e-4-seed0_version162732/model.step=200000-value=0.00000.pth
+ckpt=/home/zhouxian/git/hiveformer/train_logs/04_05_multitask/10_tasks-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B16-demo100-dim60-L2-lr1e-4-seed0_version162732/model.step=200000-value=0.00000.pth
+# ckpt=/home/zhouxian/git/hiveformer/train_logs/debug/10_tasks-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B16-demo100-dim60-L2-lr1e-4-seed0-simpins0-ins_pos_emb0-vis_ins_att0-vis_ins_att_complex0_version0/model.step=50-value=0.00000.pth
 
-     # --devices cuda:0 cuda:1\
-     # --checkpoint /home/xianz1/git/hiveformer/train_logs/04_13_multitask/10_tasks-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B16-demo100-dim60-L2-lr1e-4-seed0-simpins0-ins_pos_emb1-vis_ins_att1_version164229/model.step=570000-value=0.00000.pth \
+# ins_pos_emb=1
+# vis_ins_att=1
+# vis_ins_att_complex=0
+# ckpt=/home/zhouxian/git/hiveformer/train_logs/04_16_multitask_cont/10_tasks-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B32-demo100-dim60-L2-lr1e-4-seed0-simpins0-ins_pos_emb1-vis_ins_att1-vis_ins_att_complex0_version164462/model.step=220000-value=0.00000.pth
+
 
 python train.py\
-     --checkpoint /home/xianz1/git/hiveformer/train_logs/04_13_multitask/10_tasks-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B16-demo100-dim60-L2-lr1e-4-seed0-simpins0-ins_pos_emb1-vis_ins_att1_version164229/model.step=570000-value=0.00000.pth \
+     --instructions instructions_matrix.pkl \
+     --checkpoint $ckpt \
      --tasks $(cat $task_file | tr '\n' ' ') \
      --dataset $dataset \
      --valset $valset \
