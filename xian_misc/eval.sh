@@ -9,10 +9,10 @@ task=push_button
 # task=slide_block_to_target
 # task=pick_up_cup
 # task=take_umbrella_out_of_umbrella_stand
-task=pick_and_lift
-task=put_knife_on_chopping_board
+# task=pick_and_lift
+# task=put_knife_on_chopping_board
 # task=take_money_out_safe
-task=put_money_in_safe
+# task=put_money_in_safe
 # task=stack_wine
 
 gripper_bounds_buffer=0.04
@@ -34,6 +34,7 @@ vis_ins_att_complex=0
 regress_position_offset=0
 
 ckpt=/home/zhouxian/git/hiveformer/train_logs/04_16_multitask_cont/10_tasks-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B32-demo100-dim60-L2-lr1e-4-seed0-simpins0-ins_pos_emb1-vis_ins_att1-vis_ins_att_complex0_version164462/model.step=220000-value=0.00000.pth
+ckpt=/home/zhouxian/git/hiveformer/train_logs/04_13_multitask/10_tasks-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B16-demo100-dim60-L2-lr1e-4-seed0-simpins0-ins_pos_emb1-vis_ins_att1_version164229/model.step=500000-value=0.00000.pth
 
 # simplify_ins=0
 # ins_pos_emb=0
@@ -42,13 +43,19 @@ ckpt=/home/zhouxian/git/hiveformer/train_logs/04_16_multitask_cont/10_tasks-offs
 # regress_position_offset=0
 # ckpt=/home/zhouxian/git/hiveformer/train_logs/04_10_multitask_revert/10_tasks-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B16-demo100-dim60-L2-lr1e-4-seed0-simpins0_version163486/model.step=280000-value=0.00000.pth
 
-simplify_ins=0
-ins_pos_emb=0
-vis_ins_att=0
-vis_ins_att_complex=0
-regress_position_offset=0
-ckpt=/home/zhouxian/git/hiveformer/train_logs/04_05_multitask/10_tasks-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B16-demo100-dim60-L2-lr1e-4-seed0_version162732/model.step=200000-value=0.00000.pth
+# simplify_ins=0
+# ins_pos_emb=0
+# vis_ins_att=0
+# vis_ins_att_complex=0
+# regress_position_offset=0
+# ckpt=/home/zhouxian/git/hiveformer/train_logs/04_05_multitask/10_tasks-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B16-demo100-dim60-L2-lr1e-4-seed0_version162732/model.step=200000-value=0.00000.pth
 
+# simplify_ins=0
+# ins_pos_emb=0
+# vis_ins_att=1
+# vis_ins_att_complex=0
+# regress_position_offset=0
+# ckpt=/home/zhouxian/git/hiveformer/train_logs/04_22_multitask/10_tasks-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B16-demo100-dim60-L2-lr1e-4-seed0-simpins0-ins_pos_emb0-vis_ins_att1-vis_ins_att_complex0_version165519/model.step=445000-value=0.00000.pth
 
 python eval.py\
      --instructions instructions_new.pkl \

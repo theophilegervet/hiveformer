@@ -1,4 +1,3 @@
-
 # main_dir=02_27_rotation
 # main_dir=02_28_rotation_0.1
 # main_dir=02_28_rotation_0.1_quatloss
@@ -31,7 +30,7 @@ main_dir=04_16_multitask_cont
 main_dir=04_17_multitask_vis_ins_att_complex
 main_dir=04_17_multitask_res422
 main_dir=04_20_multitask
-main_dir=04_21_multitask
+main_dir=04_22_multitask
 # main_dir=debug
 
 # dataset=/home/tgervet/datasets/hiveformer/packaged/2
@@ -128,4 +127,3 @@ python train.py\
      --seed $seed\
      --lr $lr\
      --run_log_dir $task-offset$regress_position_offset-N$num_sampling_level-T$num_ghost_points-V$num_ghost_points_val-symrot$symmetric_rotation_loss-gptie$gp_emb_tying-simp$simplify-B$batch_size-demo$max_episodes_per_taskvar-dim$embedding_dim-L$n_layer-lr$lr-seed$seed-simpins$simplify_ins-ins_pos_emb$ins_pos_emb-vis_ins_att$vis_ins_att-vis_ins_att_complex$vis_ins_att_complex
-
