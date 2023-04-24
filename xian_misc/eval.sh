@@ -51,7 +51,7 @@ ckpt=/home/zhouxian/git/hiveformer/train_logs/04_05_multitask/10_tasks-offset0-N
 
 
 python eval.py\
-     --instructions instructions_matrix.pkl \
+     --instructions instructions_new.pkl \
      --tasks $task\
      --checkpoint $ckpt \
      --data_dir $valset\

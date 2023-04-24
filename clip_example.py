@@ -5,8 +5,8 @@ from torchvision.datasets import CIFAR100
 
 # Load the model
 device = "cuda" if torch.cuda.is_available() else "cpu"
-model, preprocess = clip.load('ViT-B/32', device)
-# model, preprocess = clip.load('RN50', device)
+# model, preprocess = clip.load('ViT-B/32', device)
+model, preprocess = clip.load('RN50', device)
 
 # Download the dataset
 cifar100 = CIFAR100(root=os.path.expanduser("~/.cache"), download=True, train=False)

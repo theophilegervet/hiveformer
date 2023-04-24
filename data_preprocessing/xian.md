@@ -116,9 +116,9 @@ root=/home/zhouxian/git
 cd $root/hiveformer
 
 task_file=tasks/82_all_tasks.csv
-python -m data_preprocessing.preprocess_instructions \
+python -m data_preprocessing.preprocess_instructions_clip \
     --tasks $(cat $task_file | tr '\n' ' ') \
-    --output instructions.pkl \
+    --output instructions_new.pkl \
     --variations {0..199} \
     --annotations data_preprocessing/annotations.json
 ```

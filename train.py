@@ -32,7 +32,7 @@ class Arguments(tap.Tap):
     image_size: str = "256,256"
     max_tries: int = 10
     max_episodes_per_taskvar: int = 100
-    instructions: Optional[Path] = "instructions.pkl"
+    instructions: Optional[Path] = "x.pkl"
     train_cache_size: int = 100
     val_cache_size: int = 100
     seed: int = 2
@@ -210,8 +210,8 @@ def training(
             for n, l in metrics.items():
                 aggregated_metrics[n].append(l)
 
-            # if step_id % args.accumulate_grad_batches == args.accumulate_grad_batches - 1:
-            #     optimizer.step()
+            if step_id % args.accumulate_grad_batches == args.accumulate_grad_batches - 1:
+                optimizer.step()
 
             if (step_id + 1) % args.val_freq == 0:
                 writer.add_scalar(f"lr/", args.lr, step_id)
