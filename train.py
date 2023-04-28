@@ -210,8 +210,8 @@ def training(
             for n, l in metrics.items():
                 aggregated_metrics[n].append(l)
 
-            # if step_id % args.accumulate_grad_batches == args.accumulate_grad_batches - 1:
-            #     optimizer.step()
+            if step_id % args.accumulate_grad_batches == args.accumulate_grad_batches - 1:
+                optimizer.step()
 
             if (step_id + 1) % args.val_freq == 0:
                 writer.add_scalar(f"lr/", args.lr, step_id)
