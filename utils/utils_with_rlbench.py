@@ -95,7 +95,7 @@ class Mover:
             dist_pos = np.sqrt(np.square(target[:3] - pos).sum())
             dist_rot = np.sqrt(np.square(target[3:7] - rot).sum())
             criteria = dist_pos < 5e-2
-            criteria = dist_pos < 1e-3 and dist_rot < 1e-3
+            # criteria = dist_pos < 1e-3 and dist_rot < 1e-3
 
             if criteria or reward == 1:
                 break

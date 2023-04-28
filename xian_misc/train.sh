@@ -31,6 +31,10 @@ main_dir=04_17_multitask_vis_ins_att_complex
 main_dir=04_17_multitask_res422
 main_dir=04_20_multitask
 main_dir=04_22_multitask
+main_dir=04_25_multitask_default
+main_dir=04_25_multitask_0wd
+main_dir=04_25_multitask_deeprot
+
 # main_dir=debug
 
 # dataset=/home/tgervet/datasets/hiveformer/packaged/2
@@ -62,7 +66,7 @@ task=10_tasks
 num_workers=10
 train_cache_size=0
 val_cache_size=0
-train_iters=1000000
+train_iters=700000
 
 batch_size_val=4
 lr=1e-4
@@ -80,14 +84,14 @@ n_layer=2
 num_sampling_level=3
 gp_emb_tying=1
 simplify=1
+ins_pos_emb=0
+vis_ins_att_complex=0
+regress_position_offset=0
+symmetric_rotation_loss=0
+vis_ins_att=1
 
 batch_size=16
-symmetric_rotation_loss=0
-ins_pos_emb=0
-vis_ins_att=1
-vis_ins_att_complex=1
 
-regress_position_offset=0
 
      # --devices cuda:0 cuda:1\
      # --checkpoint /home/xianz1/git/hiveformer/train_logs/04_13_multitask/10_tasks-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B16-demo100-dim60-L2-lr1e-4-seed0-simpins0-ins_pos_emb1-vis_ins_att1_version164229/model.step=570000-value=0.00000.pth \
