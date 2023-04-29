@@ -96,6 +96,8 @@ class Arguments(tap.Tap):
     position_offset_loss_coeff: float = 10000.0
     rotation_loss_coeff: float = 10.0
     symmetric_rotation_loss: int = 0
+    disc_rot: int = 0
+    disc_rot_res: float = 5.0
     gripper_loss_coeff: float = 1.0
     label_smoothing: float = 0.0
     regress_position_offset: int = 0
@@ -542,6 +544,8 @@ def get_model(args: Arguments, gripper_loc_bounds) -> Tuple[optim.Optimizer, Hiv
             ins_pos_emb=bool(args.ins_pos_emb),
             vis_ins_att=bool(args.vis_ins_att),
             vis_ins_att_complex=bool(args.vis_ins_att_complex),
+            disc_rot=bool(args.disc_rot),
+            disc_rot_res=args.disc_rot_res,
             num_sampling_level=args.num_sampling_level,
             fine_sampling_ball_diameter=args.fine_sampling_ball_diameter,
             regress_position_offset=bool(args.regress_position_offset),
@@ -671,7 +675,9 @@ if __name__ == "__main__":
         gripper_loss_coeff=args.gripper_loss_coeff,
         rotation_parametrization=args.rotation_parametrization,
         regress_position_offset=bool(args.regress_position_offset),
-        symmetric_rotation_loss=bool(args.symmetric_rotation_loss)
+        symmetric_rotation_loss=bool(args.symmetric_rotation_loss),
+        disc_rot=bool(args.disc_rot),
+        disc_rot_res=args.disc_rot_res,
     )
 
     model_dict = {

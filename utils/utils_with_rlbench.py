@@ -671,16 +671,16 @@ class RLBenchEnv:
                 task_recorder._cam_motion.restore_pose()
 
         device = actioner.device
-
+        padding = 0.002
         min_position = torch.tensor([
-            self.env._scene._workspace_minx + 0.01,
-            self.env._scene._workspace_miny + 0.01,
-            self.env._scene._workspace_minz + 0.01
+            self.env._scene._workspace_minx + padding,
+            self.env._scene._workspace_miny + padding,
+            self.env._scene._workspace_minz + padding
         ]).to(device)
         max_position = torch.tensor([
-            self.env._scene._workspace_maxx - 0.01,
-            self.env._scene._workspace_maxy - 0.01,
-            self.env._scene._workspace_maxz - 0.01
+            self.env._scene._workspace_maxx - padding,
+            self.env._scene._workspace_maxy - padding,
+            self.env._scene._workspace_maxz - padding
         ]).to(device)
 
         success_rate = 0.0
@@ -742,15 +742,21 @@ class RLBenchEnv:
                             action = gt_keyframe_actions[step_id]
                         except:
                             break
+                        # action[:, :3] = torch.clamp(action[:, :3], min_position.cpu(), max_position.cpu())
+                        print(action[:, :3])
                     else:
                         # Follow trained policy
                         action = output["action"]
 
                         # Clamp position to workspace bounds
+                        print(action[0, :3], action[0, 3:])
                         action[:, :3] = torch.clamp(action[:, :3], min_position, max_position)
+                        print(action[0, :3], action[0, 3:])
 
                         if position_prediction_only:
                             action[:, 3:] = gt_keyframe_actions[step_id][:, 3:]
+                        # action[:, 3:] = gt_keyframe_actions[step_id][:, 3:]
+                        # action[:, :3] = gt_keyframe_actions[step_id][:, :3]
                         # print(action[0,2]-gt_keyframe_actions[step_id][0,2])
                     # # compute loss
                     # gt_action = gt_keyframe_actions[step_id][0]
@@ -806,7 +812,7 @@ class RLBenchEnv:
                         print(task_type, demo, step_id, success_rate, e)
                         reward = 0
                         break
-
+                    # import IPython;IPython.embed()
                 # record video
                 if record_videos and demo_id < num_videos:
                     record_video_file = os.path.join(

@@ -7,11 +7,11 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 import einops
+from scipy.spatial.transform import Rotation
 
 
 Camera = Literal["wrist", "left_shoulder", "right_shoulder", "overhead", "front"]
 Instructions = Dict[str, Dict[int, torch.Tensor]]
-
 
 class Sample(TypedDict):
     frame_id: torch.Tensor
@@ -107,6 +107,8 @@ class LossAndMetrics:
         rotation_parametrization="quat_from_query",
         regress_position_offset=False,
         symmetric_rotation_loss=False,
+        disc_rot=False,
+        disc_rot_res=5.0,
     ):
         assert position_loss in ["mse", "ce"]
         self.position_loss = position_loss
@@ -121,9 +123,17 @@ class LossAndMetrics:
         self.rotation_parametrization = rotation_parametrization
         self.regress_position_offset = regress_position_offset
         self.symmetric_rotation_loss = symmetric_rotation_loss
+        self.disc_rot = disc_rot
+        self.disc_rot_res = disc_rot_res
         task_file = Path(__file__).parent.parent / "tasks/82_all_tasks.csv"
         with open(task_file) as fid:
             self.tasks = [t.strip() for t in fid.readlines()]
+
+    def quat_to_euler_label(self, quat):
+        euler = Rotation.from_quat(quat.cpu()).as_euler('zxy', degrees=True)
+        n_rot_bin = int(360//self.disc_rot_res)
+        euler_label = np.clip(np.floor((euler + 180) / self.disc_rot_res).astype(int), 0, n_rot_bin-1)
+        return euler_label
 
     def compute_loss(
         self, pred: Dict[str, torch.Tensor], sample: Sample,
@@ -137,15 +147,28 @@ class LossAndMetrics:
         self._compute_position_loss(pred, gt_action[:, :3], losses)
 
         if not self.position_prediction_only:
-            if self.symmetric_rotation_loss:
-                gt_quat = gt_action[:, 3:7]
-                gt_quat_ = -gt_quat.clone()
-                quat_loss = F.mse_loss(pred["rotation"], gt_quat, reduction='none').mean(1)
-                quat_loss_ = F.mse_loss(pred["rotation"], gt_quat_, reduction='none').mean(1)
-                select_mask = (quat_loss < quat_loss_).float()
-                losses['rotation'] = (select_mask * quat_loss + (1 - select_mask) * quat_loss_).mean()
+            if self.disc_rot:
+                if self.symmetric_rotation_loss:
+                    raise NotImplementedError
+                else:
+                    n_rot_bin = int(360 // self.disc_rot_res)
+                    gt_quat = gt_action[:, 3:7]
+                    gt_euler_label = torch.tensor(self.quat_to_euler_label(gt_quat), device=device)
+                    losses['rotation'] = 0.0
+                    for ax in range(3):
+                        pred_ax = F.softmax(pred["rotation"][:, n_rot_bin*ax:n_rot_bin*(ax+1)], dim=-1)
+                        losses['rotation'] += F.cross_entropy(pred_ax, gt_euler_label[:, ax])
+
             else:
-                losses["rotation"] = F.mse_loss(pred["rotation"], gt_action[:, 3:7])
+                if self.symmetric_rotation_loss:
+                    gt_quat = gt_action[:, 3:7]
+                    gt_quat_ = -gt_quat.clone()
+                    quat_loss = F.mse_loss(pred["rotation"], gt_quat, reduction='none').mean(1)
+                    quat_loss_ = F.mse_loss(pred["rotation"], gt_quat_, reduction='none').mean(1)
+                    select_mask = (quat_loss < quat_loss_).float()
+                    losses['rotation'] = (select_mask * quat_loss + (1 - select_mask) * quat_loss_).mean()
+                else:
+                    losses["rotation"] = F.mse_loss(pred["rotation"], gt_action[:, 3:7])
 
             losses["gripper"] = F.mse_loss(pred["gripper"], gt_action[:, 7:8])
 
@@ -245,15 +268,36 @@ class LossAndMetrics:
                 metrics[f"{task}/gripper"] = task_acc.to(dtype).mean()
 
             # rotation loss
-            if self.symmetric_rotation_loss:
-                gt_quat = outputs[:, 3:7]
-                gt_quat_ = -gt_quat.clone()
-                l1 = (pred["rotation"] - gt_quat).abs().sum(1)
-                l1_ = (pred["rotation"] - gt_quat_).abs().sum(1)
-                select_mask = (l1 < l1_).float()
-                l1 = (select_mask * l1 + (1 - select_mask) * l1_)
+            if self.disc_rot:
+                if self.symmetric_rotation_loss:
+                    raise NotImplementedError
+                else:
+                    # let's always do sym rot metric
+                    gt_quat = outputs[:, 3:7]
+                    gt_quat_ = -gt_quat.clone()
+                    n_rot_bin = int(360 // self.disc_rot_res)
+                    pred_euler = []
+                    for ax in range(3):
+                        euler_ax = torch.argmax(pred["rotation"][:, n_rot_bin*ax:n_rot_bin*(ax+1)], dim=-1) * self.disc_rot_res + self.disc_rot_res*0.5
+                        pred_euler.append(euler_ax)
+                    pred_euler = torch.permute(torch.stack(pred_euler), (1, 0))
+                    pred_quat = torch.tensor(Rotation.from_euler('zxy', pred_euler.cpu(), degrees=True).as_quat(), device=device)
+
+                    l1 = (pred_quat - gt_quat).abs().sum(1)
+                    l1_ = (pred_quat - gt_quat_).abs().sum(1)
+                    select_mask = (l1 < l1_).float()
+                    l1 = (select_mask * l1 + (1 - select_mask) * l1_)
+
             else:
-                l1 = ((pred["rotation"] - outputs[:, 3:7]).abs().sum(1))
+                if self.symmetric_rotation_loss:
+                    gt_quat = outputs[:, 3:7]
+                    gt_quat_ = -gt_quat.clone()
+                    l1 = (pred["rotation"] - gt_quat).abs().sum(1)
+                    l1_ = (pred["rotation"] - gt_quat_).abs().sum(1)
+                    select_mask = (l1 < l1_).float()
+                    l1 = (select_mask * l1 + (1 - select_mask) * l1_)
+                else:
+                    l1 = ((pred["rotation"] - outputs[:, 3:7]).abs().sum(1))
                 
             metrics["mean/rot_l1"] = l1.to(dtype).mean()
             metrics["mean/rot_l1<0.05"] = (l1 < 0.05).to(dtype).mean()

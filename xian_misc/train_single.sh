@@ -31,6 +31,8 @@ main_dir=04_16_multitask_cont
 main_dir=04_17_multitask_vis_ins_att_complex
 main_dir=04_17_multitask_res422
 main_dir=04_28_singletask
+main_dir=04_29_singletask
+# main_dir=debug
 
 # dataset=/home/tgervet/datasets/hiveformer/packaged/2
 # valset=/home/tgervet/datasets/hiveformer/packaged/3
@@ -58,7 +60,8 @@ task=put_umbrella_in_umbrella_stand
 
 
 task=insert_onto_square_peg
-task=reach_and_drag
+# task=reach_and_drag
+# task=push_button
 
 num_workers=2
 train_cache_size=100
@@ -84,13 +87,15 @@ simplify=1
 
 batch_size=8
 regress_position_offset=0
-symmetric_rotation_loss=0
 vis_ins_att_complex=0
 vis_ins_att=0
 
 ins_pos_emb=0
 instruction_file=instructions_local.pkl
-
+symmetric_rotation_loss=0
+disc_rot=1
+disc_rot_res=5.0
+rotation_loss_coeff=1
 
 python train.py\
      --instructions instructions_old/$instruction_file \
@@ -104,10 +109,12 @@ python train.py\
      --weight_tying $weight_tying\
      --gp_emb_tying $gp_emb_tying\
      --simplify $simplify\
+     --rotation_loss_coeff $rotation_loss_coeff\
      --simplify_ins $simplify_ins\
      --ins_pos_emb $ins_pos_emb\
      --vis_ins_att $vis_ins_att\
      --vis_ins_att_complex $vis_ins_att_complex\
+     --disc_rot $disc_rot\
      --exp_log_dir $main_dir \
      --batch_size $batch_size \
      --batch_size_val $batch_size_val \
@@ -125,5 +132,5 @@ python train.py\
      --num_vis_ins_attn_layers $n_layer\
      --seed $seed\
      --lr $lr\
-     --run_log_dir $task-offset$regress_position_offset-N$num_sampling_level-T$num_ghost_points-V$num_ghost_points_val-symrot$symmetric_rotation_loss-gptie$gp_emb_tying-simp$simplify-B$batch_size-demo$max_episodes_per_taskvar-dim$embedding_dim-L$n_layer-lr$lr-seed$seed-simpins$simplify_ins-ins_pos_emb$ins_pos_emb-vis_ins_att$vis_ins_att-vis_ins_att_complex$vis_ins_att_complex-ins$instruction_file
+     --run_log_dir $task-offset$regress_position_offset-N$num_sampling_level-T$num_ghost_points-V$num_ghost_points_val-symrot$symmetric_rotation_loss-gptie$gp_emb_tying-simp$simplify-B$batch_size-demo$max_episodes_per_taskvar-dim$embedding_dim-L$n_layer-lr$lr-seed$seed-simpins$simplify_ins-ins_pos_emb$ins_pos_emb-vis_ins_att$vis_ins_att-disc_rot$disc_rot-$disc_rot_res-rotcoef$rotation_loss_coeff-ins$instruction_file
 

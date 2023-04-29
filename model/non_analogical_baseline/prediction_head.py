@@ -35,6 +35,8 @@ class PredictionHead(nn.Module):
                  ins_pos_emb=False,
                  vis_ins_att=False,
                  vis_ins_att_complex=False,
+                 disc_rot=False,
+                 disc_rot_res=5.0,
                  num_sampling_level=2,
                  fine_sampling_ball_diameter=0.08,
                  regress_position_offset=True,
@@ -64,6 +66,8 @@ class PredictionHead(nn.Module):
         self.ins_pos_emb = ins_pos_emb
         self.vis_ins_att = vis_ins_att
         self.vis_ins_att_complex = vis_ins_att_complex
+        self.disc_rot = disc_rot
+        self.disc_rot_res = disc_rot_res
 
         # Frozen backbone
         if backbone == "resnet":
@@ -168,7 +172,7 @@ class PredictionHead(nn.Module):
 
 
         # visual tokens cross-attention to language instructions
-        if self.use_instruction and self.vis_ins_att:
+        if self.vis_ins_att:
             self.vis_ins_attn_pyramid = nn.ModuleList()
             if self.weight_tying:
                 vis_ins_cross_attn = RelativeCrossAttentionModule(
@@ -191,11 +195,21 @@ class PredictionHead(nn.Module):
             )
 
         # Gripper rotation prediction
-        self.gripper_state_predictor = nn.Sequential(
-            nn.Linear(embedding_dim, embedding_dim),
-            nn.ReLU(),
-            nn.Linear(embedding_dim, 4 + 1)
-        )
+        if self.disc_rot:
+            self.n_rot_bin = int(360 // self.disc_rot_res)
+            self.gripper_state_predictor = nn.Sequential(
+                nn.Linear(embedding_dim, embedding_dim),
+                nn.ReLU(),
+                nn.Linear(embedding_dim, embedding_dim),
+                nn.ReLU(),
+                nn.Linear(embedding_dim, self.n_rot_bin * 3 + 1)
+            )
+        else:
+            self.gripper_state_predictor = nn.Sequential(
+                nn.Linear(embedding_dim, embedding_dim),
+                nn.ReLU(),
+                nn.Linear(embedding_dim, 4 + 1)
+            )
 
         # Instruction encoder
         self.use_instruction = use_instruction
@@ -600,7 +614,10 @@ class PredictionHead(nn.Module):
             features = query_features.squeeze(0)
 
         pred = self.gripper_state_predictor(features)
-        rotation = normalise_quat(pred[:, :4])
-        gripper = torch.sigmoid(pred[:, 4:])
+        if self.disc_rot:
+            rotation = pred[:, :self.n_rot_bin * 3]
+        else:
+            rotation = normalise_quat(pred[:, :4])
+        gripper = torch.sigmoid(pred[:, -1:])
 
         return position, rotation, gripper
