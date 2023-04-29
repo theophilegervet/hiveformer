@@ -86,7 +86,7 @@ batch_size=8
 regress_position_offset=0
 symmetric_rotation_loss=0
 vis_ins_att_complex=0
-vis_ins_att=1
+vis_ins_att=0
 
 ins_pos_emb=0
 instruction_file=instructions_local.pkl

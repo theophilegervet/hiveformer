@@ -168,7 +168,7 @@ class PredictionHead(nn.Module):
 
 
         # visual tokens cross-attention to language instructions
-        if self.vis_ins_att:
+        if self.use_instruction and self.vis_ins_att:
             self.vis_ins_attn_pyramid = nn.ModuleList()
             if self.weight_tying:
                 vis_ins_cross_attn = RelativeCrossAttentionModule(
