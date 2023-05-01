@@ -108,6 +108,7 @@ class LossAndMetrics:
         regress_position_offset=False,
         symmetric_rotation_loss=False,
         disc_rot=False,
+        disc_rot_smooth=0.0,
         disc_rot_res=5.0,
     ):
         assert position_loss in ["mse", "ce"]
@@ -124,6 +125,7 @@ class LossAndMetrics:
         self.regress_position_offset = regress_position_offset
         self.symmetric_rotation_loss = symmetric_rotation_loss
         self.disc_rot = disc_rot
+        self.disc_rot_smooth = disc_rot_smooth # the bigger the smoother
         self.disc_rot_res = disc_rot_res
         task_file = Path(__file__).parent.parent / "tasks/82_all_tasks.csv"
         with open(task_file) as fid:
@@ -156,8 +158,17 @@ class LossAndMetrics:
                     gt_euler_label = torch.tensor(self.quat_to_euler_label(gt_quat), device=device)
                     losses['rotation'] = 0.0
                     for ax in range(3):
-                        pred_ax = F.softmax(pred["rotation"][:, n_rot_bin*ax:n_rot_bin*(ax+1)], dim=-1)
-                        losses['rotation'] += F.cross_entropy(pred_ax, gt_euler_label[:, ax])
+                        if self.disc_rot_smooth > 0.0:
+                            label_ax = gt_euler_label[:, ax]
+                            prob_label_ax = torch.nn.functional.one_hot(label_ax, n_rot_bin)
+                            B = prob_label_ax.shape[0]
+                            dist_ax = torch.abs(torch.arange(n_rot_bin, device=device).tile([B, 1]) - label_ax[:, None]).float()
+                            prob_soft_ax = torch.softmax(-dist_ax / self.disc_rot_smooth, dim=-1)
+                            pred_ax = F.softmax(pred["rotation"][:, n_rot_bin*ax:n_rot_bin*(ax+1)], dim=-1)
+                            losses['rotation'] += F.cross_entropy(pred_ax, prob_soft_ax)
+                        else:
+                            pred_ax = F.softmax(pred["rotation"][:, n_rot_bin*ax:n_rot_bin*(ax+1)], dim=-1)
+                            losses['rotation'] += F.cross_entropy(pred_ax, gt_euler_label[:, ax])
 
             else:
                 if self.symmetric_rotation_loss:

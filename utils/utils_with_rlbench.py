@@ -755,6 +755,7 @@ class RLBenchEnv:
 
                         if position_prediction_only:
                             action[:, 3:] = gt_keyframe_actions[step_id][:, 3:]
+                        
                         # action[:, 3:] = gt_keyframe_actions[step_id][:, 3:]
                         # action[:, :3] = gt_keyframe_actions[step_id][:, :3]
                         # print(action[0,2]-gt_keyframe_actions[step_id][0,2])

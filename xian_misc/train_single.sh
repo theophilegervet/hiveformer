@@ -32,6 +32,7 @@ main_dir=04_17_multitask_vis_ins_att_complex
 main_dir=04_17_multitask_res422
 main_dir=04_28_singletask
 main_dir=04_29_singletask
+main_dir=04_30_singletask
 # main_dir=debug
 
 # dataset=/home/tgervet/datasets/hiveformer/packaged/2
@@ -40,10 +41,17 @@ main_dir=04_29_singletask
 # valset=/home/zhouxian/git/datasets/hiveformer/packaged/3
 dataset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_train
 valset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_val
+num_workers=2
+train_cache_size=100
+val_cache_size=100
 # dataset=/scratch/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_train
 # valset=/scratch/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_val
-# dataset=/home/zhouxian/git/datasets/packaged/74_hiveformer_tasks_train
-# valset=/home/zhouxian/git/datasets/packaged/74_hiveformer_tasks_val
+dataset=/home/zhouxian/git/datasets/packaged/74_hiveformer_tasks_train
+valset=/home/zhouxian/git/datasets/packaged/74_hiveformer_tasks_val
+num_workers=2
+train_cache_size=0
+val_cache_size=0
+
 # task=reach_target
 # task=push_button
 # task=slide_block_to_target
@@ -63,10 +71,7 @@ task=insert_onto_square_peg
 # task=reach_and_drag
 # task=push_button
 
-num_workers=2
-train_cache_size=100
-val_cache_size=100
-train_iters=300000
+train_iters=500000
 
 batch_size_val=4
 lr=1e-4
@@ -95,6 +100,7 @@ instruction_file=instructions_local.pkl
 symmetric_rotation_loss=0
 disc_rot=1
 disc_rot_res=5.0
+disc_rot_smooth=1.5
 rotation_loss_coeff=1
 
 python train.py\
@@ -115,6 +121,8 @@ python train.py\
      --vis_ins_att $vis_ins_att\
      --vis_ins_att_complex $vis_ins_att_complex\
      --disc_rot $disc_rot\
+     --disc_rot_res $disc_rot_res\
+     --disc_rot_smooth $disc_rot_smooth\
      --exp_log_dir $main_dir \
      --batch_size $batch_size \
      --batch_size_val $batch_size_val \
@@ -132,5 +140,5 @@ python train.py\
      --num_vis_ins_attn_layers $n_layer\
      --seed $seed\
      --lr $lr\
-     --run_log_dir $task-offset$regress_position_offset-N$num_sampling_level-T$num_ghost_points-V$num_ghost_points_val-symrot$symmetric_rotation_loss-gptie$gp_emb_tying-simp$simplify-B$batch_size-demo$max_episodes_per_taskvar-dim$embedding_dim-L$n_layer-lr$lr-seed$seed-simpins$simplify_ins-ins_pos_emb$ins_pos_emb-vis_ins_att$vis_ins_att-disc_rot$disc_rot-$disc_rot_res-rotcoef$rotation_loss_coeff-ins$instruction_file
+     --run_log_dir $task-offset$regress_position_offset-N$num_sampling_level-T$num_ghost_points-V$num_ghost_points_val-symrot$symmetric_rotation_loss-gptie$gp_emb_tying-simp$simplify-B$batch_size-demo$max_episodes_per_taskvar-dim$embedding_dim-L$n_layer-lr$lr-seed$seed-simpins$simplify_ins-ins_pos_emb$ins_pos_emb-vis_ins_att$vis_ins_att-disc_rot$disc_rot-$disc_rot_res-$disc_rot_smooth-rotcoef$rotation_loss_coeff-ins$instruction_file
 

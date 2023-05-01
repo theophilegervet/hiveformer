@@ -15,7 +15,7 @@ task=put_knife_on_chopping_board
 task=put_money_in_safe
 # task=stack_wine
 task=insert_onto_square_peg
-task=reach_and_drag
+# task=reach_and_drag
 
 gripper_bounds_buffer=0.04
 weight_tying=1
@@ -53,7 +53,7 @@ ckpt=/home/zhouxian/git/hiveformer/train_logs/04_05_multitask/10_tasks-offset0-N
 
 vis_ins_att=1
 use_instruction=0
-ckpt=/home/zhouxian/git/hiveformer/train_logs/04_28_singletask/reach_and_drag-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B8-demo100-dim60-L2-lr1e-4-seed0-simpins0-ins_pos_emb0-vis_ins_att1-vis_ins_att_complex0-insinstructions_local.pkl_version167193/model.step=110000-value=0.00000.pth 
+ckpt=/home/zhouxian/git/hiveformer/train_logs/04_28_singletask/insert_onto_square_peg-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B8-demo100-dim60-L2-lr1e-4-seed0-simpins0-ins_pos_emb0-vis_ins_att1-vis_ins_att_complex0-insinstructions_local.pkl_version167170/model.step=250000-value=0.00000.pth
 
 instruction_file=instructions_local.pkl
 python eval.py\
@@ -81,4 +81,4 @@ python eval.py\
      --num_query_cross_attn_layers $n_layer\
      --run_log_dir $task-ONLINE\
      --randomize_vp $randomize_vp\
-     --max_episodes 20
+     # --max_episodes 20
