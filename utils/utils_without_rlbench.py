@@ -7,6 +7,10 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 import einops
+try:
+    from pytorch3d import transforms as torch3d_tf
+except:
+    pass
 
 
 Camera = Literal["wrist", "left_shoulder", "right_shoulder", "overhead", "front"]
@@ -78,6 +82,18 @@ def norm_tensor(tensor: torch.Tensor) -> torch.Tensor:
     return tensor / torch.linalg.norm(tensor, ord=2, dim=-1, keepdim=True)
 
 
+def compute_geodesic_distance_from_two_matrices(m1, m2):
+    # From https://github.com/papagina/RotationContinuity/blob/master/sanity_test/code/tools.py
+    device = m1.device
+    batch = m1.shape[0]
+    m = torch.bmm(m1, m2.transpose(1, 2))  # batch*3*3
+    cos = (m[:, 0, 0] + m[:, 1, 1] + m[:, 2, 2] - 1) / 2
+    cos = torch.min(cos, torch.autograd.Variable(torch.ones(batch).to(device)))
+    cos = torch.max(cos, torch.autograd.Variable(torch.ones(batch).to(device)) * -1)
+    theta = torch.acos(cos)
+    return theta
+
+
 def load_instructions(
     instructions: Optional[Path],
     tasks: Optional[Sequence[str]] = None,
@@ -99,10 +115,12 @@ def load_instructions(
     return None
 
 
+
 class LossAndMetrics:
     def __init__(
         self,
         position_loss,
+        rotation_parametrization,
         ground_truth_gaussian_spread,
         position_prediction_only=False,
         compute_loss_at_all_layers=False,
@@ -115,7 +133,10 @@ class LossAndMetrics:
         symmetric_rotation_loss=False,
     ):
         assert position_loss in ["mse", "ce"]
+        assert rotation_parametrization in [
+            "quat_from_top_ghost", "quat_from_query", "6D_from_top_ghost", "6D_from_query"]
         self.position_loss = position_loss
+        self.rotation_parametrization = rotation_parametrization
         self.position_prediction_only = position_prediction_only
         self.compute_loss_at_all_layers = compute_loss_at_all_layers
         self.ground_truth_gaussian_spread = ground_truth_gaussian_spread
@@ -142,27 +163,35 @@ class LossAndMetrics:
         self._compute_position_loss(pred, gt_action[:, :3], losses)
 
         if not self.position_prediction_only:
-            if self.symmetric_rotation_loss:
-                gt_quat = gt_action[:, 3:7]
-                gt_quat_ = -gt_quat.clone()
-                quat_loss = F.mse_loss(pred["rotation"], gt_quat, reduction='none').mean(1)
-                quat_loss_ = F.mse_loss(pred["rotation"], gt_quat_, reduction='none').mean(1)
-                select_mask = (quat_loss < quat_loss_).float()
-                losses['rotation'] = (select_mask * quat_loss + (1 - select_mask) * quat_loss_).mean()
-            else:
-                losses["rotation"] = F.mse_loss(pred["rotation"], gt_action[:, 3:7])
+            self._compute_rotation_loss(pred, gt_action[:, 3:7], losses)
 
             losses["gripper"] = F.mse_loss(pred["gripper"], gt_action[:, 7:8])
+            losses["gripper"] *= self.gripper_loss_coeff
 
             if pred["task"] is not None:
                 task = torch.Tensor([self.tasks.index(t) for t in sample["task"]])
                 task = task.to(device).long()
                 losses["task"] = F.cross_entropy(pred["task"], task)
 
-            losses["rotation"] *= self.rotation_loss_coeff
-            losses["gripper"] *= self.gripper_loss_coeff
-
         return losses
+
+    def _compute_rotation_loss(self, pred, gt_quat, losses):
+        if "quat" in self.rotation_parametrization:
+            if self.symmetric_rotation_loss:
+                gt_quat_ = -gt_quat.clone()
+                quat_loss = F.mse_loss(pred["rotation"], gt_quat, reduction='none').mean(1)
+                quat_loss_ = F.mse_loss(pred["rotation"], gt_quat_, reduction='none').mean(1)
+                select_mask = (quat_loss < quat_loss_).float()
+                losses['rotation'] = (select_mask * quat_loss + (1 - select_mask) * quat_loss_).mean()
+            else:
+                losses["rotation"] = F.mse_loss(pred["rotation"], gt_quat)
+
+        elif "6D" in self.rotation_parametrization:
+            gt_rot3x3 = torch3d_tf.quaternion_to_matrix(gt_quat)
+            # losses["rotation"] = F.mse_loss(pred["rotation"], gt_rot3x3)
+            losses["rotation"] = compute_geodesic_distance_from_two_matrices(pred["rotation"], gt_rot3x3).mean()
+
+        losses["rotation"] *= self.rotation_loss_coeff
 
     def _compute_position_loss(self, pred, gt_position, losses):
         if self.position_loss == "mse":
@@ -245,16 +274,20 @@ class LossAndMetrics:
             metrics["gripper"] = acc.to(dtype).mean()
 
             # Rotation accuracy
-            if self.symmetric_rotation_loss:
-                gt_quat = outputs[:, 3:7]
-                gt_quat_ = -gt_quat.clone()
-                l1 = (pred["rotation"] - gt_quat).abs().sum(1)
-                l1_ = (pred["rotation"] - gt_quat_).abs().sum(1)
-                select_mask = (l1 < l1_).float()
-                l1 = (select_mask * l1 + (1 - select_mask) * l1_)
-            else:
-                l1 = ((pred["rotation"] - outputs[:, 3:7]).abs().sum(1))
-                
+            gt_quat = outputs[:, 3:7]
+            if "quat" in self.rotation_parametrization:
+                if self.symmetric_rotation_loss:
+                    gt_quat_ = -gt_quat.clone()
+                    l1 = (pred["rotation"] - gt_quat).abs().sum(1)
+                    l1_ = (pred["rotation"] - gt_quat_).abs().sum(1)
+                    select_mask = (l1 < l1_).float()
+                    l1 = (select_mask * l1 + (1 - select_mask) * l1_)
+                else:
+                    l1 = ((pred["rotation"] - gt_quat).abs().sum(1))
+            elif "6D" in self.rotation_parametrization:
+                pred_quat = torch3d_tf.matrix_to_quaternion(pred["rotation"])
+                l1 = ((pred_quat - gt_quat).abs().sum(1))
+
             metrics["mean/rot_l1"] = l1.to(dtype).mean()
             metrics["mean/rot_l1<0.05"] = (l1 < 0.05).to(dtype).mean()
             metrics["mean/rot_l1<0.025"] = (l1 < 0.025).to(dtype).mean()
