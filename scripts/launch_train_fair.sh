@@ -8,7 +8,7 @@ dataset=/private/home/theop123/datasets/rlbench/packaged/18_peract_tasks_train
 valset=/private/home/theop123/datasets/rlbench/packaged/18_peract_tasks_val
 train_iters=200_000
 #for task in $(cat $task_file | tr '\n' ' '); do
-for task in insert_onto_square_peg; do
+for task in place_wine_at_rack_location; do
   sbatch train_1gpu_32gb_fair.sh \
    --tasks $task \
    --dataset $dataset \
