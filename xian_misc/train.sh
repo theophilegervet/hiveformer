@@ -21,16 +21,19 @@
 # main_dir=03_22_wine
 # main_dir=03_23
 # main_dir=03_24
-main_dir=04_05_multitask
-main_dir=04_06_multitask_noinstr
-main_dir=04_08_multitask_fixbug
-main_dir=04_10_multitask_revert
-main_dir=04_12_multitask
-main_dir=04_13_multitask
-main_dir=04_16_multitask_cont
-main_dir=04_17_multitask_vis_ins_att_complex
-main_dir=04_17_multitask_res422
+# main_dir=04_05_multitask
+# main_dir=04_06_multitask_noinstr
+# main_dir=04_08_multitask_fixbug
+# main_dir=04_10_multitask_revert
+# main_dir=04_12_multitask
+# main_dir=04_13_multitask
+# main_dir=04_16_multitask_cont
+# main_dir=04_17_multitask_vis_ins_att_complex
+# main_dir=04_17_multitask_res422
 main_dir=04_28_multitask
+main_dir=05_01_multitask_contZ
+main_dir=05_02_multitask
+# main_dir=debug
 
 # dataset=/home/tgervet/datasets/hiveformer/packaged/2
 # valset=/home/tgervet/datasets/hiveformer/packaged/3
@@ -81,17 +84,17 @@ gp_emb_tying=1
 simplify=1
 
 batch_size=16
-regress_position_offset=0
 symmetric_rotation_loss=0
 vis_ins_att_complex=0
 vis_ins_att=1
 
-ins_pos_emb=1
-instruction_file=instructions_matrix.pkl
+regress_position_offset=1
+ins_pos_emb=0
+instruction_file=instructions_local.pkl
 
 
 python train.py\
-     --devices cuda:0 cuda:1\
+     --devices cuda:0 cuda:1 cuda:2\
      --instructions instructions_old/$instruction_file \
      --tasks $(cat $task_file | tr '\n' ' ') \
      --dataset $dataset \

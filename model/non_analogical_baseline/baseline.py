@@ -34,6 +34,8 @@ class Baseline(nn.Module):
                  task_specific_biases=False,
                  task_ids=[]):
         super().__init__()
+        self.disc_rot = disc_rot
+        self.disc_rot_res = disc_rot_res
 
         self.prediction_head = PredictionHead(
             backbone=backbone,
@@ -65,7 +67,19 @@ class Baseline(nn.Module):
         )
 
     def compute_action(self, pred) -> torch.Tensor:
-        rotation = norm_tensor(pred["rotation"])
+        if self.disc_rot:
+            from scipy.spatial.transform import Rotation
+            device = pred["rotation"].device
+            n_rot_bin = int(360 // self.disc_rot_res)
+            pred_euler = []
+            for ax in range(3):
+                euler_ax = torch.argmax(pred["rotation"][:, n_rot_bin*ax:n_rot_bin*(ax+1)], dim=-1) * self.disc_rot_res + self.disc_rot_res*0.5
+                pred_euler.append(euler_ax)
+            pred_euler = torch.permute(torch.stack(pred_euler), (1, 0))
+            rotation = torch.tensor(Rotation.from_euler('zxy', pred_euler.cpu(), degrees=True).as_quat(), device=device)
+
+        else:
+            rotation = norm_tensor(pred["rotation"])
         return torch.cat(
             [pred["position"], rotation, pred["gripper"]],
             dim=1,

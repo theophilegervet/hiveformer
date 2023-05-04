@@ -185,16 +185,16 @@ class EndEffectorPoseViaPlanning(ArmActionMode):
     def set_callable_each_step(self, callable_each_step):
         self._callable_each_step = callable_each_step
 
-    def action(self, scene: Scene, action: np.ndarray):
+    def action(self, scene: Scene, action: np.ndarray, collision_checking=False):
         assert_action_shape(action, (7,))
         assert_unit_quaternion(action[3:])
         if not self._absolute_mode and self._frame != 'end effector':
             action = calculate_delta_pose(scene.robot, action)
         relative_to = None if self._frame == 'world' else scene.robot.arm.get_tip()
-        self._quick_boundary_check(scene, action)
+        # self._quick_boundary_check(scene, action)
 
         colliding_shapes = []
-        if self._collision_checking:
+        if collision_checking:
             if self._robot_shapes is None:
                 self._robot_shapes = scene.robot.arm.get_objects_in_tree(
                     object_type=ObjectType.SHAPE)
@@ -217,7 +217,7 @@ class EndEffectorPoseViaPlanning(ArmActionMode):
             path = scene.robot.arm.get_path(
                 action[:3],
                 quaternion=action[3:],
-                ignore_collisions=not self._collision_checking,
+                ignore_collisions=not collision_checking,
                 relative_to=relative_to,
                 trials=100,
                 max_configs=10,

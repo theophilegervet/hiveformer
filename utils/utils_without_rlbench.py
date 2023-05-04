@@ -107,6 +107,7 @@ class LossAndMetrics:
         rotation_parametrization="quat_from_query",
         regress_position_offset=False,
         symmetric_rotation_loss=False,
+        new_rotation_loss=False,
         disc_rot=False,
         disc_rot_smooth=0.0,
         disc_rot_res=5.0,
@@ -124,6 +125,7 @@ class LossAndMetrics:
         self.rotation_parametrization = rotation_parametrization
         self.regress_position_offset = regress_position_offset
         self.symmetric_rotation_loss = symmetric_rotation_loss
+        self.new_rotation_loss = new_rotation_loss
         self.disc_rot = disc_rot
         self.disc_rot_smooth = disc_rot_smooth # the bigger the smoother
         self.disc_rot_res = disc_rot_res
@@ -152,6 +154,8 @@ class LossAndMetrics:
             if self.disc_rot:
                 if self.symmetric_rotation_loss:
                     raise NotImplementedError
+                elif self.new_rotation_loss:
+                    raise NotImplementedError
                 else:
                     n_rot_bin = int(360 // self.disc_rot_res)
                     gt_quat = gt_action[:, 3:7]
@@ -178,6 +182,8 @@ class LossAndMetrics:
                     quat_loss_ = F.mse_loss(pred["rotation"], gt_quat_, reduction='none').mean(1)
                     select_mask = (quat_loss < quat_loss_).float()
                     losses['rotation'] = (select_mask * quat_loss + (1 - select_mask) * quat_loss_).mean()
+                elif self.new_rotation_loss:
+                    losses["rotation"] = (1 - torch.square(einops.einsum(pred["rotation"], gt_action[:, 3:7], "b n, b n -> b"))).mean()
                 else:
                     losses["rotation"] = F.mse_loss(pred["rotation"], gt_action[:, 3:7])
 
@@ -282,6 +288,8 @@ class LossAndMetrics:
             if self.disc_rot:
                 if self.symmetric_rotation_loss:
                     raise NotImplementedError
+                elif self.new_rotation_loss:
+                    raise NotImplementedError
                 else:
                     # let's always do sym rot metric
                     gt_quat = outputs[:, 3:7]
@@ -300,7 +308,7 @@ class LossAndMetrics:
                     l1 = (select_mask * l1 + (1 - select_mask) * l1_)
 
             else:
-                if self.symmetric_rotation_loss:
+                if self.symmetric_rotation_loss or self.new_rotation_loss:
                     gt_quat = outputs[:, 3:7]
                     gt_quat_ = -gt_quat.clone()
                     l1 = (pred["rotation"] - gt_quat).abs().sum(1)

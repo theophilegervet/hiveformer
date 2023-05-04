@@ -33,6 +33,9 @@ main_dir=04_17_multitask_res422
 main_dir=04_28_singletask
 main_dir=04_29_singletask
 main_dir=04_30_singletask
+main_dir=05_01_singletask
+main_dir=05_02_singletask
+main_dir=05_03_singletask
 # main_dir=debug
 
 # dataset=/home/tgervet/datasets/hiveformer/packaged/2
@@ -44,13 +47,12 @@ valset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveform
 num_workers=2
 train_cache_size=100
 val_cache_size=100
-# dataset=/scratch/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_train
-# valset=/scratch/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_val
-dataset=/home/zhouxian/git/datasets/packaged/74_hiveformer_tasks_train
-valset=/home/zhouxian/git/datasets/packaged/74_hiveformer_tasks_val
-num_workers=2
-train_cache_size=0
-val_cache_size=0
+
+# dataset=/home/zhouxian/git/datasets/packaged/74_hiveformer_tasks_train
+# valset=/home/zhouxian/git/datasets/packaged/74_hiveformer_tasks_val
+# num_workers=2
+# train_cache_size=0
+# val_cache_size=0
 
 # task=reach_target
 # task=push_button
@@ -90,20 +92,28 @@ num_sampling_level=3
 gp_emb_tying=1
 simplify=1
 
-batch_size=8
 regress_position_offset=0
 vis_ins_att_complex=0
 vis_ins_att=0
 
+new_rotation_loss=0
+batch_size=16
 ins_pos_emb=0
 instruction_file=instructions_local.pkl
 symmetric_rotation_loss=0
 disc_rot=1
 disc_rot_res=5.0
-disc_rot_smooth=1.5
+disc_rot_smooth=6.0
 rotation_loss_coeff=1
 
+# batch_size=12
+# new_rotation_loss=1
+# disc_rot=0
+# rotation_loss_coeff=1.0
+
 python train.py\
+     --devices cuda:0 cuda:1\
+     --checkpoint /home/xianz1/git/hiveformer/train_logs/05_01_singletask/insert_onto_square_peg-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B8-demo100-dim60-L2-lr1e-4-seed0-simpins0-ins_pos_emb0-vis_ins_att0-disc_rot1-5.0-6.0-rotcoef1-insinstructions_local.pkl_version0/model.step=180000-value=0.00000.pth \
      --instructions instructions_old/$instruction_file \
      --tasks $task \
      --dataset $dataset \
@@ -131,6 +141,7 @@ python train.py\
      --num_ghost_points_val $num_ghost_points_val\
      --max_episodes_per_taskvar $max_episodes_per_taskvar\
      --symmetric_rotation_loss $symmetric_rotation_loss\
+     --new_rotation_loss $new_rotation_loss\
      --gripper_bounds_buffer $gripper_bounds_buffer\
      --regress_position_offset $regress_position_offset\
      --num_sampling_level $num_sampling_level\
@@ -140,5 +151,5 @@ python train.py\
      --num_vis_ins_attn_layers $n_layer\
      --seed $seed\
      --lr $lr\
-     --run_log_dir $task-offset$regress_position_offset-N$num_sampling_level-T$num_ghost_points-V$num_ghost_points_val-symrot$symmetric_rotation_loss-gptie$gp_emb_tying-simp$simplify-B$batch_size-demo$max_episodes_per_taskvar-dim$embedding_dim-L$n_layer-lr$lr-seed$seed-simpins$simplify_ins-ins_pos_emb$ins_pos_emb-vis_ins_att$vis_ins_att-disc_rot$disc_rot-$disc_rot_res-$disc_rot_smooth-rotcoef$rotation_loss_coeff-ins$instruction_file
+     --run_log_dir $task-offset$regress_position_offset-N$num_sampling_level-T$num_ghost_points-V$num_ghost_points_val-symrot$symmetric_rotation_loss-newrot$new_rotation_loss-gptie$gp_emb_tying-simp$simplify-B$batch_size-demo$max_episodes_per_taskvar-dim$embedding_dim-L$n_layer-lr$lr-seed$seed-simpins$simplify_ins-ins_pos_emb$ins_pos_emb-vis_ins_att$vis_ins_att-disc_rot$disc_rot-$disc_rot_res-$disc_rot_smooth-rotcoef$rotation_loss_coeff-ins$instruction_file
 

@@ -95,6 +95,8 @@ class Arguments(tap.Tap):
     vis_ins_att_complex: int = 0
     num_ghost_points: int = 1000
     num_ghost_points_val: int = 1000
+    disc_rot: int = 0
+    disc_rot_res: float = 5.0
 
     # Model
     backbone: str = "clip"  # one of "resnet", "clip"
@@ -206,6 +208,8 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
             ins_pos_emb=bool(args.ins_pos_emb),
             vis_ins_att=bool(args.vis_ins_att),
             vis_ins_att_complex=bool(args.vis_ins_att_complex),
+            disc_rot=bool(args.disc_rot),
+            disc_rot_res=args.disc_rot_res,
             num_sampling_level=args.num_sampling_level,
             fine_sampling_ball_diameter=args.fine_sampling_ball_diameter,
             regress_position_offset=bool(args.regress_position_offset),

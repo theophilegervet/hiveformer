@@ -62,7 +62,7 @@ class Mover:
         self._max_tries = max_tries
         self._disabled = disabled
 
-    def __call__(self, action: np.ndarray):
+    def __call__(self, action: np.ndarray, collision_checking=False, compliant=False):
         if self._disabled:
             return self._task.step(action)
 
@@ -77,7 +77,7 @@ class Mover:
         reward = 0
 
         for try_id in range(self._max_tries):
-            obs, reward, terminate, other_obs = self._task.step(action)
+            obs, reward, terminate, other_obs = self._task.step(action, collision_checking=collision_checking, compliant=compliant)
             if other_obs == []:
                 other_obs = [obs]
             for o in other_obs:
@@ -158,14 +158,14 @@ class Actioner:
         self._task_id = torch.tensor(TASK_TO_ID[task_str]).unsqueeze(0)
         self._actions = {}
 
-    def get_action_from_demo(self, demo: Demo):
+    def get_action_from_demo(self, demo: Demo, task_str):
         """
         Fetch the desired state and action based on the provided demo.
             :param demo: fetch each demo and save key-point observations
             :param normalise_rgb: normalise rgb to (-1, 1)
             :return: a list of obs and action
         """
-        key_frame = keypoint_discovery(demo)
+        key_frame = keypoint_discovery(demo, task_str)
         action_ls = []
         for f in key_frame:
             obs = demo[f]
@@ -716,12 +716,13 @@ class RLBenchEnv:
                 )
                 move = Mover(task, max_tries=max_tries)
                 reward = None
-                gt_keyframe_actions = actioner.get_action_from_demo(demo)
+                gt_keyframe_actions = actioner.get_action_from_demo(demo, task_str)
                 gt_keyframe_gripper_matrices = np.stack([self.get_gripper_matrix_from_action(a[-1])
                                                          for a in gt_keyframe_actions])
                 pred_keyframe_gripper_matrices = []
 
-                for step_id in range(max_episodes):
+                # for step_id in range(max_episodes):
+                for step_id in range(len(gt_keyframe_actions)):
                     
                     # fetch the current observation, and predict one action
                     rgb, pcd, gripper = self.get_rgb_pcd_gripper_from_obs(obs)
@@ -749,13 +750,12 @@ class RLBenchEnv:
                         action = output["action"]
 
                         # Clamp position to workspace bounds
-                        print(action[0, :3], action[0, 3:])
                         action[:, :3] = torch.clamp(action[:, :3], min_position, max_position)
-                        print(action[0, :3], action[0, 3:])
+                        # print(action[0, :3], gt_keyframe_actions[step_id][:, :3])
 
                         if position_prediction_only:
                             action[:, 3:] = gt_keyframe_actions[step_id][:, 3:]
-                        
+
                         # action[:, 3:] = gt_keyframe_actions[step_id][:, 3:]
                         # action[:, :3] = gt_keyframe_actions[step_id][:, :3]
                         # print(action[0,2]-gt_keyframe_actions[step_id][0,2])
@@ -798,7 +798,9 @@ class RLBenchEnv:
                     try:
                         action_np = action[-1].detach().cpu().numpy()
 
-                        obs, reward, terminate, step_images = move(action_np)
+                        compliant = self.get_compliant(task_str, step_id)
+                        collision_checking = self.get_collision_checking(task_str, step_id)
+                        obs, reward, terminate, step_images = move(action_np, collision_checking=collision_checking, compliant=compliant)
 
                         images += step_images
 
@@ -842,6 +844,34 @@ class RLBenchEnv:
         success_rate = success_rate * num_demos / (num_demos - failed_demos)
 
         return success_rate
+
+    def get_compliant(self, task_str, step_id):
+        compliant = False
+        # if task_str == 'close_door' and step_id == 2:
+        #     compliant = True
+        # if task_str == 'open_box' and step_id == 2:
+        #     compliant = True
+        return compliant
+
+    def get_collision_checking(self, task_str, step_id):
+        collision_checking = False
+        if task_str == 'open_fridge' and step_id == 0:
+            collision_checking = True
+        if task_str == 'open_oven' and step_id == 3:
+            collision_checking = True
+        if task_str == 'hang_frame_on_hanger' and step_id == 0:
+            collision_checking = True
+        if task_str == 'take_frame_off_hanger' and step_id == 0:
+            for i in range(300):
+                self.env._scene.step()
+            collision_checking = True
+        if task_str == 'put_books_on_bookshelf' and step_id == 0:
+            collision_checking = True
+        if task_str == 'slide_cabinet_open_and_place_cups' and step_id == 0:
+            collision_checking = True
+        return collision_checking
+
+        
 
     def create_obs_config(
         self, image_size, apply_rgb, apply_depth, apply_pc, apply_cameras, **kwargs
@@ -915,7 +945,7 @@ def _is_stopped(demo, i, obs, stopped_buffer):
     return stopped
 
 
-def keypoint_discovery(demo: Demo) -> List[int]:
+def keypoint_discovery(demo: Demo, task_str) -> List[int]:
     episode_keypoints = []
     prev_gripper_open = demo[0].gripper_open
     stopped_buffer = 0
@@ -933,7 +963,16 @@ def keypoint_discovery(demo: Demo) -> List[int]:
     ):
         episode_keypoints.pop(-2)
 
-    # HACK for tower3 task
+    # task-specific handling
+    if task_str == 'close_door':
+        grasped_points = []
+        for i, obs in enumerate(demo):
+            if not obs.gripper_open:
+                grasped_points.append(i)
+        interval = 10
+        grasped_keypoints = grasped_points[::interval]
+        episode_keypoints = np.sort(list(set(episode_keypoints + grasped_keypoints))).tolist()
+
     return episode_keypoints
 
 

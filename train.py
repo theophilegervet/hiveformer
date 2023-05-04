@@ -96,6 +96,7 @@ class Arguments(tap.Tap):
     position_offset_loss_coeff: float = 10000.0
     rotation_loss_coeff: float = 10.0
     symmetric_rotation_loss: int = 0
+    new_rotation_loss: int = 0
     disc_rot: int = 0
     disc_rot_smooth: float = 0.0
     disc_rot_res: float = 5.0
@@ -677,6 +678,7 @@ if __name__ == "__main__":
         rotation_parametrization=args.rotation_parametrization,
         regress_position_offset=bool(args.regress_position_offset),
         symmetric_rotation_loss=bool(args.symmetric_rotation_loss),
+        new_rotation_loss=bool(args.new_rotation_loss),
         disc_rot=bool(args.disc_rot),
         disc_rot_smooth=args.disc_rot_smooth,
         disc_rot_res=args.disc_rot_res,

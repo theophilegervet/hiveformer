@@ -6,14 +6,15 @@ valset=/home/zhouxian/git/datasets/raw/74_hiveformer_tasks_val
 
 task=reach_target
 task=push_button
-# task=slide_block_to_target
-# task=pick_up_cup
-# task=take_umbrella_out_of_umbrella_stand
+task=slide_block_to_target
+task=pick_up_cup
+task=take_umbrella_out_of_umbrella_stand
 task=pick_and_lift
 task=put_knife_on_chopping_board
-# task=take_money_out_safe
+task=take_money_out_safe
 task=put_money_in_safe
-# task=stack_wine
+task=stack_wine
+
 task=insert_onto_square_peg
 # task=reach_and_drag
 
@@ -34,8 +35,20 @@ ins_pos_emb=1
 vis_ins_att=1
 vis_ins_att_complex=0
 regress_position_offset=0
+instruction_file=instructions_matrix.pkl
 
-ckpt=/home/zhouxian/git/hiveformer/train_logs/04_16_multitask_cont/10_tasks-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B32-demo100-dim60-L2-lr1e-4-seed0-simpins0-ins_pos_emb1-vis_ins_att1-vis_ins_att_complex0_version164462/model.step=220000-value=0.00000.pth
+# X
+ins_pos_emb=1
+ckpt=/home/zhouxian/git/hiveformer/train_logs/04_28_multitask/10_tasks-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B16-demo100-dim60-L2-lr1e-4-seed0-simpins0-ins_pos_emb1-vis_ins_att1-vis_ins_att_complex0-insinstructions_matrix.pkl_version167110/model.step=550000-value=0.00000.pth
+
+# Y
+ins_pos_emb=0
+ckpt=/home/zhouxian/git/hiveformer/train_logs/04_28_multitask/10_tasks-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B16-demo100-dim60-L2-lr1e-4-seed0-simpins0-ins_pos_emb0-vis_ins_att1-vis_ins_att_complex0-insinstructions_matrix.pkl_version167109/model.step=550000-value=0.00000.pth
+
+# Z
+ins_pos_emb=0
+instruction_file=instructions_local.pkl
+ckpt=/home/zhouxian/git/hiveformer/train_logs/04_28_multitask/10_tasks-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B16-demo100-dim60-L2-lr1e-4-seed0-simpins0-ins_pos_emb0-vis_ins_att1-vis_ins_att_complex0-insinstructions_local.pkl_version167108/model.step=550000-value=0.00000.pth
 
 # simplify_ins=0
 # ins_pos_emb=0
@@ -44,18 +57,23 @@ ckpt=/home/zhouxian/git/hiveformer/train_logs/04_16_multitask_cont/10_tasks-offs
 # regress_position_offset=0
 # ckpt=/home/zhouxian/git/hiveformer/train_logs/04_10_multitask_revert/10_tasks-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B16-demo100-dim60-L2-lr1e-4-seed0-simpins0_version163486/model.step=280000-value=0.00000.pth
 
-simplify_ins=0
-ins_pos_emb=0
+# simplify_ins=0
+# ins_pos_emb=0
+# vis_ins_att=0
+# vis_ins_att_complex=0
+# regress_position_offset=0
+# ckpt=/home/zhouxian/git/hiveformer/train_logs/04_05_multitask/10_tasks-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B16-demo100-dim60-L2-lr1e-4-seed0_version162732/model.step=200000-value=0.00000.pth
+
+# vis_ins_att=1
+# use_instruction=0
+# ckpt=/home/zhouxian/git/hiveformer/train_logs/04_30_singletask/insert_onto_square_peg-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B8-demo100-dim60-L2-lr1e-4-seed0-simpins0-ins_pos_emb0-vis_ins_att1-disc_rot0-3.0-rotcoef1-insinstructions_local.pkl_version167170/model.step=150000-value=0.00000.pth
+# instruction_file=instructions_local.pkl
 vis_ins_att=0
-vis_ins_att_complex=0
-regress_position_offset=0
-ckpt=/home/zhouxian/git/hiveformer/train_logs/04_05_multitask/10_tasks-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B16-demo100-dim60-L2-lr1e-4-seed0_version162732/model.step=200000-value=0.00000.pth
-
-vis_ins_att=1
+disc_rot=1
+disc_rot_res=5.0
 use_instruction=0
-ckpt=/home/zhouxian/git/hiveformer/train_logs/04_28_singletask/insert_onto_square_peg-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B8-demo100-dim60-L2-lr1e-4-seed0-simpins0-ins_pos_emb0-vis_ins_att1-vis_ins_att_complex0-insinstructions_local.pkl_version167170/model.step=250000-value=0.00000.pth
+ckpt=/home/zhouxian/git/hiveformer/train_logs/05_01_singletask/insert_onto_square_peg-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B8-demo100-dim60-L2-lr1e-4-seed0-simpins0-ins_pos_emb0-vis_ins_att0-disc_rot1-5.0-6.0-rotcoef1-insinstructions_local.pkl_version0/model.step=180000-value=0.00000.pth
 
-instruction_file=instructions_local.pkl
 python eval.py\
      --instructions instructions_old/$instruction_file \
      --tasks $task\
@@ -81,4 +99,6 @@ python eval.py\
      --num_query_cross_attn_layers $n_layer\
      --run_log_dir $task-ONLINE\
      --randomize_vp $randomize_vp\
+     --disc_rot $disc_rot\
+     --disc_rot_res $disc_rot_res\
      # --max_episodes 20
