@@ -1,5 +1,5 @@
 """
-Precompute embeddings of instructions
+Precompute embeddings of instructions.
 """
 import re
 import json
