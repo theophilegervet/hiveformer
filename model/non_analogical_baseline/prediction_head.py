@@ -86,10 +86,10 @@ class PredictionHead(nn.Module):
         # Semantic visual features at different scales
         if self.positional_features in ["xyz_concat", "z_concat"]:
             self.feature_pyramid = FeaturePyramidNetwork(
-                [64, 256, 512, 1024, 2048], embedding_dim - embedding_dim // 10)
+                [3, 64, 256, 512, 1024, 2048], embedding_dim - embedding_dim // 10)
         else:
             self.feature_pyramid = FeaturePyramidNetwork(
-                [64, 256, 512, 1024, 2048], embedding_dim)
+                [3, 64, 256, 512, 1024, 2048], embedding_dim)
         if self.image_size == (128, 128):
             # Coarse RGB features are the 2nd layer of the feature pyramid at 1/4 resolution (32x32)
             # Fine RGB features are the 1st layer of the feature pyramid at 1/2 resolution (64x64)
@@ -98,8 +98,10 @@ class PredictionHead(nn.Module):
         elif self.image_size == (256, 256):
             # Coarse RGB features are the 3rd layer of the feature pyramid at 1/8 resolution (32x32)
             # Fine RGB features are the 1st layer of the feature pyramid at 1/2 resolution (128x128)
-            self.feature_map_pyramid = ['res3', 'res1', 'res1', 'res1']
-            self.downscaling_factor_pyramid = [8, 2, 2, 2]
+            # self.feature_map_pyramid = ['res3', 'res1', 'res1', 'res1']
+            # self.downscaling_factor_pyramid = [8, 2, 2, 2]
+            self.feature_map_pyramid = ['res3', 'res1', 'res0', 'res0']
+            self.downscaling_factor_pyramid = [8, 2, 1, 1]
 
         # 3D relative positional embeddings
         self.relative_pe_layer = RotaryPositionEncoding3D(embedding_dim)
