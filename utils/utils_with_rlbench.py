@@ -63,7 +63,7 @@ class Mover:
         self._max_tries = max_tries
         self._disabled = disabled
 
-    def __call__(self, action: np.ndarray):
+    def __call__(self, action: np.ndarray, collision_checking=False):
         if self._disabled:
             return self._task.step(action)
 
@@ -78,7 +78,8 @@ class Mover:
         reward = 0
 
         for try_id in range(self._max_tries):
-            obs, reward, terminate, other_obs = self._task.step(action)
+            obs, reward, terminate, other_obs = self._task.step(
+                action, collision_checking=collision_checking)
             if other_obs == []:
                 other_obs = [obs]
             for o in other_obs:
@@ -595,7 +596,8 @@ class RLBenchEnv:
                     try:
                         action_np = action[-1].detach().cpu().numpy()
 
-                        obs, reward, terminate, step_images = move(action_np)
+                        collision_checking = self._collision_checking(task_str, step_id)
+                        obs, reward, terminate, step_images = move(action_np, collision_checking=collision_checking)
 
                         images += step_images
 
@@ -642,6 +644,25 @@ class RLBenchEnv:
             valid = True
 
         return success_rate, valid
+
+    def _collision_checking(self, task_str, step_id):
+        """Hard-coded collision checking for planner - we should predict this instead."""
+        collision_checking = False
+        if task_str == 'open_fridge' and step_id == 0:
+            collision_checking = True
+        if task_str == 'open_oven' and step_id == 3:
+            collision_checking = True
+        if task_str == 'hang_frame_on_hanger' and step_id == 0:
+            collision_checking = True
+        if task_str == 'take_frame_off_hanger' and step_id == 0:
+            for i in range(300):
+                self.env._scene.step()
+            collision_checking = True
+        if task_str == 'put_books_on_bookshelf' and step_id == 0:
+            collision_checking = True
+        if task_str == 'slide_cabinet_open_and_place_cups' and step_id == 0:
+            collision_checking = True
+        return collision_checking
 
     def verify_demos(
         self,

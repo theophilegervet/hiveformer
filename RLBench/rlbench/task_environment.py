@@ -88,14 +88,14 @@ class TaskEnvironment(object):
     def get_observation(self) -> Observation:
         return self._scene.get_observation()
 
-    def step(self, action) -> Tuple[Observation, int, bool, List[Observation]]:
+    def step(self, action, collision_checking=False) -> Tuple[Observation, int, bool, List[Observation]]:
         # returns observation, reward, done, info
         if not self._reset_called:
             raise RuntimeError(
                 "Call 'reset' before calling 'step' on a task.")
         # import ipdb
         # ipdb.set_trace()
-        observations = self._action_mode.action(self._scene, action)
+        observations = self._action_mode.action(self._scene, action, collision_checking=collision_checking)
         success, terminate = self._task.success()
         task_reward = self._task.reward()
         reward = float(success) if task_reward is None else task_reward
