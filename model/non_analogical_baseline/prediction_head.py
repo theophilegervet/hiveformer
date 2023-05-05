@@ -612,5 +612,4 @@ class PredictionHead(nn.Module):
 
         gripper = torch.sigmoid(pred[:, self.rotation_dim:])
 
-        print("pred.sum()", pred.sum())
         return position, rotation, gripper

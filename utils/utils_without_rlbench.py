@@ -82,18 +82,6 @@ def norm_tensor(tensor: torch.Tensor) -> torch.Tensor:
     return tensor / torch.linalg.norm(tensor, ord=2, dim=-1, keepdim=True)
 
 
-def compute_geodesic_distance_from_two_matrices(m1, m2):
-    # From https://github.com/papagina/RotationContinuity/blob/master/sanity_test/code/tools.py
-    device = m1.device
-    batch = m1.shape[0]
-    m = torch.bmm(m1, m2.transpose(1, 2))  # batch*3*3
-    cos = (m[:, 0, 0] + m[:, 1, 1] + m[:, 2, 2] - 1) / 2
-    cos = torch.min(cos, torch.autograd.Variable(torch.ones(batch).to(device)))
-    cos = torch.max(cos, torch.autograd.Variable(torch.ones(batch).to(device)) * -1)
-    theta = torch.acos(cos)
-    return theta
-
-
 def load_instructions(
     instructions: Optional[Path],
     tasks: Optional[Sequence[str]] = None,
@@ -187,10 +175,7 @@ class LossAndMetrics:
 
         elif "6D" in self.rotation_parametrization:
             gt_rot3x3 = torch3d_tf.quaternion_to_matrix(gt_quat)
-            # losses["rotation"] = F.mse_loss(pred["rotation"], gt_rot3x3)
-            losses["rotation"] = compute_geodesic_distance_from_two_matrices(pred["rotation"], gt_rot3x3).mean()
-            print('losses["rotation"].sum()', losses["rotation"].sum())
-            print()
+            losses["rotation"] = F.mse_loss(pred["rotation"], gt_rot3x3)
 
         losses["rotation"] *= self.rotation_loss_coeff
 
