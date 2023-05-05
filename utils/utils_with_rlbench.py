@@ -563,7 +563,7 @@ class RLBenchEnv:
                         action = output["action"]
 
                         # Clamp position to workspace bounds
-                        action[:, :3] = torch.clamp(action[:, :3], min_position, max_position)
+                        # action[:, :3] = torch.clamp(action[:, :3], min_position, max_position)
 
                         if position_prediction_only:
                             action[:, 3:] = gt_keyframe_actions[step_id][:, 3:]
