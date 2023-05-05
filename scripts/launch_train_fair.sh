@@ -66,5 +66,7 @@ for task in place_shape_in_shape_sorter screw_nail sweep_to_dustpan; do
      --use_instruction $use_instruction \
      --logger wandb \
      --train_iters $train_iters \
+     --batch_size 8 \
+     --batch_size_val 2 \
      --run_log_dir $task-HIVEFORMER-256x256-feature-map
 done
