@@ -43,6 +43,8 @@ for task in insert_onto_square_peg place_shape_in_shape_sorter; do
        --train_iters $train_iters \
        --rotation_parametrization $rotation_parametrization \
        --rotation_loss_coeff $rotation_loss_coeff \
+       --batch_size 8 \
+       --batch_size_val 2 \
        --run_log_dir $task-HIVEFORMER-$rotation_parametrization-$rotation_loss_coeff
     done
   done
