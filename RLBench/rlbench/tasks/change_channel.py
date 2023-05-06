@@ -33,8 +33,12 @@ class ChangeChannel(Task):
         self._w6z = self._w6.get_position()[2]
 
     def init_episode(self, index: int) -> List[str]:
-        self.register_success_conditions(
-            [self._joint_conditions[index]] + self._remote_conditions)
+        # TODO The success conditions don't make sense: we can't see the regions
+        #  where to place the remote from the cameras - how can we fix this while
+        #  preserving the requirement to face the TV?
+        # self.register_success_conditions(
+        #     [self._joint_conditions[index]] + self._remote_conditions)
+        self.register_success_conditions([self._joint_conditions[index]])
         x, y, _ = self._target_buttons[index % 3].get_position()
         self._w6.set_position([x, y, self._w6z])
         self._spawn_boundary.clear()

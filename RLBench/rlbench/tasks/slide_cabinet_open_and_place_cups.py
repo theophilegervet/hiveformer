@@ -37,8 +37,7 @@ class SlideCabinetOpenAndPlaceCups(Task):
 
         option = OPTIONS[index]
 
-        conditions = [DetectedCondition(self.cup, self.success_sensor),
-                      NothingGrasped(self.robot.gripper)]
+        conditions = [DetectedCondition(self.cup, self.success_sensor)]
 
         if option == 'left':
             self.waypoint0.set_position(

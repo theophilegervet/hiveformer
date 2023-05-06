@@ -64,10 +64,12 @@ tasks=(
   close_jar
 )
 
-data_dir=/home/zhouxian/git/datasets/raw/74_hiveformer_tasks_val
+#data_dir=/home/zhouxian/git/datasets/raw/74_hiveformer_tasks_val
+data_dir=/home/zhouxian/git/datasets/raw/18_peract_tasks_val
 num_episodes=100
 gripper_loc_bounds_file=tasks/74_hiveformer_tasks_location_bounds.json
-use_instruction=0
+#use_instruction=0
+use_instruction=1
 num_ghost_points=10000
 headless=1
 offline=0
