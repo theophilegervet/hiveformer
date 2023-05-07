@@ -43,6 +43,7 @@ class PredictionHead(nn.Module):
                  visualize_rgb_attn=False,
                  use_instruction=False,
                  task_specific_biases=False,
+                 high_res=False,
                  task_ids=[]):
         super().__init__()
         assert backbone in ["resnet", "clip"]
@@ -55,7 +56,10 @@ class PredictionHead(nn.Module):
         self.num_ghost_points = num_ghost_points // num_sampling_level
         self.num_ghost_points_val = num_ghost_points_val // num_sampling_level
         self.num_sampling_level = num_sampling_level
-        self.sampling_ball_diameter_pyramid = [None, fine_sampling_ball_diameter, fine_sampling_ball_diameter/4.0, fine_sampling_ball_diameter/10.0]
+        if high_res:
+            self.sampling_ball_diameter_pyramid = [None, fine_sampling_ball_diameter, fine_sampling_ball_diameter/4.0, fine_sampling_ball_diameter/6.0]
+        else:
+            self.sampling_ball_diameter_pyramid = [None, fine_sampling_ball_diameter, fine_sampling_ball_diameter/4.0, fine_sampling_ball_diameter/10.0]
         self.gripper_loc_bounds = np.array(gripper_loc_bounds)
         self.regress_position_offset = regress_position_offset
         self.visualize_rgb_attn = visualize_rgb_attn
@@ -68,6 +72,7 @@ class PredictionHead(nn.Module):
         self.vis_ins_att_complex = vis_ins_att_complex
         self.disc_rot = disc_rot
         self.disc_rot_res = disc_rot_res
+        self.high_res = high_res
 
         # Frozen backbone
         if backbone == "resnet":
@@ -78,7 +83,7 @@ class PredictionHead(nn.Module):
             p.requires_grad = False
 
         # Semantic visual features at different scales
-        self.feature_pyramid = FeaturePyramidNetwork([64, 256, 512, 1024, 2048], embedding_dim)
+        self.feature_pyramid = FeaturePyramidNetwork([3, 64, 256, 512, 1024, 2048], embedding_dim)
         if self.image_size == (128, 128):
             # Coarse RGB features are the 2nd layer of the feature pyramid at 1/4 resolution (32x32)
             # Fine RGB features are the 1st layer of the feature pyramid at 1/2 resolution (64x64)
@@ -87,7 +92,10 @@ class PredictionHead(nn.Module):
         elif self.image_size == (256, 256):
             # Coarse RGB features are the 3rd layer of the feature pyramid at 1/8 resolution (32x32)
             # Fine RGB features are the 1st layer of the feature pyramid at 1/2 resolution (128x128)
-            if self.vis_ins_att_complex:
+            if self.high_res:
+                self.feature_map_pyramid = ['res3', 'res1', 'res0', 'res0']
+                self.downscaling_factor_pyramid = [8, 2, 1, 1]
+            elif self.vis_ins_att_complex:
                 # self.feature_map_pyramid = ['res4', 'res2', 'res1', 'res1']
                 # self.downscaling_factor_pyramid = [16, 4, 2, 2]
                 # self.feature_map_pyramid = ['res4', 'res1', 'res1', 'res1']
@@ -285,7 +293,7 @@ class PredictionHead(nn.Module):
             if i == 0:
                 # Coarse RGB features
                 visible_rgb_features_i = visible_rgb_features_pyramid[i]
-                visible_rgb_pos_i = visible_rgb_pos_pyramid[i]
+                visible_rgb_pos_i = self.pcd_pe_layer(visible_pcd_pyramid[i])
                 ghost_pcd_context_features_i = einops.rearrange(
                     visible_rgb_features_i, "b ncam c h w -> (ncam h w) b c")
             else:
@@ -295,6 +303,8 @@ class PredictionHead(nn.Module):
                 if self.vis_ins_att_complex:
                     indices = l2_pred_pos.topk(k=16 * 16 * num_cameras, dim=-1, largest=False).indices
                     # indices = l2_pred_pos.topk(k=32 * 32 * num_cameras, dim=-1, largest=False).indices[:, ::2]
+                elif self.high_res and i == 2:
+                    indices = l2_pred_pos.topk(k=48 * 48 * num_cameras, dim=-1, largest=False).indices
                 else:
                     indices = l2_pred_pos.topk(k=32 * 32 * num_cameras, dim=-1, largest=False).indices
 
@@ -302,8 +312,8 @@ class PredictionHead(nn.Module):
                     visible_rgb_features_pyramid[i], "b ncam c h w -> b (ncam h w) c")
                 visible_rgb_features_i = torch.stack([
                     f[i] for (f, i) in zip(visible_rgb_features_i, indices)])
-                visible_rgb_pos_i = torch.stack([
-                    f[i] for (f, i) in zip(visible_rgb_pos_pyramid[i], indices)])
+                visible_rgb_pos_i = self.pcd_pe_layer(torch.stack([
+                    f[i] for (f, i) in zip(visible_pcd_pyramid[i], indices)]))
                 ghost_pcd_context_features_i = einops.rearrange(
                     visible_rgb_features_i, "b npts c -> npts b c")
 

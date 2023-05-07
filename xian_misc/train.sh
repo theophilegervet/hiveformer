@@ -33,6 +33,9 @@
 main_dir=04_28_multitask
 main_dir=05_01_multitask_contZ
 main_dir=05_02_multitask
+main_dir=05_05_multitask_highres
+main_dir=05_06_multitask_reverifyZ
+main_dir=05_07_multitask_highres
 # main_dir=debug
 
 # dataset=/home/tgervet/datasets/hiveformer/packaged/2
@@ -79,7 +82,6 @@ simplify_ins=0
 seed=0
 embedding_dim=60
 n_layer=2
-num_sampling_level=3
 gp_emb_tying=1
 simplify=1
 
@@ -88,9 +90,14 @@ symmetric_rotation_loss=0
 vis_ins_att_complex=0
 vis_ins_att=1
 
-regress_position_offset=1
+regress_position_offset=0
 ins_pos_emb=0
 instruction_file=instructions_local.pkl
+
+high_res=1
+num_sampling_level=3
+batch_size=18
+batch_size_val=6
 
 
 python train.py\
@@ -105,6 +112,7 @@ python train.py\
      --num_workers $num_workers \
      --weight_tying $weight_tying\
      --gp_emb_tying $gp_emb_tying\
+     --high_res $high_res\
      --simplify $simplify\
      --simplify_ins $simplify_ins\
      --ins_pos_emb $ins_pos_emb\
@@ -127,5 +135,5 @@ python train.py\
      --num_vis_ins_attn_layers $n_layer\
      --seed $seed\
      --lr $lr\
-     --run_log_dir $task-offset$regress_position_offset-N$num_sampling_level-T$num_ghost_points-V$num_ghost_points_val-symrot$symmetric_rotation_loss-gptie$gp_emb_tying-simp$simplify-B$batch_size-demo$max_episodes_per_taskvar-dim$embedding_dim-L$n_layer-lr$lr-seed$seed-simpins$simplify_ins-ins_pos_emb$ins_pos_emb-vis_ins_att$vis_ins_att-vis_ins_att_complex$vis_ins_att_complex-ins$instruction_file
+     --run_log_dir $task-offset$regress_position_offset-N$num_sampling_level-T$num_ghost_points-V$num_ghost_points_val-symrot$symmetric_rotation_loss-gptie$gp_emb_tying-simp$simplify-B$batch_size-demo$max_episodes_per_taskvar-dim$embedding_dim-L$n_layer-lr$lr-seed$seed-simpins$simplify_ins-ins_pos_emb$ins_pos_emb-vis_ins_att$vis_ins_att-vis_ins_att_complex$vis_ins_att_complex-ins$instruction_file-highres$high_res
 

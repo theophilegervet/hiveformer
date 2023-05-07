@@ -6,16 +6,16 @@ valset=/home/zhouxian/git/datasets/raw/74_hiveformer_tasks_val
 
 task=reach_target
 task=push_button
-task=slide_block_to_target
-task=pick_up_cup
-task=take_umbrella_out_of_umbrella_stand
-task=pick_and_lift
-task=put_knife_on_chopping_board
-task=take_money_out_safe
-task=put_money_in_safe
-task=stack_wine
+# task=slide_block_to_target
+# task=pick_up_cup
+# task=take_umbrella_out_of_umbrella_stand
+# task=pick_and_lift
+# task=put_knife_on_chopping_board
+# task=take_money_out_safe
+# task=put_money_in_safe
+# task=stack_wine
 
-task=insert_onto_square_peg
+# task=insert_onto_square_peg
 # task=reach_and_drag
 
 gripper_bounds_buffer=0.04
@@ -68,11 +68,11 @@ ckpt=/home/zhouxian/git/hiveformer/train_logs/04_28_multitask/10_tasks-offset0-N
 # use_instruction=0
 # ckpt=/home/zhouxian/git/hiveformer/train_logs/04_30_singletask/insert_onto_square_peg-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B8-demo100-dim60-L2-lr1e-4-seed0-simpins0-ins_pos_emb0-vis_ins_att1-disc_rot0-3.0-rotcoef1-insinstructions_local.pkl_version167170/model.step=150000-value=0.00000.pth
 # instruction_file=instructions_local.pkl
-vis_ins_att=0
-disc_rot=1
-disc_rot_res=5.0
-use_instruction=0
-ckpt=/home/zhouxian/git/hiveformer/train_logs/05_01_singletask/insert_onto_square_peg-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B8-demo100-dim60-L2-lr1e-4-seed0-simpins0-ins_pos_emb0-vis_ins_att0-disc_rot1-5.0-6.0-rotcoef1-insinstructions_local.pkl_version0/model.step=180000-value=0.00000.pth
+# vis_ins_att=0
+# disc_rot=1
+# disc_rot_res=5.0
+# use_instruction=0
+# ckpt=/home/zhouxian/git/hiveformer/train_logs/05_01_singletask/insert_onto_square_peg-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B8-demo100-dim60-L2-lr1e-4-seed0-simpins0-ins_pos_emb0-vis_ins_att0-disc_rot1-5.0-6.0-rotcoef1-insinstructions_local.pkl_version0/model.step=180000-value=0.00000.pth
 
 python eval.py\
      --instructions instructions_old/$instruction_file \

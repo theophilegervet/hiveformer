@@ -24,8 +24,8 @@ class ModifiedResNetFeatures(ModifiedResNet):
         super().__init__(layers, output_dim, heads, input_resolution, width)
 
     def forward(self, x: torch.Tensor):
-        x = x.type(self.conv1.weight.dtype)
-        x = self.relu1(self.bn1(self.conv1(x)))
+        x_in = x.type(self.conv1.weight.dtype)
+        x = self.relu1(self.bn1(self.conv1(x_in)))
         x = self.relu2(self.bn2(self.conv2(x)))
         x0 = self.relu3(self.bn3(self.conv3(x)))
         x = self.avgpool(x0)
@@ -35,6 +35,7 @@ class ModifiedResNetFeatures(ModifiedResNet):
         x4 = self.layer4(x3)
 
         return {
+            "res0": x_in,
             "res1": x0,
             "res2": x1,
             "res3": x2,

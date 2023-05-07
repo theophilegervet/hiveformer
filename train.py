@@ -100,6 +100,7 @@ class Arguments(tap.Tap):
     disc_rot: int = 0
     disc_rot_smooth: float = 0.0
     disc_rot_res: float = 5.0
+    high_res: int = 0
     gripper_loss_coeff: float = 1.0
     label_smoothing: float = 0.0
     regress_position_offset: int = 0
@@ -548,6 +549,7 @@ def get_model(args: Arguments, gripper_loc_bounds) -> Tuple[optim.Optimizer, Hiv
             vis_ins_att_complex=bool(args.vis_ins_att_complex),
             disc_rot=bool(args.disc_rot),
             disc_rot_res=args.disc_rot_res,
+            high_res=bool(args.high_res),
             num_sampling_level=args.num_sampling_level,
             fine_sampling_ball_diameter=args.fine_sampling_ball_diameter,
             regress_position_offset=bool(args.regress_position_offset),

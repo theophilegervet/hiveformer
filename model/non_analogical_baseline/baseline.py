@@ -32,6 +32,7 @@ class Baseline(nn.Module):
                  visualize_rgb_attn=False,
                  use_instruction=False,
                  task_specific_biases=False,
+                 high_res=False,
                  task_ids=[]):
         super().__init__()
         self.disc_rot = disc_rot
@@ -64,6 +65,7 @@ class Baseline(nn.Module):
             use_instruction=use_instruction,
             task_specific_biases=task_specific_biases,
             task_ids=task_ids,
+            high_res=high_res,
         )
 
     def compute_action(self, pred) -> torch.Tensor:

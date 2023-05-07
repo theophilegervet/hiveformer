@@ -36,7 +36,7 @@ main_dir=04_30_singletask
 main_dir=05_01_singletask
 main_dir=05_02_singletask
 main_dir=05_03_singletask
-# main_dir=debug
+main_dir=debug
 
 # dataset=/home/tgervet/datasets/hiveformer/packaged/2
 # valset=/home/tgervet/datasets/hiveformer/packaged/3
@@ -48,11 +48,11 @@ num_workers=2
 train_cache_size=100
 val_cache_size=100
 
-# dataset=/home/zhouxian/git/datasets/packaged/74_hiveformer_tasks_train
-# valset=/home/zhouxian/git/datasets/packaged/74_hiveformer_tasks_val
-# num_workers=2
-# train_cache_size=0
-# val_cache_size=0
+dataset=/home/zhouxian/git/datasets/packaged/74_hiveformer_tasks_train
+valset=/home/zhouxian/git/datasets/packaged/74_hiveformer_tasks_val
+num_workers=2
+train_cache_size=0
+val_cache_size=0
 
 # task=reach_target
 # task=push_button
@@ -106,14 +106,16 @@ disc_rot_res=5.0
 disc_rot_smooth=6.0
 rotation_loss_coeff=1
 
-# batch_size=12
-# new_rotation_loss=1
-# disc_rot=0
-# rotation_loss_coeff=1.0
+batch_size=12
+new_rotation_loss=1
+disc_rot=0
+rotation_loss_coeff=1.0
+
+high_res=1
+num_sampling_level=3
 
 python train.py\
-     --devices cuda:0 cuda:1\
-     --checkpoint /home/xianz1/git/hiveformer/train_logs/05_01_singletask/insert_onto_square_peg-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B8-demo100-dim60-L2-lr1e-4-seed0-simpins0-ins_pos_emb0-vis_ins_att0-disc_rot1-5.0-6.0-rotcoef1-insinstructions_local.pkl_version0/model.step=180000-value=0.00000.pth \
+     --devices cuda:0\
      --instructions instructions_old/$instruction_file \
      --tasks $task \
      --dataset $dataset \
@@ -124,6 +126,7 @@ python train.py\
      --num_workers $num_workers \
      --weight_tying $weight_tying\
      --gp_emb_tying $gp_emb_tying\
+     --high_res $high_res\
      --simplify $simplify\
      --rotation_loss_coeff $rotation_loss_coeff\
      --simplify_ins $simplify_ins\

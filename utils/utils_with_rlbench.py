@@ -721,8 +721,8 @@ class RLBenchEnv:
                                                          for a in gt_keyframe_actions])
                 pred_keyframe_gripper_matrices = []
 
-                # for step_id in range(max_episodes):
-                for step_id in range(len(gt_keyframe_actions)):
+                for step_id in range(max_episodes):
+                # for step_id in range(len(gt_keyframe_actions)):
                     
                     # fetch the current observation, and predict one action
                     rgb, pcd, gripper = self.get_rgb_pcd_gripper_from_obs(obs)
@@ -750,7 +750,7 @@ class RLBenchEnv:
                         action = output["action"]
 
                         # Clamp position to workspace bounds
-                        action[:, :3] = torch.clamp(action[:, :3], min_position, max_position)
+                        # action[:, :3] = torch.clamp(action[:, :3], min_position, max_position)
                         # print(action[0, :3], gt_keyframe_actions[step_id][:, :3])
 
                         if position_prediction_only:
