@@ -44,12 +44,10 @@ ckpts=(
   open_drawer-PERACT_version7453201
   push_buttons-PERACT_version7453202
   sweep_to_dustpan_of_size-PERACT_version7453203
-  slide_block_to_color_target-PERACT_version7453204  # TODO Not converged
-  meat_off_grill-PERACT_version7453206  # TODO Not converged
-  place_shape_in_shape_sorter-PERACT_version7453207  # TODO Not converged
-  place_wine_at_rack_location-PERACT_version7453208  # TODO Not converged
-  put_groceries_in_cupboard-PERACT_version7453209  # TODO Not converged
-  close_jar-PERACT_version7453211  # TODO Not converged
+  slide_block_to_color_target-PERACT_version7453204  # TODO Reeval converged
+  meat_off_grill-PERACT_version7453206  # TODO Reeval converged
+  put_groceries_in_cupboard-PERACT_version7453209  # TODO Reeval converged
+  close_jar-PERACT_version7453211  # TODO Reeval converged
 )
 tasks=(
   turn_tap

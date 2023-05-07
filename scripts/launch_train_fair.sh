@@ -31,7 +31,7 @@ train_iters=400_000
 #for task in $(cat $task_file | tr '\n' ' '); do
 for task in insert_onto_square_peg place_shape_in_shape_sorter; do
   for rotation_parametrization in 6D_from_query; do
-    for rotation_loss_coeff in 1.0 0.1; do
+    for rotation_loss_coeff in 10.0; do
       sbatch train_1gpu_32gb_fair.sh \
        --tasks $task \
        --dataset $dataset \
