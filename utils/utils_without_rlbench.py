@@ -6,6 +6,7 @@ import json
 import torch
 import torch.nn.functional as F
 import numpy as np
+import wandb
 import einops
 try:
     from pytorch3d import transforms as torch3d_tf
@@ -130,7 +131,7 @@ class LossAndMetrics:
         self.label_smoothing = label_smoothing
         self.position_loss_coeff = position_loss_coeff
         self.position_offset_loss_coeff = position_offset_loss_coeff
-        self.rotation_loss_coeff = rotation_loss_coeff
+        self.start_rotation_loss_coeff = rotation_loss_coeff
         self.gripper_loss_coeff = gripper_loss_coeff
         self.regress_position_offset = regress_position_offset
         self.symmetric_rotation_loss = symmetric_rotation_loss
@@ -139,8 +140,12 @@ class LossAndMetrics:
             self.tasks = [t.strip() for t in fid.readlines()]
 
     def compute_loss(
-        self, pred: Dict[str, torch.Tensor], sample: Sample,
+        self, pred: Dict[str, torch.Tensor], sample: Sample, training_proportion, step_id,
     ) -> Dict[str, torch.Tensor]:
+        end_rotation_loss_coeff = self.start_rotation_loss_coeff * 100.0
+        self.rotation_loss_coeff = training_proportion * end_rotation_loss_coeff + (1 - training_proportion) * self.start_rotation_loss_coeff
+        wandb.log({"rotation_loss_coeff": self.rotation_loss_coeff}, step=step_id)
+
         device = pred["position"].device
         padding_mask = sample["padding_mask"].to(device)
         gt_action = sample["action"].to(device)[padding_mask]

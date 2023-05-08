@@ -201,7 +201,7 @@ def training(
                     gt_action_for_sampling=sample["action"] if use_ground_truth_position_for_sampling_train else None,
                 )
 
-            train_losses = loss_and_metrics.compute_loss(pred, sample)
+            train_losses = loss_and_metrics.compute_loss(pred, sample, step_id / args.train_iters, step_id)
             train_losses["total"] = sum(list(train_losses.values()))  # type: ignore
             train_losses["total"].backward()  # type: ignore
 
