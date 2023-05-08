@@ -1,14 +1,20 @@
 #!/bin/sh
 
-main_dir=05_04_eval_on_peract_18_tasks
-use_instruction=1
-task_file=tasks/peract_18_tasks.csv
-gripper_loc_bounds_file=tasks/18_peract_tasks_location_bounds.json
-dataset=/private/home/theop123/datasets/rlbench/packaged/18_peract_tasks_train
-valset=/private/home/theop123/datasets/rlbench/packaged/18_peract_tasks_val
+#main_dir=05_04_eval_on_peract_18_tasks
+#use_instruction=1
+#task_file=tasks/peract_18_tasks.csv
+#gripper_loc_bounds_file=tasks/18_peract_tasks_location_bounds.json
+#dataset=/private/home/theop123/datasets/rlbench/packaged/18_peract_tasks_train
+#valset=/private/home/theop123/datasets/rlbench/packaged/18_peract_tasks_val
+main_dir=05_08_eval_on_hiveformer_74_tasks
+use_instruction=0
+task_file=tasks/hiveformer_74_tasks.csv
+gripper_loc_bounds_file=tasks/74_hiveformer_tasks_location_bounds.json
+dataset=/private/home/theop123/datasets/rlbench/packaged/74_hiveformer_tasks_train
+valset=/private/home/theop123/datasets/rlbench/packaged/74_hiveformer_tasks_val
 train_iters=400_000
 #for task in $(cat $task_file | tr '\n' ' '); do
-for task in stack_cups place_cups put_item_in_drawer stack_blocks; do
+for task in stack_cups take_shoes_out_of_box stack_blocks; do
   sbatch train_1gpu_32gb_256gb_fair.sh \
    --tasks $task \
    --dataset $dataset \
@@ -17,11 +23,11 @@ for task in stack_cups place_cups put_item_in_drawer stack_blocks; do
    --gripper_loc_bounds_file $gripper_loc_bounds_file \
    --use_instruction $use_instruction \
    --logger wandb \
-   --variations {0..199} \
    --batch_size 8 \
    --batch_size_val 2 \
    --train_iters $train_iters \
-   --run_log_dir $task-PERACT
+   --run_log_dir $task-HIVEFORMER
+   #   --variations {0..199} \
 done
 
 #main_dir=05_05_eval_6d_rotation
