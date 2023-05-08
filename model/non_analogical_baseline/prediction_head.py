@@ -93,8 +93,8 @@ class PredictionHead(nn.Module):
             # Coarse RGB features are the 3rd layer of the feature pyramid at 1/8 resolution (32x32)
             # Fine RGB features are the 1st layer of the feature pyramid at 1/2 resolution (128x128)
             if self.high_res:
-                self.feature_map_pyramid = ['res3', 'res1', 'res0', 'res0']
-                self.downscaling_factor_pyramid = [8, 2, 1, 1]
+                self.feature_map_pyramid = ['res3', 'res0', 'res0', 'res0']
+                self.downscaling_factor_pyramid = [8, 1, 1, 1]
             elif self.vis_ins_att_complex:
                 # self.feature_map_pyramid = ['res4', 'res2', 'res1', 'res1']
                 # self.downscaling_factor_pyramid = [16, 4, 2, 2]
@@ -303,8 +303,11 @@ class PredictionHead(nn.Module):
                 if self.vis_ins_att_complex:
                     indices = l2_pred_pos.topk(k=16 * 16 * num_cameras, dim=-1, largest=False).indices
                     # indices = l2_pred_pos.topk(k=32 * 32 * num_cameras, dim=-1, largest=False).indices[:, ::2]
-                elif self.high_res and i == 2:
-                    indices = l2_pred_pos.topk(k=48 * 48 * num_cameras, dim=-1, largest=False).indices
+                elif self.high_res:
+                    if i >= 1:
+                        indices = l2_pred_pos.topk(k=64 * 64 * num_cameras, dim=-1, largest=False).indices[:, ::4]
+                    else:
+                        indices = l2_pred_pos.topk(k=32 * 32 * num_cameras, dim=-1, largest=False).indices
                 else:
                     indices = l2_pred_pos.topk(k=32 * 32 * num_cameras, dim=-1, largest=False).indices
 

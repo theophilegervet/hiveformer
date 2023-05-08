@@ -36,6 +36,7 @@ main_dir=05_02_multitask
 main_dir=05_05_multitask_highres
 main_dir=05_06_multitask_reverifyZ
 main_dir=05_07_multitask_highres
+main_dir=05_08_multitask_highres
 # main_dir=debug
 
 # dataset=/home/tgervet/datasets/hiveformer/packaged/2
