@@ -161,14 +161,14 @@ class Actioner:
         self._task_id = torch.tensor(TASK_TO_ID[task_str]).unsqueeze(0)
         self._actions = {}
 
-    def get_action_from_demo(self, demo: Demo):
+    def get_action_from_demo(self, demo: Demo, task_str: str):
         """
         Fetch the desired state and action based on the provided demo.
             :param demo: fetch each demo and save key-point observations
             :param normalise_rgb: normalise rgb to (-1, 1)
             :return: a list of obs and action
         """
-        key_frame = keypoint_discovery(demo)
+        key_frame = keypoint_discovery(demo, task_str=task_str)
         action_ls = []
         for f in key_frame:
             obs = demo[f]
@@ -337,14 +337,14 @@ class RLBenchEnv:
 
         return rgb, pcd, gripper
 
-    def get_obs_action_from_demo(self, demo: Demo):
+    def get_obs_action_from_demo(self, demo: Demo, task_str: str):
         """
         Fetch the desired state and action based on the provided demo.
             :param demo: fetch each demo and save key-point observations
             :param normalise_rgb: normalise rgb to (-1, 1)
             :return: a list of obs and action
         """
-        key_frame = keypoint_discovery(demo)
+        key_frame = keypoint_discovery(demo, task_str=task_str)
         key_frame.insert(0, 0)
         state_ls = []
         action_ls = []
@@ -490,16 +490,16 @@ class RLBenchEnv:
 
         device = actioner.device
 
-        min_position = torch.tensor([
-            self.env._scene._workspace_minx + 0.01,
-            self.env._scene._workspace_miny + 0.01,
-            self.env._scene._workspace_minz + 0.01
-        ]).to(device)
-        max_position = torch.tensor([
-            self.env._scene._workspace_maxx - 0.01,
-            self.env._scene._workspace_maxy - 0.01,
-            self.env._scene._workspace_maxz - 0.01
-        ]).to(device)
+        # min_position = torch.tensor([
+        #     self.env._scene._workspace_minx + 0.01,
+        #     self.env._scene._workspace_miny + 0.01,
+        #     self.env._scene._workspace_minz + 0.01
+        # ]).to(device)
+        # max_position = torch.tensor([
+        #     self.env._scene._workspace_maxx - 0.01,
+        #     self.env._scene._workspace_maxy - 0.01,
+        #     self.env._scene._workspace_maxz - 0.01
+        # ]).to(device)
 
         success_rate = 0.0
         missing_demos = 0
@@ -534,7 +534,7 @@ class RLBenchEnv:
                 )
                 move = Mover(task, max_tries=max_tries)
                 reward = None
-                gt_keyframe_actions = actioner.get_action_from_demo(demo)
+                gt_keyframe_actions = actioner.get_action_from_demo(demo, task_str)
                 if offline:
                     max_steps = len(gt_keyframe_actions)
                 gt_keyframe_gripper_matrices = np.stack([self.get_gripper_matrix_from_action(a[-1])
@@ -699,7 +699,7 @@ class RLBenchEnv:
             task.reset_to_demo(demo)
 
             gt_keyframe_actions = []
-            for f in keypoint_discovery(demo):
+            for f in keypoint_discovery(demo, task_str=task_str):
                 obs = demo[f]
                 action = np.concatenate([obs.gripper_pose, [obs.gripper_open]])
                 gt_keyframe_actions.append(action)
@@ -809,7 +809,7 @@ def _is_stopped(demo, i, obs, stopped_buffer, delta):
     return stopped
 
 
-def keypoint_discovery(demo: Demo, stopping_delta=0.1) -> List[int]:
+def keypoint_discovery(demo: Demo, stopping_delta=0.1, task_str: Optional[str] = None) -> List[int]:
     episode_keypoints = []
     prev_gripper_open = demo[0].gripper_open
     stopped_buffer = 0
@@ -830,16 +830,14 @@ def keypoint_discovery(demo: Demo, stopping_delta=0.1) -> List[int]:
         episode_keypoints.pop(-2)
 
     # Task-specific handling
-    print(demo)
-    raise NotImplementedError
-    # if task_str == 'close_door':
-    #     grasped_points = []
-    #     for i, obs in enumerate(demo):
-    #         if not obs.gripper_open:
-    #             grasped_points.append(i)
-    #     interval = 10
-    #     grasped_keypoints = grasped_points[::interval]
-    #     episode_keypoints = np.sort(list(set(episode_keypoints + grasped_keypoints))).tolist()
+    if task_str == 'close_door':
+        grasped_points = []
+        for i, obs in enumerate(demo):
+            if not obs.gripper_open:
+                grasped_points.append(i)
+        interval = 10
+        grasped_keypoints = grasped_points[::interval]
+        episode_keypoints = np.sort(list(set(episode_keypoints + grasped_keypoints))).tolist()
 
     return episode_keypoints
 
