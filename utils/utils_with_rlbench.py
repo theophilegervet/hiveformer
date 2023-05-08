@@ -829,6 +829,18 @@ def keypoint_discovery(demo: Demo, stopping_delta=0.1) -> List[int]:
     ):
         episode_keypoints.pop(-2)
 
+    # Task-specific handling
+    print(demo)
+    raise NotImplementedError
+    # if task_str == 'close_door':
+    #     grasped_points = []
+    #     for i, obs in enumerate(demo):
+    #         if not obs.gripper_open:
+    #             grasped_points.append(i)
+    #     interval = 10
+    #     grasped_keypoints = grasped_points[::interval]
+    #     episode_keypoints = np.sort(list(set(episode_keypoints + grasped_keypoints))).tolist()
+
     return episode_keypoints
 
 
