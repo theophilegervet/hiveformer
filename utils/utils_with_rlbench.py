@@ -829,8 +829,8 @@ def keypoint_discovery(demo: Demo, stopping_delta=0.1, task_str: Optional[str] =
     ):
         episode_keypoints.pop(-2)
 
-    # Task-specific handling
-    if task_str == 'close_door':
+    # Task-specific handling for articulated objects
+    if task_str == ['close_door', 'open_fridge']:
         grasped_points = []
         for i, obs in enumerate(demo):
             if not obs.gripper_open:
