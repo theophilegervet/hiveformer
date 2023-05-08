@@ -8,8 +8,8 @@ dataset=/private/home/theop123/datasets/rlbench/packaged/18_peract_tasks_train
 valset=/private/home/theop123/datasets/rlbench/packaged/18_peract_tasks_val
 train_iters=400_000
 #for task in $(cat $task_file | tr '\n' ' '); do
-for task in place_shape_in_shape_sorter place_wine_at_rack_location insert_onto_square_peg put_money_in_safe reach_and_drag light_bulb_in stack_cups place_cups put_item_in_drawer stack_blocks; do
-  sbatch train_1gpu_32gb_128gb_fair.sh \
+for task in stack_cups place_cups put_item_in_drawer stack_blocks; do
+  sbatch train_1gpu_32gb_256gb_fair.sh \
    --tasks $task \
    --dataset $dataset \
    --valset $valset \
