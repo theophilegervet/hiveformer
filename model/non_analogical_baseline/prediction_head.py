@@ -100,7 +100,7 @@ class PredictionHead(nn.Module):
             # Fine RGB features are the 1st layer of the feature pyramid at 1/2 resolution (128x128)
             # self.feature_map_pyramid = ['res3', 'res1', 'res1', 'res1']
             # self.downscaling_factor_pyramid = [8, 2, 2, 2]
-            self.feature_map_pyramid = ['res3', 'res1', 'res0', 'res0']
+            self.feature_map_pyramid = ['res3', 'res0', 'res0', 'res0']
             self.downscaling_factor_pyramid = [8, 1, 1, 1]
 
         # 3D relative positional embeddings
