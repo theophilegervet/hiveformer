@@ -32,7 +32,7 @@ class Arguments(tap.Tap):
 def get_attn_indices_from_demo(
     task_str: str, demo: Demo, cameras: Tuple[str, ...]
 ) -> List[Dict[str, Tuple[int, int]]]:
-    frames = keypoint_discovery(demo)
+    frames = keypoint_discovery(demo, task_str)
 
     # HACK tower3
     if task_str == "tower3":
@@ -50,7 +50,7 @@ def get_observation(task_str: str, variation: int, episode: int, env: RLBenchEnv
     demos = env.get_demo(task_str, variation, episode)
     demo = demos[0]
 
-    key_frame = keypoint_discovery(demo)
+    key_frame = keypoint_discovery(demo, task_str)
     # HACK for tower3
     if task_str == "tower3":
         key_frame = [k for i, k in enumerate(key_frame) if i % 6 in set([1, 4])]
