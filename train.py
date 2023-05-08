@@ -361,7 +361,7 @@ def validation_step(
                     gt_action_for_sampling=sample["action"] if use_ground_truth_position_for_sampling_val else None
                 )
 
-            losses: Dict[str, torch.Tensor] = loss_and_metrics.compute_loss(pred, sample)
+            losses: Dict[str, torch.Tensor] = loss_and_metrics.compute_loss(pred, sample, step_id / args.train_iters, step_id)
             losses["total"] = torch.stack(list(losses.values())).sum()
 
             metrics = loss_and_metrics.compute_metrics(pred, sample)
