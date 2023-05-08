@@ -19,7 +19,8 @@
 # To Xian through local
 
 source_prefix=private/home/theop123/hiveformer/train_logs
-target_prefix=home/zhouxian/git/hiveformer_theo
+#target_prefix=home/zhouxian/git/hiveformer_theo
+target_prefix=home/sirdome/katefgroup/hiveformer
 exp_src=05_04_eval_on_peract_18_tasks
 exp_tgt=05_04_eval_on_peract_18_tasks
 ckpt=best.pth
@@ -31,7 +32,7 @@ ckpt=best.pth
 rsync -RL "devfair:/$source_prefix/$exp_src/*/$ckpt" .
 
 # Send all to target
-sshpass -p $LAB_PW scp -r $source_prefix/$exp_tgt lab:/$target_prefix/
+sshpass -p $LAB2_PW scp -r $source_prefix/$exp_tgt lab2:/$target_prefix/
 
 
 # To Xian directly from Matrix
