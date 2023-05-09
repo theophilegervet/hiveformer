@@ -14,7 +14,7 @@ dataset=/private/home/theop123/datasets/rlbench/packaged/74_hiveformer_tasks_tra
 valset=/private/home/theop123/datasets/rlbench/packaged/74_hiveformer_tasks_val
 train_iters=400_000
 #for task in $(cat $task_file | tr '\n' ' '); do
-for task in stack_cups take_shoes_out_of_box stack_blocks; do
+for task in take_shoes_out_of_box; do
   sbatch train_1gpu_32gb_256gb_fair.sh \
    --tasks $task \
    --dataset $dataset \
@@ -26,7 +26,8 @@ for task in stack_cups take_shoes_out_of_box stack_blocks; do
    --batch_size 8 \
    --batch_size_val 2 \
    --train_iters $train_iters \
-   --run_log_dir $task-HIVEFORMER
+   --run_log_dir $task-HIVEFORMER \
+   --cache_size_val 0
    #   --variations {0..199} \
 done
 
