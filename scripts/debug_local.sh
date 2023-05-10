@@ -1,7 +1,7 @@
 # HIVEFORMER
 exp=03_24_hiveformer_setting
 ckpts=(
-#  insert_onto_square_peg-HIVEFORMER_version161659
+ insert_onto_square_peg-HIVEFORMER_version161659
   # move_hanger-HIVEFORMER_version161663
 )
 tasks=(
@@ -9,35 +9,35 @@ tasks=(
   # move_hanger
 )
 
-exp=05_04_eval_on_peract_18_tasks
-ckpts=(
+# exp=05_04_eval_on_peract_18_tasks
+# ckpts=(
   # insert_onto_square_peg-PERACT_version7598186
-  close_jar-PERACT_version7453211
+  # close_jar-PERACT_version7453211
   # light_bulb_in-PERACT_version7598189
   # place_shape_in_shape_sorter-PERACT_version7598184
   # put_money_in_safe-PERACT_version7598187
   # put_groceries_in_cupboard-PERACT_version7453209
-)
+# )
 tasks=(
   # insert_onto_square_peg
-  close_jar
-  # light_bulb_in
+  # close_jar
+  light_bulb_in
   # place_shape_in_shape_sorter
   # put_money_in_safe
   # put_groceries_in_cupboard
 )
 
-# data_dir=/home/sirdome/katefgroup/raw/74_hiveformer_tasks_val
-data_dir=/home/zhouxian/git/datasets/raw/18_peract_tasks_val
+data_dir=/home/sirdome/katefgroup/datasets/raw/peract_broken_train
+# data_dir=/home/zhouxian/git/datasets/raw/18_peract_tasks_val
 num_episodes=100
 # gripper_loc_bounds_file=tasks/74_hiveformer_tasks_location_bounds.json
-gripper_loc_bounds_file=tasks/74_hiveformer_tasks_location_bounds.json
-# use_instruction=0
-use_instruction=1
+gripper_loc_bounds_file=tasks/18_peract_tasks_location_bounds.json
+use_instruction=0
+# use_instruction=1
 num_ghost_points=10000
 headless=0
 offline=1
-record_videos=1
+record_videos=0
 max_tries=10
 max_steps=10
 
