@@ -5,146 +5,83 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchvision.ops import FeaturePyramidNetwork
 
-from model.utils.position_encodings import RotaryPositionEncoding3D
+from model.utils.position_encodings import (
+    RotaryPositionEncoding3D,
+    LearnedAbsolutePositionEncoding3D
+)
 from model.utils.layers import (
     RelativeCrossAttentionLayer,
     FeedforwardLayer,
     RelativeCrossAttentionModule,
     TaskSpecificRelativeCrossAttentionModule
 )
-from model.utils.utils import normalise_quat, sample_ghost_points_uniform_cube, sample_ghost_points_uniform_sphere
+from model.utils.utils import (
+    normalise_quat,
+    sample_ghost_points_uniform_cube,
+    sample_ghost_points_uniform_sphere,
+    compute_rotation_matrix_from_ortho6d
+)
 from model.utils.resnet import load_resnet50
 from model.utils.clip import load_clip
 
+from model.non_analogical_baseline.baseline import PredictionHead
 
-class AnalogicalPredictionHead(nn.Module):
+
+class AnalogicalPredictionHead(PredictionHead):
+
     def __init__(self,
                  backbone="clip",
                  image_size=(256, 256),
                  embedding_dim=60,
-                 num_ghost_point_cross_attn_layers=2,
                  num_attn_heads=4,
+                 num_ghost_point_cross_attn_layers=2,
+                 num_query_cross_attn_layers=2,
+                 num_vis_ins_attn_layers=2,
+                 rotation_parametrization="quat_from_query",
                  gripper_loc_bounds=None,
                  num_ghost_points=1000,
                  num_ghost_points_val=10000,
                  weight_tying=True,
                  gp_emb_tying=True,
+                 ins_pos_emb=False,
                  num_sampling_level=3,
                  fine_sampling_ball_diameter=0.16,
                  regress_position_offset=False,
+                 visualize_rgb_attn=False,
                  use_instruction=False,
                  task_specific_biases=False,
-                 task_ids=[],
                  positional_features="none",
+                 task_ids=[],
                  support_set="others",
                  global_correspondence=False,
                  num_matching_cross_attn_layers=2):
-        super().__init__()
-        assert backbone in ["resnet", "clip"]
-        assert image_size in [(128, 128), (256, 256)]
-        assert num_sampling_level in [1, 2, 3, 4]
-        assert positional_features in ["xyz_concat", "z_concat", "xyz_add", "z_add", "none"]
+        super().__init__(
+            backbone=backbone,
+            image_size=image_size,
+            embedding_dim=embedding_dim,
+            num_attn_heads=num_attn_heads,
+            num_ghost_point_cross_attn_layers=num_ghost_point_cross_attn_layers,
+            num_query_cross_attn_layers=num_query_cross_attn_layers,
+            num_vis_ins_attn_layers=num_vis_ins_attn_layers,
+            rotation_parametrization=rotation_parametrization,
+            gripper_loc_bounds=gripper_loc_bounds,
+            num_ghost_points=num_ghost_points,
+            num_ghost_points_val=num_ghost_points_val,
+            weight_tying=weight_tying,
+            gp_emb_tying=gp_emb_tying,
+            ins_pos_emb=ins_pos_emb,
+            num_sampling_level=num_sampling_level,
+            fine_sampling_ball_diameter=fine_sampling_ball_diameter,
+            regress_position_offset=regress_position_offset,
+            visualize_rgb_attn=visualize_rgb_attn,
+            use_instruction=use_instruction,
+            task_specific_biases=task_specific_biases,
+            positional_features=positional_features,
+            task_ids=task_ids
+        )
         assert support_set in ["self", "others"]
-
-        self.image_size = image_size
-        self.num_ghost_points = num_ghost_points // num_sampling_level
-        self.num_ghost_points_val = num_ghost_points_val // num_sampling_level
-        self.num_sampling_level = num_sampling_level
-        self.sampling_ball_diameter_pyramid = [
-            None,
-            fine_sampling_ball_diameter,
-            fine_sampling_ball_diameter / 4.0,
-            fine_sampling_ball_diameter / 16.0
-        ]
-        self.gripper_loc_bounds = np.array(gripper_loc_bounds)
-        self.regress_position_offset = regress_position_offset
-        self.weight_tying = weight_tying
-        self.gp_emb_tying = gp_emb_tying
-        self.positional_features = positional_features
         self.support_set = support_set
         self.global_correspondence = global_correspondence
-
-        # Frozen backbone
-        if backbone == "resnet":
-            self.backbone, self.normalize = load_resnet50()
-        elif backbone == "clip":
-            self.backbone, self.normalize = load_clip()
-        for p in self.backbone.parameters():
-            p.requires_grad = False
-
-        # Semantic visual features at different scales
-        if self.positional_features in ["xyz_concat", "z_concat"]:
-            self.feature_pyramid = FeaturePyramidNetwork(
-                [64, 256, 512, 1024, 2048], embedding_dim - embedding_dim // 10)
-        else:
-            self.feature_pyramid = FeaturePyramidNetwork(
-                [64, 256, 512, 1024, 2048], embedding_dim)
-        if self.image_size == (128, 128):
-            # Coarse RGB features are the 2nd layer of the feature pyramid at 1/4 resolution (32x32)
-            # Fine RGB features are the 1st layer of the feature pyramid at 1/2 resolution (64x64)
-            self.coarse_feature_map = ['res2', 'res1', 'res1', 'res1']
-            self.downscaling_factor_pyramid = [4, 2, 2, 2]
-        elif self.image_size == (256, 256):
-            # Coarse RGB features are the 3rd layer of the feature pyramid at 1/8 resolution (32x32)
-            # Fine RGB features are the 1st layer of the feature pyramid at 1/2 resolution (128x128)
-            self.feature_map_pyramid = ['res3', 'res1', 'res1', 'res1']
-            self.downscaling_factor_pyramid = [8, 2, 2, 2]
-
-        # 3D relative positional embeddings
-        self.relative_pe_layer = RotaryPositionEncoding3D(embedding_dim)
-
-        # 3D absolute positional embeddings (only used for positional features, if any)
-        if self.positional_features == "xyz_concat":
-            self.absolute_pe_layer = LearnedAbsolutePositionEncoding3D(3, embedding_dim // 10)
-        elif self.positional_features == "z_concat":
-            self.absolute_pe_layer = LearnedAbsolutePositionEncoding3D(1, embedding_dim // 10)
-        if self.positional_features == "xyz_add":
-            self.absolute_pe_layer = LearnedAbsolutePositionEncoding3D(3, embedding_dim)
-        elif self.positional_features == "z_add":
-            self.absolute_pe_layer = LearnedAbsolutePositionEncoding3D(1, embedding_dim)
-
-        # Ghost points learnable initial features
-        self.ghost_points_embed_pyramid = nn.ModuleList()
-        if self.gp_emb_tying:
-            gp_emb = nn.Embedding(1, embedding_dim)
-            for _ in range(self.num_sampling_level):
-                self.ghost_points_embed_pyramid.append(gp_emb)
-        else:
-            for _ in range(self.num_sampling_level):
-                self.ghost_points_embed_pyramid.append(nn.Embedding(1, embedding_dim))
-
-        # Current gripper learnable features
-        self.curr_gripper_embed = nn.Embedding(1, embedding_dim)
-
-        # Query learnable features
-        self.query_embed = nn.Embedding(1, embedding_dim)
-
-        # Ghost point cross-attention to visual features and current gripper position
-        self.task_specific_biases = task_specific_biases
-        if self.task_specific_biases:
-            self.ghost_point_cross_attn_pyramid = nn.ModuleList()
-            if self.weight_tying:
-                ghost_point_cross_attn = TaskSpecificRelativeCrossAttentionModule(
-                    embedding_dim, num_attn_heads, num_ghost_point_cross_attn_layers, task_ids)
-                for _ in range(self.num_sampling_level):
-                    self.ghost_point_cross_attn_pyramid.append(ghost_point_cross_attn)
-            else:
-                for _ in range(self.num_sampling_level):
-                    ghost_point_cross_attn = TaskSpecificRelativeCrossAttentionModule(
-                        embedding_dim, num_attn_heads, num_ghost_point_cross_attn_layers, task_ids)
-                    self.ghost_point_cross_attn_pyramid.append(ghost_point_cross_attn)
-        else:
-            self.ghost_point_cross_attn_pyramid = nn.ModuleList()
-            if self.weight_tying:
-                ghost_point_cross_attn = RelativeCrossAttentionModule(
-                    embedding_dim, num_attn_heads, num_ghost_point_cross_attn_layers)
-                for _ in range(self.num_sampling_level):
-                    self.ghost_point_cross_attn_pyramid.append(ghost_point_cross_attn)
-            else:
-                for _ in range(self.num_sampling_level):
-                    ghost_point_cross_attn = RelativeCrossAttentionModule(
-                        embedding_dim, num_attn_heads, num_ghost_point_cross_attn_layers)
-                    self.ghost_point_cross_attn_pyramid.append(ghost_point_cross_attn)
 
         # Ghost point matching self-attention and cross-attention with support set
         # TODO If task-specific biases help, use them here too
@@ -155,26 +92,6 @@ class AnalogicalPredictionHead(nn.Module):
             self.matching_cross_attn_layers.append(RelativeCrossAttentionLayer(embedding_dim, num_attn_heads))
             self.matching_self_attn_layers.append(RelativeCrossAttentionLayer(embedding_dim, num_attn_heads))
             self.matching_ffw_layers.append(FeedforwardLayer(embedding_dim, embedding_dim))
-
-        # Ghost point offset prediction
-        if self.regress_position_offset:
-            self.ghost_point_offset_predictor = nn.Sequential(
-                nn.Linear(embedding_dim, embedding_dim),
-                nn.ReLU(),
-                nn.Linear(embedding_dim, 3)
-            )
-
-        # Gripper rotation (quaternion) and binary opening prediction
-        self.gripper_state_predictor = nn.Sequential(
-            nn.Linear(embedding_dim, embedding_dim),
-            nn.ReLU(),
-            nn.Linear(embedding_dim, 4 + 1)
-        )
-
-        # Instruction encoder
-        self.use_instruction = use_instruction
-        if self.use_instruction:
-            self.instruction_encoder = nn.Linear(512, embedding_dim)
 
     def forward(self,
                 visible_rgb, visible_pcd, curr_gripper, instruction, task_id,
@@ -218,13 +135,9 @@ class AnalogicalPredictionHead(nn.Module):
             visible_rgb, visible_pcd, num_cameras)
 
         # Encode instruction
-        if self.use_instruction:
-            instruction_features = einops.rearrange(self.instruction_encoder(instruction), "bst l c -> l bst c")
-            instruction_dummy_pos = torch.zeros(total_timesteps, instruction_features.shape[0], 3, device=device)
-            instruction_dummy_pos = self.relative_pe_layer(instruction_dummy_pos)
-        else:
-            instruction_features = None
-            instruction_dummy_pos = None
+        instruction_features, instruction_dummy_pos = self._encode_language(
+            instruction, total_timesteps
+        )
 
         # Compute current gripper position features and positional embeddings
         curr_gripper_pos = self.relative_pe_layer(curr_gripper.unsqueeze(1))
@@ -233,6 +146,7 @@ class AnalogicalPredictionHead(nn.Module):
         ghost_pcd_features_pyramid = []
         ghost_pcd_pyramid = []
         position_pyramid = []
+        visible_rgb_mask_pyramid = []
         ghost_pcd_masks_pyramid = []
 
         for i in range(self.num_sampling_level):
@@ -326,132 +240,28 @@ class AnalogicalPredictionHead(nn.Module):
             "fine_ghost_pcd_offsets": fine_ghost_pcd_offsets if self.regress_position_offset else None,
         }
 
-    def _compute_visual_features(self, visible_rgb, visible_pcd, num_cameras):
-        """Compute visual features at different scales and their positional embeddings."""
-        ncam = visible_rgb.shape[1]
+    def _encode_language(self, instruction, total_timesteps):
+        if self.use_instruction:
+            instruction_features = self.instruction_encoder(instruction)
+            device = instruction_features.device
 
-        # Pass each view independently through backbone
-        visible_rgb = einops.rearrange(visible_rgb, "bst ncam c h w -> (bst ncam) c h w")
-        visible_rgb = self.normalize(visible_rgb)
-        visible_rgb_features = self.backbone(visible_rgb)
+            if self.ins_pos_emb:
+                position = torch.arange(self._num_words)
+                position = position.unsqueeze(0).to(device)
 
-        # Pass visual features through feature pyramid network
-        visible_rgb_features = self.feature_pyramid(visible_rgb_features)
+                pos_emb = self.instr_position_embedding(position)
+                pos_emb = self.instr_position_norm(pos_emb)
+                pos_emb = einops.repeat(pos_emb, "1 k d -> b k d", b=instruction_features.shape[0])
 
-        visible_pcd = einops.rearrange(visible_pcd, "bst ncam c h w -> (bst ncam) c h w")
+                instruction_features += pos_emb
 
-        visible_rgb_features_pyramid = []
-        visible_rgb_pos_pyramid = []
-        visible_pcd_pyramid = []
-
-        for i in range(self.num_sampling_level):
-            visible_rgb_features_i = visible_rgb_features[self.feature_map_pyramid[i]]
-            visible_pcd_i = F.interpolate(
-                visible_pcd, scale_factor=1. / self.downscaling_factor_pyramid[i], mode='bilinear')
-            h, w = visible_pcd_i.shape[-2:]
-            visible_pcd_i = einops.rearrange(
-                visible_pcd_i, "(bst ncam) c h w -> bst (ncam h w) c", ncam=num_cameras)
-            visible_rgb_pos_i = self.relative_pe_layer(visible_pcd_i)
-            visible_rgb_features_i = einops.rearrange(
-                visible_rgb_features_i, "(bst ncam) c h w -> bst ncam c h w", ncam=num_cameras)
-
-            if self.positional_features in ["xyz_concat", "xyz_add"]:
-                visible_rgb_pos_features_i = self.absolute_pe_layer(visible_pcd_i)
-                visible_rgb_pos_features_i = einops.rearrange(
-                    visible_rgb_pos_features_i, "bst (ncam h w) c -> bst ncam c h w", ncam=ncam, h=h, w=w)
-            elif self.positional_features in ["z_concat", "z_add"]:
-                visible_rgb_pos_features_i = self.absolute_pe_layer(visible_pcd_i[:, :, 2:3])
-                visible_rgb_pos_features_i = einops.rearrange(
-                    visible_rgb_pos_features_i, "bst (ncam h w) c -> bst ncam c h w", ncam=ncam, h=h, w=w)
-
-            if self.positional_features in ["xyz_concat", "z_concat"]:
-                visible_rgb_features_i = torch.cat([visible_rgb_features_i, visible_rgb_pos_features_i], dim=2)
-            elif self.positional_features in ["xyz_add", "z_add"]:
-                visible_rgb_features_i = visible_rgb_features_i + visible_rgb_pos_features_i
-
-            visible_rgb_features_pyramid.append(visible_rgb_features_i)
-            visible_rgb_pos_pyramid.append(visible_rgb_pos_i)
-            visible_pcd_pyramid.append(visible_pcd_i)
-
-        return visible_rgb_features_pyramid, visible_rgb_pos_pyramid, visible_pcd_pyramid
-
-    def _sample_ghost_points(self, total_timesteps, device, level, anchor=None):
-        """Sample ghost points.
-
-        If level==0, sample points uniformly within the workspace bounds.
-
-        If level>0, sample points uniformly within a local sphere
-        of the workspace bounds centered around the anchor.
-        """
-        if self.training:
-            num_ghost_points = self.num_ghost_points
+            instruction_features = einops.rearrange(instruction_features, "bt l c -> l bt c")
+            instruction_dummy_pos = torch.zeros(total_timesteps, instruction_features.shape[0], 3, device=device)
+            instruction_dummy_pos = self.relative_pe_layer(instruction_dummy_pos)
         else:
-            num_ghost_points = self.num_ghost_points_val
-
-        if level == 0:
-            bounds = np.stack([self.gripper_loc_bounds for _ in range(total_timesteps)])
-            uniform_pcd = np.stack([
-                sample_ghost_points_uniform_cube(
-                    bounds=bounds[i],
-                    num_points=num_ghost_points
-                )
-                for i in range(total_timesteps)
-            ])
-
-        elif level >= 1:
-            anchor_ = anchor[:, 0].cpu().numpy()
-            bounds_min = np.clip(
-                anchor_ - self.sampling_ball_diameter_pyramid[level] / 2,
-                a_min=self.gripper_loc_bounds[0], a_max=self.gripper_loc_bounds[1]
-            )
-            bounds_max = np.clip(
-                anchor_ + self.sampling_ball_diameter_pyramid[level] / 2,
-                a_min=self.gripper_loc_bounds[0], a_max=self.gripper_loc_bounds[1]
-            )
-            bounds = np.stack([bounds_min, bounds_max], axis=1)
-            uniform_pcd = np.stack([
-                sample_ghost_points_uniform_sphere(
-                    center=anchor_[i],
-                    radius=self.sampling_ball_diameter_pyramid[level] / 2,
-                    bounds=bounds[i],
-                    num_points=num_ghost_points
-                )
-                for i in range(total_timesteps)
-            ])
-
-        uniform_pcd = torch.from_numpy(uniform_pcd).float().to(device)
-
-        return uniform_pcd
-
-    def _compute_ghost_point_features(self,
-                                      ghost_pcd, context_features, context_pos,
-                                      task_id, total_timesteps, level):
-        """
-        Ghost points cross-attend to context features (visual features and current
-        gripper position).
-        """
-        embed = self.ghost_points_embed_pyramid[level]
-        attn_layers = self.ghost_point_cross_attn_pyramid[level]
-
-        # Initialize ghost point features and positional embeddings
-        ghost_pcd_pos = self.relative_pe_layer(ghost_pcd)
-        num_ghost_points = ghost_pcd.shape[1]
-        ghost_pcd_features = embed.weight.unsqueeze(0).repeat(num_ghost_points, total_timesteps, 1)
-
-        # Ghost points cross-attend to visual features and current gripper position
-        if self.task_specific_biases:
-            ghost_pcd_features = attn_layers(
-                task_id=task_id,
-                query=ghost_pcd_features, value=context_features,
-                query_pos=ghost_pcd_pos, value_pos=context_pos
-            )[-1]
-        else:
-            ghost_pcd_features = attn_layers(
-                query=ghost_pcd_features, value=context_features,
-                query_pos=ghost_pcd_pos, value_pos=context_pos
-            )[-1]
-
-        return ghost_pcd_features, ghost_pcd_pos
+            instruction_features = None
+            instruction_dummy_pos = None
+        return instruction_features, instruction_dummy_pos
 
     def _match_ghost_points(self,
                             ghost_pcd_features, ghost_pcd_pos, ghost_pcd, gt_position_for_support,
@@ -546,25 +356,3 @@ class AnalogicalPredictionHead(nn.Module):
                 ghost_pcd_mask[:, i] = similarity_scores[:, i, :, :, torch.arange(demos_per_task) != i].mean(dim=-1)
 
         return ghost_pcd_mask[padding_mask]
-
-    def _predict_action(self,
-                        ghost_pcd_mask, ghost_pcd, ghost_pcd_features, total_timesteps,
-                        fine_ghost_pcd_offsets=None):
-        """Compute the predicted action (position, rotation, opening) from the predicted mask."""
-        # Select top-scoring ghost point
-        top_idx = torch.max(ghost_pcd_mask, dim=-1).indices
-        position = ghost_pcd[torch.arange(total_timesteps), :, top_idx]
-
-        # Add an offset regressed from the ghost point's position to the predicted position
-        if fine_ghost_pcd_offsets is not None:
-            position = position + fine_ghost_pcd_offsets[torch.arange(total_timesteps), :, top_idx]
-
-        # Predict rotation and gripper opening
-        ghost_pcd_features = einops.rearrange(ghost_pcd_features, "npts bst c -> bst npts c")
-        features = ghost_pcd_features[torch.arange(total_timesteps), top_idx]
-
-        pred = self.gripper_state_predictor(features)
-        rotation = normalise_quat(pred[:, :4])
-        gripper = torch.sigmoid(pred[:, 4:])
-
-        return position, rotation, gripper
