@@ -16,7 +16,7 @@ class ActionMode(object):
         self.gripper_action_mode = gripper_action_mode
 
     @abstractmethod
-    def action(self, scene: Scene, action: np.ndarray):
+    def action(self, scene: Scene, action: np.ndarray, collision_checking=False):
         pass
 
     @abstractmethod
@@ -27,12 +27,12 @@ class ActionMode(object):
 class MoveArmThenGripper(ActionMode):
     """The arm action is first applied, followed by the gripper action. """
 
-    def action(self, scene: Scene, action: np.ndarray):
+    def action(self, scene: Scene, action: np.ndarray, collision_checking=False):
         arm_act_size = np.prod(self.arm_action_mode.action_shape(scene))
         arm_action = np.array(action[:arm_act_size])
         ee_action = np.array(action[arm_act_size:])
         # DEBUG
-        observations = self.arm_action_mode.action(scene, arm_action)
+        observations = self.arm_action_mode.action(scene, arm_action, collision_checking=collision_checking)
         self.gripper_action_mode.action(scene, ee_action)
         return observations
 

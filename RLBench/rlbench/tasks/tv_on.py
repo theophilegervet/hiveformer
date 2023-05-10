@@ -15,12 +15,17 @@ class TvOn(Task):
     def init_task(self) -> None:
         self._remote = Shape('tv_remote')
         self.register_graspable_objects([self._remote])
+        # TODO The success conditions don't make sense: we can't see the regions
+        #  where to place the remote from the cameras - how can we fix this while
+        #  preserving the requirement to face the TV?
+        # self.register_success_conditions([
+        #     JointCondition(Joint('target_button_joint0'), 0.003),
+        #     DetectedCondition(Dummy('tv_remote_top'),
+        #                       ProximitySensor('success0')),
+        #     DetectedCondition(Dummy('tv_remote_bottom'),
+        #                       ProximitySensor('success1'))])
         self.register_success_conditions([
-            JointCondition(Joint('target_button_joint0'), 0.003),
-            DetectedCondition(Dummy('tv_remote_top'),
-                              ProximitySensor('success0')),
-            DetectedCondition(Dummy('tv_remote_bottom'),
-                              ProximitySensor('success1'))])
+            JointCondition(Joint('target_button_joint0'), 0.003)])
         self._spawn_boundary = SpawnBoundary([Shape('spawn_boundary')])
 
     def init_episode(self, index: int) -> List[str]:

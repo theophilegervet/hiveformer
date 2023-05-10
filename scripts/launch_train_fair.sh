@@ -6,44 +6,56 @@
 #gripper_loc_bounds_file=tasks/18_peract_tasks_location_bounds.json
 #dataset=/private/home/theop123/datasets/rlbench/packaged/18_peract_tasks_train
 #valset=/private/home/theop123/datasets/rlbench/packaged/18_peract_tasks_val
-#train_iters=400_000
-#for task in $(cat $task_file | tr '\n' ' '); do
-#  sbatch train_1gpu_32gb_fair.sh \
-#   --tasks $task \
-#   --dataset $dataset \
-#   --valset $valset \
-#   --exp_log_dir $main_dir \
-#   --gripper_loc_bounds_file $gripper_loc_bounds_file \
-#   --use_instruction $use_instruction \
-#   --logger wandb \
-#   --variations {0..199} \
-#   --train_iters $train_iters \
-#   --run_log_dir $task-PERACT
-#done
-
-main_dir=05_05_eval_6d_rotation
+main_dir=05_08_eval_on_hiveformer_74_tasks
 use_instruction=0
-task_file=tasks/hiveformer_high_precision_tasks.csv
+task_file=tasks/hiveformer_74_tasks.csv
 gripper_loc_bounds_file=tasks/74_hiveformer_tasks_location_bounds.json
 dataset=/private/home/theop123/datasets/rlbench/packaged/74_hiveformer_tasks_train
 valset=/private/home/theop123/datasets/rlbench/packaged/74_hiveformer_tasks_val
 train_iters=400_000
 #for task in $(cat $task_file | tr '\n' ' '); do
-for task in insert_onto_square_peg place_shape_in_shape_sorter; do
-  for rotation_parametrization in 6D_from_query; do
-    for rotation_loss_coeff in 1.0 0.1; do
-      sbatch train_1gpu_32gb_fair.sh \
-       --tasks $task \
-       --dataset $dataset \
-       --valset $valset \
-       --exp_log_dir $main_dir \
-       --gripper_loc_bounds_file $gripper_loc_bounds_file \
-       --use_instruction $use_instruction \
-       --logger wandb \
-       --train_iters $train_iters \
-       --rotation_parametrization $rotation_parametrization \
-       --rotation_loss_coeff $rotation_loss_coeff \
-       --run_log_dir $task-HIVEFORMER-$rotation_parametrization-$rotation_loss_coeff
-    done
-  done
+for task in take_shoes_out_of_box; do
+  sbatch train_1gpu_32gb_256gb_fair.sh \
+   --tasks $task \
+   --dataset $dataset \
+   --valset $valset \
+   --exp_log_dir $main_dir \
+   --gripper_loc_bounds_file $gripper_loc_bounds_file \
+   --use_instruction $use_instruction \
+   --logger wandb \
+   --batch_size 8 \
+   --batch_size_val 2 \
+   --train_iters $train_iters \
+   --run_log_dir $task-HIVEFORMER \
+   --cache_size_val 0
+   #   --variations {0..199} \
 done
+
+#main_dir=05_05_eval_6d_rotation
+#use_instruction=0
+#task_file=tasks/hiveformer_high_precision_tasks.csv
+#gripper_loc_bounds_file=tasks/74_hiveformer_tasks_location_bounds.json
+#dataset=/private/home/theop123/datasets/rlbench/packaged/74_hiveformer_tasks_train
+#valset=/private/home/theop123/datasets/rlbench/packaged/74_hiveformer_tasks_val
+#train_iters=400_000
+##for task in $(cat $task_file | tr '\n' ' '); do
+#for task in insert_onto_square_peg place_shape_in_shape_sorter; do
+#  for rotation_parametrization in quat_from_query 6D_from_query; do
+#    for rotation_loss_coeff in 100.0; do
+#      sbatch train_1gpu_32gb_fair.sh \
+#       --tasks $task \
+#       --dataset $dataset \
+#       --valset $valset \
+#       --exp_log_dir $main_dir \
+#       --gripper_loc_bounds_file $gripper_loc_bounds_file \
+#       --use_instruction $use_instruction \
+#       --logger wandb \
+#       --train_iters $train_iters \
+#       --rotation_parametrization $rotation_parametrization \
+#       --rotation_loss_coeff $rotation_loss_coeff \
+#       --batch_size 8 \
+#       --batch_size_val 2 \
+#       --run_log_dir $task-HIVEFORMER-$rotation_parametrization-$rotation_loss_coeff
+#    done
+#  done
+#done

@@ -18,31 +18,32 @@
 
 # To Xian through local
 
-#source_prefix=home/tgervet/hiveformer/train_logs
+source_prefix=private/home/theop123/hiveformer/train_logs
 #target_prefix=home/zhouxian/git/hiveformer_theo
-#exp_src=03_24_hiveformer_setting
-#exp_tgt=03_24_hiveformer_setting
-#ckpt=best.pth
-#
-## Get Tensorboard from source
-##sshpass -p $MATRIX_PW rsync -R "$MATRIX:/$source_prefix/$exp_src/*/events.out*" .
-#
-## Get checkpoints from source
-#sshpass -p $MATRIX_PW rsync -RL "$MATRIX:/$source_prefix/$exp_src/*/$ckpt" .
-#
-## Send all to target
-#sshpass -p $LAB_PW scp -r $source_prefix/$exp_tgt $LAB:/$target_prefix/
+target_prefix=home/sirdome/katefgroup/hiveformer
+exp_src=05_04_eval_on_peract_18_tasks
+exp_tgt=05_04_eval_on_peract_18_tasks
+ckpt=best.pth
+
+# Get Tensorboard from source
+#sshpass -p $MATRIX_PW rsync -R "$MATRIX:/$source_prefix/$exp_src/*/events.out*" .
+
+# Get checkpoints from source
+rsync -RL "devfair:/$source_prefix/$exp_src/*/$ckpt" .
+
+# Send all to target
+sshpass -p $LAB2_PW scp -r $source_prefix/$exp_tgt lab2:/$target_prefix/
 
 
 # To Xian directly from Matrix
 
-source_prefix=home/tgervet/hiveformer/train_logs
-target_prefix=/home/sirdome/katefgroup/hiveformer
-exp_src=03_24_hiveformer_setting
-exp_tgt=03_24_hiveformer_setting
-ckpt=best.pth
-
-sshpass -p $MATRIX_PW rsync -RL "$MATRIX:/$source_prefix/$exp_src/*/$ckpt" .
+#source_prefix=home/tgervet/hiveformer/train_logs
+#target_prefix=/home/sirdome/katefgroup/hiveformer
+#exp_src=03_24_hiveformer_setting
+#exp_tgt=03_24_hiveformer_setting
+#ckpt=best.pth
+#
+#sshpass -p $MATRIX_PW rsync -RL "$MATRIX:/$source_prefix/$exp_src/*/$ckpt" .
 
 
 # Uncleaned HiveFormer
