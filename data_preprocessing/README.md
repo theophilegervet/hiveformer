@@ -10,6 +10,7 @@ val_dir=74_hiveformer_tasks_val
 train_episodes_per_task=100
 val_episodes_per_task=100
 image_size="256,256"
+cameras=left_shoulder,right_shoulder,wrist
 task_file=tasks/hiveformer_74_tasks.csv
 
 nohup sudo X &
@@ -44,12 +45,13 @@ python dataset_generator.py \
 ```
 cd $root/hiveformer
 for task in $(cat $task_file | tr '\n' ' '); do
-    for split_dir in $train_dir $val_dir; do
+    for split_dir in $train_dir; do
         python -m data_preprocessing.data_gen \
             --data_dir=$data_dir/$split_dir \
             --output=$output_dir/$split_dir \
             --image_size=$image_size \
             --max_variations=1 \
+            --cameras=$cameras \
             --tasks=$task
     done
 done
@@ -65,6 +67,7 @@ val_dir=18_peract_tasks_val
 train_episodes_per_task=100
 val_episodes_per_task=100
 image_size="256,256"
+cameras=left_shoulder,right_shoulder,wrist,front
 task_file=tasks/peract_18_tasks.csv
 ```
 
@@ -102,6 +105,7 @@ for task in $(cat $task_file | tr '\n' ' '); do
             --output=$output_dir/$split_dir \
             --image_size=$image_size \
             --max_variations=60 \
+            --cameras=$cameras \
             --tasks=$task
     done
 done
