@@ -41,7 +41,7 @@ ckpts=(
 #  insert_onto_square_peg-PERACT_version7598186
 #  put_money_in_safe-PERACT_version7598187
 #  reach_and_drag-PERACT_version7598188
-#  light_bulb_in-PERACT_version7598189
+  light_bulb_in-PERACT_version7598189
   stack_cups-PERACT_version7642636
   place_cups-PERACT_version7642637
   put_item_in_drawer-PERACT_version7642638
@@ -61,7 +61,7 @@ tasks=(
 #  insert_onto_square_peg
 #  put_money_in_safe
 #  reach_and_drag
-#  light_bulb_in
+  light_bulb_in
   stack_cups
   place_cups
   put_item_in_drawer
