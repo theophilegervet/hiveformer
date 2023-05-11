@@ -49,7 +49,7 @@ class PredictionHead(nn.Module):
                  task_ids=[]):
         super().__init__()
         assert backbone in ["resnet", "clip"]
-        assert image_size in [(128, 128), (256, 256)]
+        assert image_size in [(128, 128), (256, 256), (512, 512)]
         assert rotation_parametrization in [
             "quat_from_top_ghost", "quat_from_query", "6D_from_top_ghost", "6D_from_query"]
         assert num_sampling_level in [1, 2, 3, 4]
@@ -95,11 +95,19 @@ class PredictionHead(nn.Module):
             # Fine RGB features are the 1st layer of the feature pyramid at 1/2 resolution (64x64)
             self.coarse_feature_map = ['res2', 'res1', 'res1', 'res1']
             self.downscaling_factor_pyramid = [4, 2, 2, 2]
+            self.num_visual_tokens_per_camera = 32 * 32
         elif self.image_size == (256, 256):
             # Coarse RGB features are the 3rd layer of the feature pyramid at 1/8 resolution (32x32)
             # Fine RGB features are the 1st layer of the feature pyramid at 1/2 resolution (128x128)
             self.feature_map_pyramid = ['res3', 'res1', 'res1', 'res1']
             self.downscaling_factor_pyramid = [8, 2, 2, 2]
+            self.num_visual_tokens_per_camera = 32 * 32
+        elif self.image_size == (512, 512):
+            # Coarse RGB features are the 3rd layer of the feature pyramid at 1/8 resolution (64x64)
+            # Fine RGB features are the 1st layer of the feature pyramid at 1/2 resolution (256x256)
+            self.feature_map_pyramid = ['res3', 'res1', 'res1', 'res1']
+            self.downscaling_factor_pyramid = [8, 2, 2, 2]
+            self.num_visual_tokens_per_camera = 64 * 64
 
         # 3D relative positional embeddings
         self.relative_pe_layer = RotaryPositionEncoding3D(embedding_dim)
@@ -294,7 +302,8 @@ class PredictionHead(nn.Module):
             else:
                 # Local fine RGB features
                 l2_pred_pos = ((position_pyramid[-1] - visible_pcd_pyramid[i]) ** 2).sum(-1).sqrt()
-                indices = l2_pred_pos.topk(k=32 * 32 * num_cameras, dim=-1, largest=False).indices
+                indices = l2_pred_pos.topk(
+                    k=self.num_visual_tokens_per_camera * num_cameras, dim=-1, largest=False).indices
 
                 visible_rgb_features_i = einops.rearrange(
                     visible_rgb_features_pyramid[i], "b ncam c h w -> b (ncam h w) c")
