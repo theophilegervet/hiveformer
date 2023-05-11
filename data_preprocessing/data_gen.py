@@ -164,7 +164,7 @@ class Dataset(torch.utils.data.Dataset):
 
 if __name__ == "__main__":
     args = Arguments().parse_args()
-    args.cameras = [x for x in [y.split(",") for y in args.cameras]]
+    args.cameras = tuple(x for x in (y.split(",") for y in args.cameras))
 
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
