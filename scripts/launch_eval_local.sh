@@ -28,40 +28,40 @@
 # PERACT
 exp=05_04_eval_on_peract_18_tasks
 ckpts=(
-  turn_tap-PERACT_version7453200
-  open_drawer-PERACT_version7453201
-  push_buttons-PERACT_version7453202
-  sweep_to_dustpan_of_size-PERACT_version7453203
-  slide_block_to_color_target-PERACT_version7453204  # TODO Reeval converged
-  meat_off_grill-PERACT_version7453206  # TODO Reeval converged
-  put_groceries_in_cupboard-PERACT_version7453209  # TODO Reeval converged
-  close_jar-PERACT_version7453211  # TODO Reeval converged
-  place_shape_in_shape_sorter-PERACT_version7598184
-  place_wine_at_rack_location-PERACT_version7598185
-  insert_onto_square_peg-PERACT_version7598186
-  put_money_in_safe-PERACT_version7598187
-  reach_and_drag-PERACT_version7598188
-  light_bulb_in-PERACT_version7598189
-  stack_cups-PERACT_version7642636  # TODO Just started
-  place_cups-PERACT_version7642637  # TODO Just started
-  put_item_in_drawer-PERACT_version7642638  # TODO Just started
-  stack_blocks-PERACT_version7642639  # TODO Just started
+#  turn_tap-PERACT_version7453200
+#  open_drawer-PERACT_version7453201
+#  push_buttons-PERACT_version7453202
+#  sweep_to_dustpan_of_size-PERACT_version7453203
+#  slide_block_to_color_target-PERACT_version7453204
+#  meat_off_grill-PERACT_version7453206
+#  put_groceries_in_cupboard-PERACT_version7453209
+#  close_jar-PERACT_version7453211
+#  place_shape_in_shape_sorter-PERACT_version7598184
+#  place_wine_at_rack_location-PERACT_version7598185
+#  insert_onto_square_peg-PERACT_version7598186
+#  put_money_in_safe-PERACT_version7598187
+#  reach_and_drag-PERACT_version7598188
+#  light_bulb_in-PERACT_version7598189
+  stack_cups-PERACT_version7642636
+  place_cups-PERACT_version7642637
+  put_item_in_drawer-PERACT_version7642638
+  stack_blocks-PERACT_version7642639
 )
 tasks=(
-  turn_tap
-  open_drawer
-  push_buttons
-  sweep_to_dustpan_of_size
-  slide_block_to_color_target
-  meat_off_grill
-  put_groceries_in_cupboard
-  close_jar
-  place_shape_in_shape_sorter
-  place_wine_at_rack_location
-  insert_onto_square_peg
-  put_money_in_safe
-  reach_and_drag
-  light_bulb_in
+#  turn_tap
+#  open_drawer
+#  push_buttons
+#  sweep_to_dustpan_of_size
+#  slide_block_to_color_target
+#  meat_off_grill
+#  put_groceries_in_cupboard
+#  close_jar
+#  place_shape_in_shape_sorter
+#  place_wine_at_rack_location
+#  insert_onto_square_peg
+#  put_money_in_safe
+#  reach_and_drag
+#  light_bulb_in
   stack_cups
   place_cups
   put_item_in_drawer
