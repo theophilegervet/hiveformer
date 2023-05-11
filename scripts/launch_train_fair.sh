@@ -18,7 +18,7 @@ valset=/private/home/theop123/datasets/rlbench/packaged/18_peract_tasks_val
 train_iters=400_000
 for task in $(cat $task_file | tr '\n' ' '); do
   sbatch train_1gpu_32gb_fair.sh \
-   --tasks $task \
+   --tasks task \
    --dataset $dataset \
    --valset $valset \
    --exp_log_dir $main_dir \
@@ -26,5 +26,26 @@ for task in $(cat $task_file | tr '\n' ' '); do
    --use_instruction $use_instruction \
    --logger wandb \
    --train_iters $train_iters \
+   --variations {0..199} \
    --run_log_dir $task-PERACT
 done
+
+# Multi-task
+train_iters=4_000_000
+sbatch train_1gpu_32gb_fair.sh \
+   --devices cuda:0 cuda:1 cuda:2 cuda:3 cuda:4 cuda:5 cuda:6 cuda:7 \
+   --tasks $(cat $task_file | tr '\n' ' ') \
+   --batch_size 128 \
+   --batch_size_val 32 \
+   --num_workers 32 \
+   --cache_size 0 \
+   --cache_size_val 0 \
+   --dataset $dataset \
+   --valset $valset \
+   --exp_log_dir $main_dir \
+   --gripper_loc_bounds_file $gripper_loc_bounds_file \
+   --use_instruction $use_instruction \
+   --logger wandb \
+   --train_iters $train_iters \
+   --variations {0..199} \
+   --run_log_dir MULTI-TASK-PERACT
