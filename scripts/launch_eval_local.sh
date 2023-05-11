@@ -32,6 +32,11 @@ tasks=(
 # PERACT
 exp=05_04_eval_on_peract_18_tasks
 ckpts=(
+  light_bulb_in-PERACT_version7598189
+  stack_cups-PERACT_version7642636
+  place_cups-PERACT_version7642637
+  put_item_in_drawer-PERACT_version7642638
+  stack_blocks-PERACT_version7642639
 #  turn_tap-PERACT_version7453200
 #  open_drawer-PERACT_version7453201
 #  push_buttons-PERACT_version7453202
@@ -45,13 +50,13 @@ ckpts=(
 #  insert_onto_square_peg-PERACT_version7598186
 #  put_money_in_safe-PERACT_version7598187
 #  reach_and_drag-PERACT_version7598188
-  light_bulb_in-PERACT_version7598189
-  stack_cups-PERACT_version7642636
-  place_cups-PERACT_version7642637
-  put_item_in_drawer-PERACT_version7642638
-  stack_blocks-PERACT_version7642639
 )
 tasks=(
+  light_bulb_in
+  stack_cups
+  place_cups
+  put_item_in_drawer
+  stack_blocks
 #  turn_tap
 #  open_drawer
 #  push_buttons
@@ -65,17 +70,13 @@ tasks=(
 #  insert_onto_square_peg
 #  put_money_in_safe
 #  reach_and_drag
-  light_bulb_in
-  stack_cups
-  place_cups
-  put_item_in_drawer
-  stack_blocks
 )
 
 #data_dir=/home/zhouxian/git/datasets/raw/74_hiveformer_tasks_val
 data_dir=/home/zhouxian/git/datasets/raw/18_peract_tasks_val
 num_episodes=100
-gripper_loc_bounds_file=tasks/74_hiveformer_tasks_location_bounds.json
+#gripper_loc_bounds_file=tasks/74_hiveformer_tasks_location_bounds.json
+gripper_loc_bounds_file=tasks/18_hiveformer_tasks_location_bounds.json
 #use_instruction=0
 use_instruction=1
 num_ghost_points=10000
