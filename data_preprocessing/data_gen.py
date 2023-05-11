@@ -156,7 +156,7 @@ class Dataset(torch.utils.data.Dataset):
         state_dict[3].extend(attn_indices)
         state_dict[4].extend(action_ls[:-1])  # gripper pos
 
-        for k, v in state_dict:
+        for v in state_dict:
             print(type(v))
 
         # np.save(taskvar_dir / f"ep{episode}.npy", state_dict)  # type: ignore
