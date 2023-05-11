@@ -165,7 +165,7 @@ class Dataset(torch.utils.data.Dataset):
 if __name__ == "__main__":
     args = Arguments().parse_args()
     print(args.cameras)
-    args.cameras = (x for x in (y.split(",") for y in args.cameras))
+    args.cameras = tuple(x for y in args.cameras for x in y.split(","))
     print(args.cameras)
     print(args.tasks)
 
