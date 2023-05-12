@@ -85,7 +85,7 @@ class PredictionHead(nn.Module):
             p.requires_grad = False
 
         self.sam = SamAutomaticMaskGenerator(sam_model_registry["vit_l"](
-            checkpoint="https://dl.fbaipublicfiles.com/segment_anything/sam_vit_l_0b3195.pth"))
+            checkpoint="model/checkpoints/sam_vit_l_0b3195.pth"))
 
         # Semantic visual features at different scales
         if self.positional_features in ["xyz_concat", "z_concat"]:
