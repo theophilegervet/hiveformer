@@ -418,7 +418,10 @@ class PredictionHead(nn.Module):
         visible_rgb_features = self.feature_pyramid(visible_rgb_features)
 
         # Generate object masks
-        masks = self.sam.generate(visible_rgb)
+        # TODO Parallelize on GPU
+        masks = [self.sam.generate(rgb.cpu().numpy())
+                 for rgb in einops.rearrange(visible_rgb, "btncam c h w -> btncam h w c")]
+        print(len(masks))
         raise NotImplementedError
 
         visible_pcd = einops.rearrange(visible_pcd, "bt ncam c h w -> (bt ncam) c h w")
