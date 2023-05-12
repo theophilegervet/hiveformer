@@ -169,19 +169,7 @@ class Dataset(torch.utils.data.Dataset):
         state_dict[2].extend(keyframe_action_ls[1:])
         state_dict[3].extend(attn_indices)
         state_dict[4].extend(keyframe_action_ls[:-1])  # gripper pos
-        state_dict[5].extend(intermediate_action_ls[:-1])
-
-        print("len(keyframe_action_ls)", len(keyframe_action_ls))
-        for i in range(len(keyframe_action_ls) - 1):
-            print(keyframe_action_ls[i])
-            print(intermediate_action_ls[i][0], intermediate_action_ls[i][-1])
-            # print(keyframe_action_ls[i + 1])
-            print(type(keyframe_action_ls[i]), keyframe_action_ls[i].shape)
-            print(type(intermediate_action_ls[i]), intermediate_action_ls[i].shape)
-            print()
-            print()
-
-        raise NotImplementedError
+        state_dict[5].extend(intermediate_action_ls[:-1])  # traj from gripper pos to keyframe action
 
         # np.save(taskvar_dir / f"ep{episode}.npy", state_dict)  # type: ignore
         with open(taskvar_dir / f"ep{episode}.dat", "wb") as f:
