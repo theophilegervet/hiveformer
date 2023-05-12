@@ -76,7 +76,7 @@ def get_observation(task_str: str, variation: int, episode: int, env: RLBenchEnv
         if store_intermediate_actions and i < len(key_frame) - 1:
             intermediate_actions = []
             # for j in range(key_frame[i] + 1, key_frame[i + 1]):
-            for j in range(key_frame[i], key_frame[i + 1]):
+            for j in range(key_frame[i], key_frame[i + 1] + 1):
                 _, action = env.get_obs_action(demo._observations[j])
                 intermediate_actions.append(action.unsqueeze(0))
             intermediate_action_ls.append(intermediate_actions)
