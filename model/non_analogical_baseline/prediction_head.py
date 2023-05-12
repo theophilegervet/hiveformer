@@ -4,6 +4,7 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision.ops import FeaturePyramidNetwork
+from segment_anything import SamAutomaticMaskGenerator, sam_model_registry
 
 from model.utils.position_encodings import (
     RotaryPositionEncoding3D,
@@ -82,6 +83,9 @@ class PredictionHead(nn.Module):
             self.backbone, self.normalize = load_clip()
         for p in self.backbone.parameters():
             p.requires_grad = False
+
+        self.sam = SamAutomaticMaskGenerator(sam_model_registry["vit_l"](
+            checkpoint="https://dl.fbaipublicfiles.com/segment_anything/sam_vit_l_0b3195.pth"))
 
         # Semantic visual features at different scales
         if self.positional_features in ["xyz_concat", "z_concat"]:
@@ -412,6 +416,10 @@ class PredictionHead(nn.Module):
 
         # Pass visual features through feature pyramid network
         visible_rgb_features = self.feature_pyramid(visible_rgb_features)
+
+        # Generate object masks
+        masks = self.sam.generate(visible_rgb)
+        raise NotImplementedError
 
         visible_pcd = einops.rearrange(visible_pcd, "bt ncam c h w -> (bt ncam) c h w")
 

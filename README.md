@@ -7,8 +7,10 @@ Environment setup on both Matrix and locally:
 conda create -n analogical_manipulation python=3.9
 conda activate analogical_manipulation;
 conda install pytorch==1.11.0 torchvision==0.12.0 torchaudio==0.11.0 cudatoolkit=11.3 -c pytorch;
-pip install numpy pillow einops typed-argument-parser tqdm transformers absl-py matplotlib scipy tensorboard opencv-python open3d trimesh wandb;
+pip install numpy pillow einops typed-argument-parser tqdm transformers absl-py matplotlib scipy tensorboard opencv-python open3d trimesh wandb blosc;
 pip install git+https://github.com/openai/CLIP.git;
+pip install git+https://github.com/facebookresearch/segment-anything.git;
+pip install pycocotools onnxruntime onnx;
 
 # PyTorch3D
 conda install -c fvcore -c iopath -c conda-forge fvcore iopath;
