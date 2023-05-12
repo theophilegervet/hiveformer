@@ -151,15 +151,16 @@ class Dataset(torch.utils.data.Dataset):
         state_dict: List = [[] for _ in range(5)]
         print("Demo {}".format(episode))
         state_dict[0].extend(frame_ids)
-        print("frame_ids", frame_ids)
         state_dict[1].extend(state_ls[:-1])
-        print("state_ls[:-1]", type(state_ls[:-1]), state_ls[:-1].shape, state_ls[:-1].dtype)
         state_dict[2].extend(action_ls[1:])
         state_dict[3].extend(attn_indices)
-        print("attn_indices", attn_indices)
         state_dict[4].extend(action_ls[:-1])  # gripper pos
 
-        # np.save(taskvar_dir / f"ep{episode}.npy", state_dict)  # type: ignore
+        import time
+        t0 = time.time()
+        np.save(taskvar_dir / f"ep{episode}.npy", state_dict)  # type: ignore
+        t1 = time.time()
+        print("t1 - t0", t1 - t0)
 
 
 if __name__ == "__main__":

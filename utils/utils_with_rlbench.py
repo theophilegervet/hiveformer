@@ -832,7 +832,7 @@ def keypoint_discovery(demo: Demo, stopping_delta=0.1) -> List[int]:
     return episode_keypoints
 
 
-def transform(obs_dict, scale_size=(0.75, 1.25), augmentation=False):
+def transform(obs_dict, augmentation=False):
     apply_depth = len(obs_dict.get("depth", [])) > 0
     apply_pc = len(obs_dict["pc"]) > 0
     num_cams = len(obs_dict["rgb"])
