@@ -1,7 +1,5 @@
 import itertools
 import random
-import blosc
-import pickle
 from typing import (
     Union,
     Optional,
@@ -126,19 +124,10 @@ def data_transform(scales, **kwargs: torch.Tensor) -> Dict[str, torch.Tensor]:
 
 
 def loader(file: Path) -> Optional[np.ndarray]:
-    if str(file).endswith(".npy"):
-        try:
-            content = np.load(file, allow_pickle=True)
-            return content
-        except UnpicklingError as e:
-            print(f"Can't load {file}: {e}")
-    elif str(file).endswith(".dat"):
-        try:
-            with open(file, "rb") as f:
-                content = pickle.loads(blosc.decompress(f.read()))
-            return content
-        except UnpicklingError as e:
-            print(f"Can't load {file}: {e}")
+    try:
+        return np.load(file, allow_pickle=True)
+    except UnpicklingError as e:
+        print(f"Can't load {file}: {e}")
     return None
 
 
@@ -330,9 +319,7 @@ class RLBenchDataset(data.Dataset):
             if not data_dir.is_dir():
                 print(f"Can't find dataset folder {data_dir}")
                 continue
-            npy_episodes = [(task, var, ep) for ep in data_dir.glob("*.npy")]  # Backward compatibility
-            dat_episodes = [(task, var, ep) for ep in data_dir.glob("*.dat")]
-            episodes = npy_episodes + dat_episodes
+            episodes = [(task, var, ep) for ep in data_dir.glob("*.npy")]
             episodes = episodes[: self._max_episodes_per_task // self._num_vars[task] + 1]
             num_episodes = len(episodes)
             if num_episodes == 0:
@@ -373,11 +360,7 @@ class RLBenchDataset(data.Dataset):
             return self.__getitem__(episode_id)
         pad_len = max(0, self._max_episode_length - num_ind)
 
-        try:
-            states: torch.Tensor = torch.stack([torch.from_numpy(episode[1][i]) for i in frame_ids])
-        except TypeError:
-            # Backward compatibility
-            states: torch.Tensor = torch.stack([episode[1][i] for i in frame_ids])
+        states: torch.Tensor = torch.stack([episode[1][i].squeeze(0) for i in frame_ids])
         if states.shape[-1] != self._image_size[1] or states.shape[-2] != self._image_size[0]:
             raise ValueError(f"{states.shape} {self._episodes[episode_id]}")
         pad_vec = [0] * (2 * states.dim())
