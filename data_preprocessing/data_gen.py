@@ -151,10 +151,11 @@ class Dataset(torch.utils.data.Dataset):
         state_dict[2].extend(action_ls[1:])
         state_dict[3].extend(attn_indices)
         state_dict[4].extend(action_ls[:-1])  # gripper pos
-
+        import IPython;IPython.embed()
         import blosc
-        with open("a.dat", "wb") as f:
+        with open(taskvar_dir / f"ep{episode}.dat", "wb") as f:
             f.write(blosc.compress(pkl.dumps(state_dict)))
+
 
         # read file
         # with open("a.dat", "rb") as f:
