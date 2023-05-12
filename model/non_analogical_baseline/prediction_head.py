@@ -419,8 +419,9 @@ class PredictionHead(nn.Module):
 
         # Generate object masks
         # TODO Parallelize on GPU
-        masks = [self.sam.generate(rgb.cpu().numpy())
-                 for rgb in einops.rearrange(visible_rgb, "btncam c h w -> btncam h w c")]
+        rgbs = [(rgb.cpu().numpy() * 255).astype(np.uint8)
+                for rgb in einops.rearrange(visible_rgb, "btncam c h w -> btncam h w c")]
+        masks = [self.sam.generate(rgb) for rgb in rgbs]
         print(len(masks))
         raise NotImplementedError
 
