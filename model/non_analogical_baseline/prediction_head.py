@@ -4,7 +4,7 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision.ops import FeaturePyramidNetwork
-from segment_anything import SamAutomaticMaskGenerator, sam_model_registry
+from segment_anything import SamPredictor, sam_model_registry
 
 from model.utils.position_encodings import (
     RotaryPositionEncoding3D,
@@ -84,7 +84,7 @@ class PredictionHead(nn.Module):
         for p in self.backbone.parameters():
             p.requires_grad = False
 
-        self.sam = SamAutomaticMaskGenerator(sam_model_registry["vit_l"](
+        self.sam = SamPredictor(sam_model_registry["vit_l"](
             checkpoint="model/checkpoints/sam_vit_l_0b3195.pth"))
 
         # Semantic visual features at different scales
@@ -419,13 +419,14 @@ class PredictionHead(nn.Module):
 
         # Generate object masks
         # TODO Parallelize on GPU
-        print("BEFORE")
-        rgbs = [(rgb.cpu().numpy() * 255).astype(np.uint8)
-                for rgb in einops.rearrange(visible_rgb, "btncam c h w -> btncam h w c")]
-        print(len(rgbs))
-        masks = [self.sam.generate(rgb) for rgb in rgbs]
-        print("AFTER")
-        print(len(masks))
+        # print("BEFORE")
+        # rgbs = [(rgb.cpu().numpy() * 255).astype(np.uint8)
+        #         for rgb in einops.rearrange(visible_rgb, "btncam c h w -> btncam h w c")]
+        # print(len(rgbs))
+        # masks = [self.sam.generate(rgb) for rgb in rgbs]
+        # print("AFTER")
+        # print(len(masks))
+        print(self.sam.transform.target_length)
         raise NotImplementedError
 
         visible_pcd = einops.rearrange(visible_pcd, "bt ncam c h w -> (bt ncam) c h w")
