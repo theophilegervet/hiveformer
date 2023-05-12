@@ -373,7 +373,11 @@ class RLBenchDataset(data.Dataset):
             return self.__getitem__(episode_id)
         pad_len = max(0, self._max_episode_length - num_ind)
 
-        states: torch.Tensor = torch.stack([torch.from_numpy(episode[1][i]) for i in frame_ids])
+        try:
+            states: torch.Tensor = torch.stack([torch.from_numpy(episode[1][i]) for i in frame_ids])
+        except TypeError:
+            # Backward compatibility
+            states: torch.Tensor = torch.stack([episode[1][i] for i in frame_ids])
         if states.shape[-1] != self._image_size[1] or states.shape[-2] != self._image_size[0]:
             raise ValueError(f"{states.shape} {self._episodes[episode_id]}")
         pad_vec = [0] * (2 * states.dim())
