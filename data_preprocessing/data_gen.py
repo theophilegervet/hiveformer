@@ -135,16 +135,13 @@ class Dataset(torch.utils.data.Dataset):
         taskvar_dir = args.output / f"{task}+{variation}"
         taskvar_dir.mkdir(parents=True, exist_ok=True)
 
-        # try:
-        #     demo, keyframe_state_ls, keyframe_action_ls, intermediate_action_ls = get_observation(
-        #         task, variation, episode, self.env, bool(args.store_intermediate_actions)
-        #     )
-        # except (FileNotFoundError, RuntimeError, IndexError, EOFError) as e:
-        #     print(e)
-        #     return
-        demo, keyframe_state_ls, keyframe_action_ls, intermediate_action_ls = get_observation(
-            task, variation, episode, self.env, bool(args.store_intermediate_actions)
-        )
+        try:
+            demo, keyframe_state_ls, keyframe_action_ls, intermediate_action_ls = get_observation(
+                task, variation, episode, self.env, bool(args.store_intermediate_actions)
+            )
+        except (FileNotFoundError, RuntimeError, IndexError, EOFError) as e:
+            print(e)
+            return
 
         state_ls = einops.rearrange(
             keyframe_state_ls,
@@ -172,7 +169,7 @@ class Dataset(torch.utils.data.Dataset):
         state_dict[2].extend(keyframe_action_ls[1:])
         state_dict[3].extend(attn_indices)
         state_dict[4].extend(keyframe_action_ls[:-1])  # gripper pos
-        state_dict[5].extend(intermediate_action_ls[1:])
+        state_dict[5].extend(intermediate_action_ls[:-1])
 
         print("len(keyframe_action_ls)", len(keyframe_action_ls))
         for i in range(len(keyframe_action_ls) - 1):
