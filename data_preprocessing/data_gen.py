@@ -161,6 +161,9 @@ class Dataset(torch.utils.data.Dataset):
         np.save(taskvar_dir / f"ep{episode}.npy", state_dict)  # type: ignore
         t1 = time.time()
         print("t1 - t0", t1 - t0)
+        np.load(taskvar_dir / f"ep{episode}.npy", allow_pickle=True)
+        t2 = time.time()
+        print("t2 - t1", t2 - t1)
 
 
 if __name__ == "__main__":
