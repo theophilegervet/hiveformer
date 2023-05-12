@@ -173,8 +173,8 @@ class Dataset(torch.utils.data.Dataset):
 
         print("len(keyframe_action_ls)", len(keyframe_action_ls))
         for i in range(len(keyframe_action_ls) - 1):
-            # print(keyframe_action_ls[i])
-            # print(intermediate_action_ls[i][0], intermediate_action_ls[i][-1])
+            print(keyframe_action_ls[i])
+            print(intermediate_action_ls[i][0], intermediate_action_ls[i][-1])
             # print(keyframe_action_ls[i + 1])
             print(type(keyframe_action_ls[i]), keyframe_action_ls[i].shape)
             print(type(intermediate_action_ls[i]), intermediate_action_ls[i].shape)
