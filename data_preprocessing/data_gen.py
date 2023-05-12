@@ -1,6 +1,8 @@
 import random
 import itertools
 from typing import Tuple, Dict, List
+import blosc
+import pickle
 from pathlib import Path
 import json
 from tqdm import tqdm
@@ -151,16 +153,19 @@ class Dataset(torch.utils.data.Dataset):
         state_dict: List = [[] for _ in range(5)]
         print("Demo {}".format(episode))
         state_dict[0].extend(frame_ids)
-        state_dict[1].extend(state_ls[:-1])
+        state_dict[1] = state_ls[:-1].numpy()
         state_dict[2].extend(action_ls[1:])
         state_dict[3].extend(attn_indices)
         state_dict[4].extend(action_ls[:-1])  # gripper pos
 
-        np.save(taskvar_dir / f"ep{episode}.npy", state_dict)  # type: ignore
+        # np.save(taskvar_dir / f"ep{episode}.npy", state_dict)  # type: ignore
+        with open(taskvar_dir / f"ep{episode}.dat", "wb") as f:
+            f.write(blosc.compress(pickle.dumps(state_dict)))
 
 
 if __name__ == "__main__":
     args = Arguments().parse_args()
+    args.cameras = tuple(x for y in args.cameras for x in y.split(","))
 
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
