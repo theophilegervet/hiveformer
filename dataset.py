@@ -623,7 +623,7 @@ class RLBenchAnalogicalDataset(data.Dataset):
             return None
         pad_len = max(0, self._max_episode_length - num_ind)
 
-        states: torch.Tensor = torch.stack([episode[1][i].squeeze(0) for i in frame_ids])
+        states: torch.Tensor = torch.stack([torch.from_numpy(episode[1][i].squeeze(0)) for i in frame_ids])
         if states.shape[-1] != self._image_size[1] or states.shape[-2] != self._image_size[0]:
             raise ValueError(f"{states.shape} {file}")
         pad_vec = [0] * (2 * states.dim())
