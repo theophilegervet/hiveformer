@@ -1,4 +1,3 @@
-
 # main_dir=02_27_rotation
 # main_dir=02_28_rotation_0.1
 # main_dir=02_28_rotation_0.1_quatloss
@@ -44,15 +43,15 @@ main_dir=debug
 # valset=/home/zhouxian/git/datasets/hiveformer/packaged/3
 dataset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_train
 valset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_val
-num_workers=2
+num_workers=0
 train_cache_size=100
 val_cache_size=100
 
-dataset=/home/zhouxian/git/datasets/packaged/74_hiveformer_tasks_train
-valset=/home/zhouxian/git/datasets/packaged/74_hiveformer_tasks_val
-num_workers=2
-train_cache_size=0
-val_cache_size=0
+# dataset=/home/zhouxian/git/datasets/packaged/74_hiveformer_tasks_train
+# valset=/home/zhouxian/git/datasets/packaged/74_hiveformer_tasks_val
+# num_workers=2
+# train_cache_size=0
+# val_cache_size=0
 
 # task=reach_target
 # task=push_button

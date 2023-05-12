@@ -147,13 +147,18 @@ class Dataset(torch.utils.data.Dataset):
         state_dict: List = [[] for _ in range(5)]
         print("Demo {}".format(episode))
         state_dict[0].extend(frame_ids)
-        state_dict[1].extend(state_ls[:-1])
+        state_dict[1] = state_ls[:-1].numpy()
         state_dict[2].extend(action_ls[1:])
         state_dict[3].extend(attn_indices)
         state_dict[4].extend(action_ls[:-1])  # gripper pos
 
-        np.save(taskvar_dir / f"ep{episode}.npy", state_dict)  # type: ignore
+        import blosc
+        with open("a.dat", "wb") as f:
+            f.write(blosc.compress(pkl.dumps(state_dict)))
 
+        # read file
+        # with open("a.dat", "rb") as f:
+        #     data = pkl.loads(blosc.decompress(f.read()))
 
 if __name__ == "__main__":
     args = Arguments().parse_args()

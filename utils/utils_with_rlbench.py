@@ -945,7 +945,7 @@ def _is_stopped(demo, i, obs, stopped_buffer):
     return stopped
 
 
-def keypoint_discovery(demo: Demo, task_str) -> List[int]:
+def keypoint_discovery(demo: Demo, task_str=None) -> List[int]:
     episode_keypoints = []
     prev_gripper_open = demo[0].gripper_open
     stopped_buffer = 0

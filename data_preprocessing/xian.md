@@ -55,6 +55,12 @@ for task in $(cat $task_file | tr '\n' ' '); do
     done
 done
 ```
+python -m data_preprocessing.data_gen \
+    --data_dir=/home/zhouxian/git/datasets/raw/74_hiveformer_tasks_train_512x512 \
+    --output=/home/zhouxian/temp/ \
+    --image_size="512,512" \
+    --max_variations=1 \
+    --tasks=hang_frame_on_hanger
 
 ## 1 - PerAct Data Generation
 ```
