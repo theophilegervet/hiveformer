@@ -47,7 +47,7 @@ class PredictionHead(nn.Module):
                  task_ids=[]):
         super().__init__()
         assert backbone in ["resnet", "clip"]
-        assert image_size in [(128, 128), (256, 256)]
+        assert image_size in [(128, 128), (256, 256), (240, 360)]
         assert rotation_parametrization in ["quat_from_top_ghost", "quat_from_query"]
         assert num_sampling_level in [1, 2, 3, 4]
         assert visualize_rgb_attn in [False], "Temporarily disabled"
@@ -89,7 +89,7 @@ class PredictionHead(nn.Module):
             # Fine RGB features are the 1st layer of the feature pyramid at 1/2 resolution (64x64)
             self.coarse_feature_map = ['res2', 'res1', 'res1', 'res1']
             self.downscaling_factor_pyramid = [4, 2, 2, 2]
-        elif self.image_size == (256, 256):
+        elif self.image_size in [(256, 256), (240, 360)]:
             # Coarse RGB features are the 3rd layer of the feature pyramid at 1/8 resolution (32x32)
             # Fine RGB features are the 1st layer of the feature pyramid at 1/2 resolution (128x128)
             if self.high_res:
@@ -105,6 +105,8 @@ class PredictionHead(nn.Module):
             else:
                 self.feature_map_pyramid = ['res3', 'res1', 'res1', 'res1']
                 self.downscaling_factor_pyramid = [8, 2, 2, 2]
+        else:
+            raise NotImplementedError
 
         # 3D positional embeddings
         self.pcd_pe_layer = RotaryPositionEncoding3D(embedding_dim)

@@ -108,7 +108,8 @@
         "unplug_charger": 2,
         "water_plants": 5,
         "wipe_desk": 6,
-        "place_wine_at_rack_location": 5
+        "place_wine_at_rack_location": 5,
+        "real_push_button": 2
 }, 
 "variable_length": [
 	"push_buttons",
