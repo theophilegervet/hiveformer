@@ -151,7 +151,7 @@ class Dataset(torch.utils.data.Dataset):
         state_dict: List = [[] for _ in range(5)]
         print("Demo {}".format(episode))
         state_dict[0].extend(frame_ids)
-        state_dict[1].extend(state_ls[:-1])
+        state_dict[1] = state_ls[:-1].numpy()
         state_dict[2].extend(action_ls[1:])
         state_dict[3].extend(attn_indices)
         state_dict[4].extend(action_ls[:-1])  # gripper pos
@@ -166,7 +166,7 @@ class Dataset(torch.utils.data.Dataset):
         t1 = time.time()
         print("t1 - t0", t1 - t0)
         # np.load(taskvar_dir / f"ep{episode}.npy", allow_pickle=True)
-        with open(taskvar_dir / f"ep{episode}.dat", "wb") as f:
+        with open(taskvar_dir / f"ep{episode}.dat", "rb") as f:
             pickle.loads(blosc.decompress(f.read()))
         t2 = time.time()
         print("t2 - t1", t2 - t1)
