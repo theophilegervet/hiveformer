@@ -172,6 +172,7 @@ class Dataset(torch.utils.data.Dataset):
         state_dict[4].extend(keyframe_action_ls[:-1])  # gripper pos
         state_dict[5].extend(intermediate_action_ls[1:])
 
+        print("len(keyframe_action_ls)", len(keyframe_action_ls))
         for i in range(len(keyframe_action_ls)):
             print(keyframe_action_ls[i])
             print(intermediate_action_ls[i])
