@@ -78,7 +78,7 @@ def get_observation(task_str: str, variation: int, episode: int, env: RLBenchEnv
             for j in range(key_frame[i] + 1, key_frame[i + 1]):
                 _, action = env.get_obs_action(demo._observations[j])
                 intermediate_actions.append(action.unsqueeze(0))
-            intermediate_action_ls.append(intermediate_actions)
+            intermediate_action_ls.append(torch.stack(intermediate_actions))
 
     return demo, keyframe_state_ls, keyframe_action_ls, intermediate_action_ls
 
@@ -180,7 +180,7 @@ class Dataset(torch.utils.data.Dataset):
             # print(intermediate_action_ls[i][0], intermediate_action_ls[i][-1])
             # print(keyframe_action_ls[i + 1])
             print(type(keyframe_action_ls[i]), keyframe_action_ls[i].shape)
-            print(type(intermediate_action_ls[i][0]), intermediate_action_ls[i][0].shape)
+            print(type(intermediate_action_ls[i]), intermediate_action_ls[i].shape)
             print()
             print()
 
