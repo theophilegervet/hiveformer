@@ -1,6 +1,8 @@
 import random
 import itertools
 from typing import Tuple, Dict, List
+import blosc
+import pickle
 from pathlib import Path
 import json
 from tqdm import tqdm
@@ -27,6 +29,7 @@ class Arguments(tap.Tap):
     max_variations: int = 1
     offset: int = 0
     num_workers: int = 0
+    store_intermediate_actions: int = 0
 
 
 def get_attn_indices_from_demo(
@@ -46,7 +49,8 @@ def get_attn_indices_from_demo(
     return [{cam: obs_to_attn(demo[f], cam) for cam in cameras} for f in frames]
 
 
-def get_observation(task_str: str, variation: int, episode: int, env: RLBenchEnv):
+def get_observation(task_str: str, variation: int, episode: int, env: RLBenchEnv,
+                    store_intermediate_actions: bool):
     demos = env.get_demo(task_str, variation, episode)
     demo = demos[0]
 
@@ -59,15 +63,25 @@ def get_observation(task_str: str, variation: int, episode: int, env: RLBenchEnv
         key_frame = key_frame[6:]
     key_frame.insert(0, 0)
 
-    state_ls = []
-    action_ls = []
-    for f in key_frame:
-        state, action = env.get_obs_action(demo._observations[f])
-        state = transform(state)
-        state_ls.append(state.unsqueeze(0))
-        action_ls.append(action.unsqueeze(0))
+    keyframe_state_ls = []
+    keyframe_action_ls = []
+    intermediate_action_ls = []
 
-    return demo, state_ls, action_ls
+    for i in range(len(key_frame)):
+        state, action = env.get_obs_action(demo._observations[key_frame[i]])
+        state = transform(state)
+        keyframe_state_ls.append(state.unsqueeze(0))
+        keyframe_action_ls.append(action.unsqueeze(0))
+
+        if store_intermediate_actions and i < len(key_frame) - 1:
+            intermediate_actions = []
+            # for j in range(key_frame[i] + 1, key_frame[i + 1]):
+            for j in range(key_frame[i], key_frame[i + 1]):
+                _, action = env.get_obs_action(demo._observations[key_frame[j]])
+                intermediate_actions.append(action.unsqueeze(0))
+            intermediate_action_ls.append(intermediate_actions)
+
+    return demo, keyframe_state_ls, keyframe_action_ls, intermediate_action_ls
 
 
 class Dataset(torch.utils.data.Dataset):
@@ -90,7 +104,8 @@ class Dataset(torch.utils.data.Dataset):
             if task_str in self.max_eps_dict:
                 continue
             try:
-                _, state_ls, _ = get_observation(task_str, args.offset, 0, self.env)
+                _, state_ls, _, _ = get_observation(
+                    task_str, args.offset, 0, self.env, False)
             except:
                 print(f"Invalid demo for {task_str}")
                 continue
@@ -122,15 +137,15 @@ class Dataset(torch.utils.data.Dataset):
         taskvar_dir.mkdir(parents=True, exist_ok=True)
 
         try:
-            demo, state_ls, action_ls = get_observation(
-                task, variation, episode, self.env
+            demo, keyframe_state_ls, keyframe_action_ls, intermediate_action_ls = get_observation(
+                task, variation, episode, self.env, bool(args.store_intermediate_actions)
             )
         except (FileNotFoundError, RuntimeError, IndexError, EOFError) as e:
             print(e)
             return
 
         state_ls = einops.rearrange(
-            state_ls,
+            keyframe_state_ls,
             "t 1 (m n ch) h w -> t n m ch h w",
             ch=3,
             n=len(args.cameras),
@@ -148,15 +163,26 @@ class Dataset(torch.utils.data.Dataset):
             print(f"\t {len(frame_ids)} != {self.max_eps_dict[task]}")
             return
 
-        state_dict: List = [[] for _ in range(5)]
+        state_dict: List = [[] for _ in range(6)]
         print("Demo {}".format(episode))
         state_dict[0].extend(frame_ids)
-        state_dict[1].extend(state_ls[:-1])
-        state_dict[2].extend(action_ls[1:])
+        state_dict[1] = state_ls[:-1].numpy()
+        state_dict[2].extend(keyframe_action_ls[1:])
         state_dict[3].extend(attn_indices)
-        state_dict[4].extend(action_ls[:-1])  # gripper pos
+        state_dict[4].extend(keyframe_action_ls[:-1])  # gripper pos
+        state_dict[5].extend(intermediate_action_ls[1:])
 
-        np.save(taskvar_dir / f"ep{episode}.npy", state_dict)  # type: ignore
+        for i in range(len(keyframe_action_ls)):
+            print(keyframe_action_ls[i])
+            print(intermediate_action_ls[i])
+            print(keyframe_state_ls[i + 1])
+            print()
+
+        raise NotImplementedError
+
+        # np.save(taskvar_dir / f"ep{episode}.npy", state_dict)  # type: ignore
+        with open(taskvar_dir / f"ep{episode}.dat", "wb") as f:
+            f.write(blosc.compress(pickle.dumps(state_dict)))
 
 
 if __name__ == "__main__":
