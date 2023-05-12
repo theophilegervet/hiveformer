@@ -7,7 +7,7 @@
 #dataset=/private/home/theop123/datasets/rlbench/packaged/18_peract_tasks_train
 #valset=/private/home/theop123/datasets/rlbench/packaged/18_peract_tasks_val
 
-#main_dir=hiveformer
+main_dir=hiveformer
 use_instruction=0
 task_file=tasks/hiveformer_74_tasks.csv
 gripper_loc_bounds_file=tasks/74_hiveformer_tasks_location_bounds.json
@@ -31,6 +31,7 @@ valset=/private/home/theop123/datasets/rlbench/packaged/74_hiveformer_tasks_val
 #done
 
 # Single-task HiveFormer
+main_dir=hiveformer_10_episodes
 train_iters=400_000
 max_episodes_per_task=10
 for task in $(cat $task_file | tr '\n' ' '); do
