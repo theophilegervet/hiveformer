@@ -1,6 +1,8 @@
 import random
 import itertools
 from typing import Tuple, Dict, List
+import blosc
+import pickle
 from pathlib import Path
 import json
 from tqdm import tqdm
@@ -156,20 +158,9 @@ class Dataset(torch.utils.data.Dataset):
         state_dict[3].extend(attn_indices)
         state_dict[4].extend(action_ls[:-1])  # gripper pos
 
-        import time
-        import blosc
-        import pickle
-        t0 = time.time()
         # np.save(taskvar_dir / f"ep{episode}.npy", state_dict)  # type: ignore
         with open(taskvar_dir / f"ep{episode}.dat", "wb") as f:
             f.write(blosc.compress(pickle.dumps(state_dict)))
-        t1 = time.time()
-        print("t1 - t0", t1 - t0)
-        # np.load(taskvar_dir / f"ep{episode}.npy", allow_pickle=True)
-        with open(taskvar_dir / f"ep{episode}.dat", "rb") as f:
-            pickle.loads(blosc.decompress(f.read()))
-        t2 = time.time()
-        print("t2 - t1", t2 - t1)
 
 
 if __name__ == "__main__":
