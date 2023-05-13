@@ -18,8 +18,9 @@ valset=/private/home/theop123/datasets/rlbench/packaged/18_peract_tasks_val_new
 # Single-task PerAct
 train_iters=400_000
 for task in $(cat $task_file | tr '\n' ' '); do
-  sbatch train_1gpu_32gb_128gb_fair.sh \
-   --tasks task \
+  sbatch train_2gpu_32gb_fair.sh \
+   --devices cuda:0 cuda:1 \
+   --tasks $task \
    --cameras $cameras \
    --dataset $dataset \
    --valset $valset \
@@ -52,22 +53,23 @@ done
 #done
 
 # Multi-task PerAct
-train_iters=4_000_000
-sbatch train_4gpu_32gb_fair.sh \
-   --devices cuda:0 cuda:1 cuda:2 cuda:3 \
-   --tasks $(cat $task_file | tr '\n' ' ') \
-   --cameras $cameras \
-   --batch_size 32 \
-   --batch_size_val 8 \
-   --num_workers 16 \
-   --cache_size 0 \
-   --cache_size_val 0 \
-   --dataset $dataset \
-   --valset $valset \
-   --exp_log_dir $main_dir \
-   --gripper_loc_bounds_file $gripper_loc_bounds_file \
-   --use_instruction $use_instruction \
-   --logger wandb \
-   --train_iters $train_iters \
-   --variations {0..199} \
-   --run_log_dir MULTI-TASK-PERACT
+#train_iters=4_000_000
+#sbatch train_4gpu_32gb_fair.sh \
+#   --devices cuda:0 cuda:1 cuda:2 cuda:3 \
+#   --tasks $(cat $task_file | tr '\n' ' ') \
+#   --cameras $cameras \
+#   --embedding_dim 120 \
+#   --batch_size 32 \
+#   --batch_size_val 8 \
+#   --num_workers 16 \
+#   --cache_size 0 \
+#   --cache_size_val 0 \
+#   --dataset $dataset \
+#   --valset $valset \
+#   --exp_log_dir $main_dir \
+#   --gripper_loc_bounds_file $gripper_loc_bounds_file \
+#   --use_instruction $use_instruction \
+#   --logger wandb \
+#   --train_iters $train_iters \
+#   --variations {0..199} \
+#   --run_log_dir MULTI-TASK-PERACT
