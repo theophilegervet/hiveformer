@@ -43,7 +43,6 @@ for task in $(cat $task_file | tr '\n' ' '); do
    --image_size $image_size \
    --batch_size 4 \
    --batch_size_val 1 \
-   --cache_size_val 0 \
    --dataset $dataset \
    --valset $valset \
    --exp_log_dir $main_dir \
