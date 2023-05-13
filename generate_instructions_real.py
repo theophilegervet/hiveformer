@@ -1,6 +1,6 @@
 import torch
 tasks = [
-'real_push_button'
+'real_reach_target'
 ]
 
 ins = dict()

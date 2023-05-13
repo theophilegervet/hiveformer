@@ -726,10 +726,15 @@ class RLBenchEnv:
                     
                     # fetch the current observation, and predict one action
                     rgb, pcd, gripper = self.get_rgb_pcd_gripper_from_obs(obs)
+                    # rgb: [1, 3, 4, 256, 256], -1 ~ 1
+                    # pcd: [1, 3, 3, 256, 256]
+                    # gripper: [1, 8]
+
 
                     rgb = rgb.to(device)
                     pcd = pcd.to(device)
                     gripper = gripper.to(device)
+                    import IPython;IPython.embed()
 
                     rgbs = torch.cat([rgbs, rgb.unsqueeze(1)], dim=1)
                     pcds = torch.cat([pcds, pcd.unsqueeze(1)], dim=1)

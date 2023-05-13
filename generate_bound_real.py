@@ -24,7 +24,7 @@ class Arguments(tap.Tap):
     instructions: Optional[Path] = "instructions_old/instructions_real.pkl"
 
     tasks: Tuple[str, ...] = (
-        "real_push_button",
+        "real_reach_target",
     )
     variations: Tuple[int, ...] = (0,)
 

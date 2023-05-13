@@ -1,3 +1,4 @@
+import sys
 import random
 from typing import Tuple, Optional
 from copy import deepcopy
@@ -7,6 +8,7 @@ import numpy as np
 import tap
 import json
 from filelock import FileLock
+from scipy.spatial.transform import Rotation as R
 
 from train import Arguments as TrainArguments
 from model.released_hiveformer.network import Hiveformer
@@ -23,6 +25,10 @@ from utils.utils_without_rlbench import (
     get_gripper_loc_bounds,
 )
 
+sys.path.append('/home/zhouxian/git/franka')
+from frankapy import FrankaArm
+from utils.utils_without_rlbench import TASK_TO_ID
+from camera.kinect import Kinect
 
 class Arguments(tap.Tap):
     checkpoint: Path
@@ -39,10 +45,10 @@ class Arguments(tap.Tap):
     ground_truth_rotation: bool = False
     ground_truth_position: bool = False
     ground_truth_gripper: bool = False
-    tasks: Optional[Tuple[str, ...]] = None
+    task = None
     instructions: Optional[Path] = "instructions.pkl"
     arch: Optional[str] = None
-    variations: Tuple[int, ...] = (0,)
+    variation: int = 0
     data_dir: Path = Path(__file__).parent / "demos"
     cameras: Tuple[str, ...] = ("left_shoulder", "right_shoulder", "wrist")
     image_size: str = "256,256"
@@ -170,78 +176,40 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
     ):
         raise ValueError("Please provide the missing parameters")
 
-    max_episode_length = get_max_episode_length(args.tasks, args.variations)
+    task = args.task
+    variation = args.variation
+    max_episode_length = get_max_episode_length((task,), (variation,))
 
     # Gripper workspace is the union of workspaces for all tasks
-    if args.single_task_gripper_loc_bounds and len(args.tasks) == 1:
-        task = args.tasks[0]
-    else:
-        task = None
     gripper_loc_bounds = get_gripper_loc_bounds(
         args.gripper_loc_bounds_file, task=task, buffer=args.gripper_bounds_buffer)
 
-    if args.model == "original":
-        model = Hiveformer(
-            depth=args.depth,
-            dim_feedforward=args.dim_feedforward,
-            hidden_dim=args.hidden_dim,
-            instr_size=args.instr_size,
-            mask_obs_prob=args.mask_obs_prob,
-            max_episode_length=max_episode_length,
-            num_layers=args.num_layers,
-        ).to(device)
-    elif args.model == "baseline":
-        model = Baseline(
-            backbone=args.backbone,
-            image_size=tuple(int(x) for x in args.image_size.split(",")),
-            embedding_dim=args.embedding_dim,
-            num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,
-            num_query_cross_attn_layers=args.num_query_cross_attn_layers,
-            rotation_parametrization=args.rotation_parametrization,
-            gripper_loc_bounds=gripper_loc_bounds,
-            num_ghost_points=args.num_ghost_points,
-            num_ghost_points_val=args.num_ghost_points_val,
-            weight_tying=bool(args.weight_tying),
-            gp_emb_tying=bool(args.gp_emb_tying),
-            simplify=bool(args.simplify),
-            simplify_ins=bool(args.simplify_ins),
-            ins_pos_emb=bool(args.ins_pos_emb),
-            vis_ins_att=bool(args.vis_ins_att),
-            vis_ins_att_complex=bool(args.vis_ins_att_complex),
-            disc_rot=bool(args.disc_rot),
-            disc_rot_res=args.disc_rot_res,
-            num_sampling_level=args.num_sampling_level,
-            fine_sampling_ball_diameter=args.fine_sampling_ball_diameter,
-            regress_position_offset=bool(args.regress_position_offset),
-            visualize_rgb_attn=bool(args.visualize_rgb_attn),
-            use_instruction=bool(args.use_instruction),
-        ).to(device)
-    elif args.model == "analogical":
-        raise NotImplementedError
-        model = AnalogicalNetwork(
-            image_size=tuple(int(x) for x in args.image_size.split(",")),
-            embedding_dim=args.embedding_dim,
-            num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,
-            rotation_parametrization=args.rotation_parametrization,
-            gripper_loc_bounds=gripper_loc_bounds,
-            num_ghost_points=args.num_ghost_points,
-            coarse_to_fine_sampling=bool(args.coarse_to_fine_sampling),
-            fine_sampling_ball_diameter=args.fine_sampling_ball_diameter,
-            separate_coarse_and_fine_layers=bool(args.separate_coarse_and_fine_layers),
-            regress_position_offset=bool(args.regress_position_offset),
-            support_set=args.support_set,
-            global_correspondence=args.global_correspondence,
-            num_matching_cross_attn_layers=args.num_matching_cross_attn_layers,
-            use_instruction=bool(args.use_instruction),
-            task_specific_parameters=bool(args.task_specific_parameters),
-        ).to(device)
+    model = Baseline(
+        backbone=args.backbone,
+        image_size=tuple(int(x) for x in args.image_size.split(",")),
+        embedding_dim=args.embedding_dim,
+        num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,
+        num_query_cross_attn_layers=args.num_query_cross_attn_layers,
+        rotation_parametrization=args.rotation_parametrization,
+        gripper_loc_bounds=gripper_loc_bounds,
+        num_ghost_points=args.num_ghost_points,
+        num_ghost_points_val=args.num_ghost_points_val,
+        weight_tying=bool(args.weight_tying),
+        gp_emb_tying=bool(args.gp_emb_tying),
+        simplify=bool(args.simplify),
+        simplify_ins=bool(args.simplify_ins),
+        ins_pos_emb=bool(args.ins_pos_emb),
+        vis_ins_att=bool(args.vis_ins_att),
+        vis_ins_att_complex=bool(args.vis_ins_att_complex),
+        disc_rot=bool(args.disc_rot),
+        disc_rot_res=args.disc_rot_res,
+        num_sampling_level=args.num_sampling_level,
+        fine_sampling_ball_diameter=args.fine_sampling_ball_diameter,
+        regress_position_offset=bool(args.regress_position_offset),
+        visualize_rgb_attn=bool(args.visualize_rgb_attn),
+        use_instruction=bool(args.use_instruction),
+    ).to(device)
 
-    if hasattr(model, "film_gen") and model.film_gen is not None:
-        model.film_gen.build(device)
-
-    # model_dict = torch.load(checkpoint, map_location="cpu")["weight"]
-    # model_dict = {(k[7:] if k.startswith("module.") else k): v
-    #               for k, v in model_dict.items()}
 
     model_dict = torch.load(checkpoint, map_location="cpu")
     model_dict_weight = {}
@@ -268,14 +236,29 @@ def find_checkpoint(checkpoint: Path) -> Path:
 
     return checkpoint
 
+def transform(rgb, pc):
+    # normalise to [-1, 1]
+    rgb = 2 * (rgb / 255.0 - 0.5)
+
+    if rgb.shape == pc.shape == (720, 1080, 3):
+        rgb = rgb[::3, ::3]
+        pc = pc[::3, ::3]
+    else:
+        assert False
+
+    return rgb, pc
 
 if __name__ == "__main__":
     args = Arguments().parse_args()
 
-    if args.tasks is None:
-        print(args.checkpoint)
-        args.tasks = ["_".join(str(args.checkpoint).split("/")[-2].split("_")[:-1])]
-        print(f"Automatically setting task to {args.tasks}")
+    fa = FrankaArm()
+    kinect = Kinect()
+
+    print('Reset...')
+    fa.reset_joints()
+    print('Open gripper...')
+    fa.open_gripper()
+    gripper_open = True
 
     log_dir = get_log_dir(args)
     log_dir.mkdir(exist_ok=True, parents=True)
@@ -291,50 +274,64 @@ if __name__ == "__main__":
     if checkpoint is None:
         raise RuntimeError()
     model = load_model(checkpoint, args)
+    device = args.device
 
-    # load RLBench environment
-    env = RLBenchEnv(
-        data_path=args.data_dir,
-        image_size=[int(x) for x in args.image_size.split(",")],
-        apply_rgb=True,
-        apply_pc=True,
-        headless=args.headless,
-        apply_cameras=args.cameras,
-        # TODO Is there a way to display the fine sampling ball transparently with Open3D?
-        # fine_sampling_ball_diameter=args.fine_sampling_ball_diameter if model != "original" else None,
-    )
 
-    instruction = load_instructions(args.instructions)
-    if instruction is None:
+
+
+    # Evaluate
+    instructions = load_instructions(args.instructions)
+    if instructions is None:
         raise NotImplementedError()
-
-    actioner = Actioner(model=model, instructions=instruction)
     max_eps_dict = load_episodes()["max_episode_length"]
-    for task_str in args.tasks:
-        for variation in args.variations:
-            if args.model == "original":
-                evaluate = env.evaluate_hiveformer
-            else:
-                evaluate = env.evaluate
-            success_rate = evaluate(
-                task_str,
-                max_episodes=max_eps_dict[task_str] if args.max_episodes == 0 else args.max_episodes,
-                variation=variation,
-                num_demos=args.num_episodes,
-                actioner=actioner,
-                log_dir=log_dir / task_str if args.save_img else None,
-                max_tries=args.max_tries,
-                save_attn=False,
-                record_videos=False,
-                position_prediction_only=bool(args.position_prediction_only),
-                offline=bool(args.offline),
-                randomize_vp=bool(args.randomize_vp)
-            )
 
-            print("Testing Success Rate {}: {:.04f}".format(task_str, success_rate))
+    max_episodes = max_eps_dict[args.task] if args.max_episodes == 0 else args.max_episodes
+    instr = random.choice(instructions[args.task][args.variation]).unsqueeze(0).to(device)
+    task_id = torch.tensor(TASK_TO_ID[args.task]).unsqueeze(0).to(device)
+    
+    for step_id in range(max_episodes):
+        print(step_id)
+        # get obs
+        rgb = kinect.get_rgb()[:, 100:-100, :]
+        pcd = kinect.get_pc()[:, 100:-100, :]
+        rgb, pcd = transform(rgb, pcd)
+        rgb = rgb.transpose((2, 0, 1))
+        pcd = pcd.transpose((2, 0, 1))
+        rgbs = torch.tensor(rgb).to(device).unsqueeze(0).unsqueeze(0).unsqueeze(0).float()
+        pcds = torch.tensor(pcd).to(device).unsqueeze(0).unsqueeze(0).unsqueeze(0).float()
 
-            with FileLock(str(args.output.parent / f"{args.output.name}.lock")):
-                with open(args.output, "a") as output_id:
-                    output_id.write(
-                        f"{task_str}-{variation}, {checkpoint}, seed={args.seed}, {success_rate}, {log_dir}\n"
-                    )
+        gripper_pose = fa.get_pose()
+        gripper_trans = gripper_pose.translation
+        gripper_quat = R.from_matrix(gripper_pose.rotation).as_quat()
+        gripper = np.concatenate([gripper_trans, gripper_quat, [gripper_open]])
+        gripper = torch.tensor(gripper).to(device).unsqueeze(0).unsqueeze(0).float()
+
+        padding_mask = torch.ones_like(rgbs[:, :, 0, 0, 0, 0]).bool()
+
+        pred = model(
+            rgbs,
+            pcds,
+            padding_mask,
+            instr,
+            gripper,
+            task_id,
+        )
+        action = model.compute_action(pred).detach().cpu().numpy()  # type: ignore
+        action_gripper_open = action[0, -1] > 0.5
+
+        # move
+        target_pose = fa.get_pose()
+        target_pose.translation = action[0, :3]
+        target_pose.rotation = R.from_quat(action[0, 3:7]).as_matrix()
+
+        fa.goto_pose(target_pose, duration=5)
+        if gripper_open and not action_gripper_open:
+            fa.close_gripper()
+            gripper_open = False
+        elif not gripper_open and action_gripper_open:
+            fa.open_gripper()
+            gripper_open = True
+
+
+
+

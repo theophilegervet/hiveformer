@@ -357,6 +357,6 @@ ALL_TASKS = [
     'take_toilet_roll_off_stand', 'take_umbrella_out_of_umbrella_stand', 'take_usb_out_of_computer',
     'toilet_seat_down', 'toilet_seat_up', 'tower3', 'turn_oven_on', 'turn_tap', 'tv_on', 'unplug_charger',
     'water_plants', 'wipe_desk',
-    'real_push_button',
+    'real_reach_target',
 ]
 TASK_TO_ID = {task: i for i, task in enumerate(ALL_TASKS)}

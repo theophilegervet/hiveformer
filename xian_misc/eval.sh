@@ -99,6 +99,6 @@ python eval.py\
      --num_query_cross_attn_layers $n_layer\
      --run_log_dir $task-ONLINE\
      --randomize_vp $randomize_vp\
-     --disc_rot $disc_rot\
-     --disc_rot_res $disc_rot_res\
+     # --disc_rot $disc_rot\
+     # --disc_rot_res $disc_rot_res\
      # --max_episodes 20

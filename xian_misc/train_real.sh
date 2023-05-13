@@ -1,15 +1,15 @@
-main_dir=05_12_real
+main_dir=05_13_real
 # main_dir=debug
 
 dataset=/home/zhouxian/git/datasets/packaged/real_tasks_train
-valset=/home/zhouxian/git/datasets/packaged/real_tasks_train
+valset=/home/zhouxian/git/datasets/packaged/real_tasks_val
 
 num_workers=0
 train_cache_size=0
 val_cache_size=0
 train_iters=500000
 
-task=real_push_button
+task=real_reach_target
 
 batch_size_val=4
 lr=1e-4
@@ -27,7 +27,6 @@ n_layer=2
 gp_emb_tying=1
 simplify=1
 
-batch_size=16
 symmetric_rotation_loss=0
 vis_ins_att_complex=0
 vis_ins_att=1
@@ -38,7 +37,7 @@ instruction_file=instructions_real.pkl
 
 num_sampling_level=3
 batch_size=16
-batch_size_val=4
+batch_size_val=5
 
 
 python train.py\
@@ -48,6 +47,8 @@ python train.py\
      --tasks $task \
      --dataset $dataset \
      --gripper_loc_bounds_file /home/zhouxian/git/hiveformer/tasks/real_tasks_location_bounds.json\
+     --val_freq 50 \
+     --checkpoint_freq 200\
      --valset $valset \
      --train_cache_size $train_cache_size \
      --val_cache_size $val_cache_size \

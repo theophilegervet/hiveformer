@@ -109,7 +109,7 @@
         "water_plants": 5,
         "wipe_desk": 6,
         "place_wine_at_rack_location": 5,
-        "real_push_button": 2
+        "real_reach_target": 1
 }, 
 "variable_length": [
 	"push_buttons",
