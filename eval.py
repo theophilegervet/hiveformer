@@ -267,6 +267,7 @@ def find_checkpoint(checkpoint: Path) -> Path:
 
 if __name__ == "__main__":
     args = Arguments().parse_args()
+    args.cameras = tuple(x for y in args.cameras for x in y.split(","))
 
     if args.tasks is None:
         print(args.checkpoint)

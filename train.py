@@ -639,6 +639,7 @@ def get_model(args: Arguments, gripper_loc_bounds) -> Tuple[optim.Optimizer, Hiv
 
 if __name__ == "__main__":
     args = Arguments().parse_args()
+    args.cameras = tuple(x for y in args.cameras for x in y.split(","))
 
     # Force original HiveFormer parameters
     if args.model == "original":
