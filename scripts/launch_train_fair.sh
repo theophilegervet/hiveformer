@@ -38,11 +38,15 @@ valset=/private/home/theop123/datasets/rlbench/packaged/74_hiveformer_tasks_val_
 train_iters=800_000
 image_size="512,512"
 for task in $(cat $task_file | tr '\n' ' '); do
-  sbatch train_1gpu_32gb_128gb_fair.sh \
+  sbatch train_2gpu_32gb_fair.sh \
+   --devices cuda:0 cuda:1 \
    --tasks $task \
    --image_size $image_size \
-   --batch_size 4 \
-   --batch_size_val 1 \
+   --batch_size 8 \
+   --batch_size_val 2 \
+   --cache_size 0 \
+   --cache_size_val 0 \
+   --num_workers 16 \
    --dataset $dataset \
    --valset $valset \
    --exp_log_dir $main_dir \
