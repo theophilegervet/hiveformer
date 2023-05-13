@@ -24,6 +24,8 @@ for task in $(cat $task_file | tr '\n' ' '); do
    --cameras $cameras \
    --dataset $dataset \
    --valset $valset \
+   --num_workers 16 \
+   --cache_size 0 \
    --cache_size_val 0 \
    --exp_log_dir $main_dir \
    --gripper_loc_bounds_file $gripper_loc_bounds_file \
@@ -61,7 +63,7 @@ done
 #   --embedding_dim 120 \
 #   --batch_size 32 \
 #   --batch_size_val 8 \
-#   --num_workers 16 \
+#   --num_workers 32 \
 #   --cache_size 0 \
 #   --cache_size_val 0 \
 #   --dataset $dataset \
