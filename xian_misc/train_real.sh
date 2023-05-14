@@ -1,15 +1,26 @@
-main_dir=05_13_real
+main_dir=05_14_real
 # main_dir=debug
 
 dataset=/home/zhouxian/git/datasets/packaged/real_tasks_train
 valset=/home/zhouxian/git/datasets/packaged/real_tasks_val
-
 num_workers=0
 train_cache_size=0
 val_cache_size=0
+
+dataset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/real_tasks_train
+valset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/real_tasks_val
+num_workers=2
+train_cache_size=100
+val_cache_size=100
+
 train_iters=500000
 
 task=real_reach_target
+task=real_press_stapler
+task=real_press_hand_san
+task=real_put_fruits_in_bowl
+task=real_stack_bowls
+task=real_unscrew_bottle_cap
 
 batch_size_val=4
 lr=1e-4
@@ -46,9 +57,9 @@ python train.py\
      --instructions instructions_old/$instruction_file \
      --tasks $task \
      --dataset $dataset \
-     --gripper_loc_bounds_file /home/zhouxian/git/hiveformer/tasks/real_tasks_location_bounds.json\
-     --val_freq 50 \
-     --checkpoint_freq 200\
+     --gripper_loc_bounds_file tasks/real_tasks_location_bounds.json\
+     --val_freq 500 \
+     --checkpoint_freq 20\
      --valset $valset \
      --train_cache_size $train_cache_size \
      --val_cache_size $val_cache_size \
