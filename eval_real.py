@@ -257,8 +257,11 @@ if __name__ == "__main__":
     print('Reset...')
     fa.reset_joints()
     print('Open gripper...')
-    fa.open_gripper()
-    gripper_open = True
+    # fa.open_gripper()
+    # gripper_open = True
+    
+    fa.close_gripper()
+    gripper_open = False
 
     log_dir = get_log_dir(args)
     log_dir.mkdir(exist_ok=True, parents=True)

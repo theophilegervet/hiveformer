@@ -1,6 +1,11 @@
 import torch
 tasks = [
-'real_reach_target'
+    'real_reach_target',
+    'real_press_stapler',
+    'real_press_hand_san',
+    'real_put_fruits_in_bowl',
+    'real_stack_bowls',
+    'real_unscrew_bottle_cap',
 ]
 
 ins = dict()
