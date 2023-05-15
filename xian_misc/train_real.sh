@@ -25,7 +25,7 @@ task=real_unscrew_bottle_cap
 task=real_transfer_beans
 task=real_put_duck_in_oven
 task=real_spread_sand
-task=real_wipe_coffe
+task=real_wipe_coffee
 
 batch_size_val=4
 lr=1e-4
