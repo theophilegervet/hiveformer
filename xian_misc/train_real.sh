@@ -1,4 +1,5 @@
 main_dir=05_14_real
+main_dir=05_15_real
 # main_dir=debug
 
 dataset=/home/zhouxian/git/datasets/packaged/real_tasks_train
@@ -21,6 +22,10 @@ task=real_press_hand_san
 task=real_put_fruits_in_bowl
 task=real_stack_bowls
 task=real_unscrew_bottle_cap
+task=real_transfer_beans
+task=real_put_duck_in_oven
+task=real_spread_sand
+task=real_wipe_coffe
 
 batch_size_val=4
 lr=1e-4

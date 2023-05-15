@@ -1,4 +1,9 @@
 task=real_reach_target
+task=real_press_stapler
+task=real_press_hand_san
+task=real_put_fruits_in_bowl
+task=real_stack_bowls
+task=real_unscrew_bottle_cap
 
 gripper_bounds_buffer=0.10
 weight_tying=1
@@ -18,8 +23,7 @@ vis_ins_att_complex=0
 regress_position_offset=0
 ins_pos_emb=0
 instruction_file=instructions_real.pkl
-ckpt=/home/zhouxian/git/hiveformer/train_logs/05_13_real/real_reach_target-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B16-demo100-dim60-L2-lr1e-4-seed0-simpins0-ins_pos_emb0-vis_ins_att1-vis_ins_att_complex0-insinstructions_real.pkl_version0/model.step=200000-value=0.00000.pth
-
+ckpt=/home/zhouxian/git/hiveformer/train_logs/05_14_real/real_unscrew_bottle_cap-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B16-demo100-dim60-L2-lr1e-4-seed0-simpins0-ins_pos_emb0-vis_ins_att1-vis_ins_att_complex0-insinstructions_real.pkl_version170523/model.step=160000-value=0.00000.pth 
 python eval_real.py\
      --instructions instructions_old/$instruction_file \
      --task $task\

@@ -6,6 +6,10 @@ tasks = [
     'real_put_fruits_in_bowl',
     'real_stack_bowls',
     'real_unscrew_bottle_cap',
+    'real_transfer_beans',
+    'real_put_duck_in_oven',
+    'real_spread_sand',
+    'real_wipe_coffee',
 ]
 
 ins = dict()

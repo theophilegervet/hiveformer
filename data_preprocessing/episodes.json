@@ -109,12 +109,17 @@
         "water_plants": 5,
         "wipe_desk": 6,
         "place_wine_at_rack_location": 5,
+
         "real_reach_target": 1,
         "real_press_stapler": 3,
         "real_press_hand_san": 3,
         "real_put_fruits_in_bowl": 4,
         "real_stack_bowls": 4,
-        "real_unscrew_bottle_cap": 3
+        "real_unscrew_bottle_cap": 3,
+        "real_transfer_beans": 5,
+        "real_put_duck_in_oven": 4,
+        "real_spread_sand": 4,
+        "real_wipe_coffee": 4
 
 
 }, 

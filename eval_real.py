@@ -248,6 +248,21 @@ def transform(rgb, pc):
 
     return rgb, pc
 
+def goto_pose(fa, pose, duration, up_offset=0.0, up_first=False, up_duration=1.5, down_offset=0.0, down_duration=1.5, down_last=False):
+    if up_first:
+        cur_pose = fa.get_pose()
+        cur_pose.translation[2] += up_offset
+        fa.goto_pose(cur_pose, duration=up_duration)
+
+    if down_last:
+        pose.translation[2] += down_offset
+        fa.goto_pose(pose, duration=duration)
+
+        pose.translation[2] -= down_offset
+        fa.goto_pose(pose, duration=down_duration)
+    else:
+        fa.goto_pose(pose, duration=duration)
+
 if __name__ == "__main__":
     args = Arguments().parse_args()
 
@@ -257,11 +272,13 @@ if __name__ == "__main__":
     print('Reset...')
     fa.reset_joints()
     print('Open gripper...')
-    # fa.open_gripper()
-    # gripper_open = True
-    
-    fa.close_gripper()
-    gripper_open = False
+    if args.task == 'real_reach_target':
+        fa.close_gripper()
+        gripper_open = False
+    else:
+        fa.open_gripper()
+        gripper_open = True
+
 
     log_dir = get_log_dir(args)
     log_dir.mkdir(exist_ok=True, parents=True)
@@ -320,20 +337,62 @@ if __name__ == "__main__":
             task_id,
         )
         action = model.compute_action(pred).detach().cpu().numpy()  # type: ignore
+        print(action)
         action_gripper_open = action[0, -1] > 0.5
 
         # move
         target_pose = fa.get_pose()
-        target_pose.translation = action[0, :3]
-        target_pose.rotation = R.from_quat(action[0, 3:7]).as_matrix()
+        if args.task == 'real_press_stapler' and step_id == 1:
+            target_pose.translation[2] = action[0, 2] - 0.01
+            target_pose.translation[2] = 0.04
+        elif args.task == 'real_press_stapler' and step_id == 2:
+            # target_pose.translation[2] = action[0, 2] - 0.01
+            target_pose.translation[2] = 0.09
+        elif args.task == 'real_press_hand_san' and step_id == 1:
+            target_pose.translation = action[0, :3]
+            target_pose.translation[2] -= 0.03
+            import time
+            time.sleep(1)
+        else:
+            target_pose.translation = action[0, :3]
 
-        fa.goto_pose(target_pose, duration=5)
+        target_pose.rotation = R.from_quat(action[0, 3:7]).as_matrix()
+        if args.task == 'real_press_stapler' and step_id > 0:
+            duration = 1.0
+        elif args.task == 'real_press_hand_san' and step_id > 0:
+            duration = 1.0
+        else:
+            duration = 5.0
+
+        if args.task == 'real_put_fruits_in_bowl' and step_id in [0, 2]:
+            goto_pose(fa, target_pose, duration=duration, down_offset=0.1, down_last=True)
+        elif args.task == 'real_put_fruits_in_bowl' and step_id in [1, 3]:
+            goto_pose(fa, target_pose, duration=duration, up_offset=0.16, up_first=True)
+        elif args.task == 'real_stack_bowls' and step_id in [0, 2, 4]:
+            target_pose.translation[2] = 0.05
+            goto_pose(fa, target_pose, duration=duration, down_offset=0.05, down_duration=1.0, down_last=True)
+        elif args.task == 'real_stack_bowls' and step_id in [1, 3, 5]:
+            goto_pose(fa, target_pose, duration=duration, up_offset=0.10, up_duration=1.0, up_first=True, down_offset=0.04, down_duration=0.5, down_last=True)
+        elif args.task == 'real_unscrew_bottle_cap' and step_id in [0]:
+            target_pose.translation[2] = 0.223
+            goto_pose(fa, target_pose, duration=duration, down_offset=0.05, down_duration=1.0, down_last=True)
+        elif args.task == 'real_unscrew_bottle_cap' and step_id in [1]:
+            target_pose.translation = fa.get_pose().translation
+        else:
+            fa.goto_pose(target_pose, duration=duration)
+
         if gripper_open and not action_gripper_open:
-            fa.close_gripper()
+            if args.task == 'real_unscrew_bottle_cap':
+                fa.close_gripper_soft()
+            else:
+                fa.close_gripper()
             gripper_open = False
         elif not gripper_open and action_gripper_open:
             fa.open_gripper()
             gripper_open = True
+
+
+    fa.reset_joints()
 
 
 
