@@ -83,3 +83,4 @@ for embedding_dim in 60 120; do
      --train_iters $train_iters \
      --variations {0..199} \
      --run_log_dir MULTI-TASK-PERACT-embedding_dim-$embedding_dim
+done
