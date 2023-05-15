@@ -63,7 +63,8 @@ train_iters=4_000_000
 batch_size=24
 batch_size_val=6
 num_workers=24
-for embedding_dim in 60 120; do
+checkpoint="/private/home/theop123/hiveformer2/train_logs/peract_new_data/MULTI-TASK-PERACT_version8002386/best.pth"
+for embedding_dim in 120; do
   sbatch train_4gpu_32gb_fair.sh \
      --devices cuda:0 cuda:1 cuda:2 cuda:3 \
      --tasks $(cat $task_file | tr '\n' ' ') \
@@ -72,6 +73,7 @@ for embedding_dim in 60 120; do
      --batch_size $batch_size \
      --batch_size_val $batch_size_val \
      --num_workers $num_workers \
+     --checkpoint $checkpoint \
      --cache_size 0 \
      --cache_size_val 0 \
      --dataset $dataset \
