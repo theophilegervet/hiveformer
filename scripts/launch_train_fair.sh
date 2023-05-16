@@ -61,7 +61,7 @@ train_iters=4_000_000
 #batch_size_val=8
 #num_workers=32
 batch_size=24
-batch_size_val=6
+batch_size_val=4
 num_workers=24
 checkpoint="/private/home/theop123/hiveformer2/train_logs/peract_new_data/MULTI-TASK-PERACT_version8002386/best.pth"
 for embedding_dim in 120; do
