@@ -610,18 +610,18 @@ def get_model(args: Arguments, gripper_loc_bounds) -> Tuple[optim.Optimizer, Hiv
         model_dict = torch.load(args.checkpoint, map_location="cpu")
         model.load_state_dict(model_dict["weight"])
 
-    # optimizer_grouped_parameters = [
-    #     {"params": [], "weight_decay": 0.0, "lr": args.lr},
-    #     {"params": [], "weight_decay": 5e-4, "lr": args.lr},
-    # ]
-    # no_decay = ["bias", "LayerNorm.weight", "LayerNorm.bias"]
-    # for name, param in model.named_parameters():
-    #     if any(nd in name for nd in no_decay):
-    #         optimizer_grouped_parameters[0]["params"].append(param)  # type: ignore
-    #     else:
-    #         optimizer_grouped_parameters[1]["params"].append(param)  # type: ignore
-    # optimizer: optim.Optimizer = optim.AdamW(optimizer_grouped_parameters)
-    optimizer = optim.Optimizer = optim.AdamW(model.parameters())
+    optimizer_grouped_parameters = [
+        {"params": [], "weight_decay": 0.0, "lr": args.lr},
+        {"params": [], "weight_decay": 5e-4, "lr": args.lr},
+    ]
+    no_decay = ["bias", "LayerNorm.weight", "LayerNorm.bias"]
+    for name, param in model.named_parameters():
+        if any(nd in name for nd in no_decay):
+            optimizer_grouped_parameters[0]["params"].append(param)  # type: ignore
+        else:
+            optimizer_grouped_parameters[1]["params"].append(param)  # type: ignore
+    optimizer: optim.Optimizer = optim.AdamW(optimizer_grouped_parameters)
+    # optimizer = optim.Optimizer = optim.AdamW(model.parameters())
 
     if args.checkpoint is not None:
         optimizer.load_state_dict(model_dict["optimizer"])
