@@ -626,8 +626,8 @@ def get_model(args: Arguments, gripper_loc_bounds) -> Tuple[optim.Optimizer, Hiv
     if args.checkpoint is not None:
         optimizer.load_state_dict(model_dict["optimizer"])
 
-    # print("model.training", model.training)
-    # raise NotImplementedError
+    print("model.training", model.training)
+    raise NotImplementedError
 
     model_params = count_parameters(_model)
     print("Model parameters:", model_params)
