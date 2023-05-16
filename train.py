@@ -205,10 +205,6 @@ def training(
             train_losses["total"] = sum(list(train_losses.values()))  # type: ignore
             train_losses["total"].backward()  # type: ignore
 
-            print("GRAD model", model.module.prediction_head.query_cross_attn_pyramid[0].ffw_layers[0].linear1.weight.grad)
-            print("GRAD backbone", next(model.module.prediction_head.backbone.parameters()).grad)
-            raise NotImplementedError
-
             metrics = loss_and_metrics.compute_metrics(pred, sample)
 
             for n, l in train_losses.items():
