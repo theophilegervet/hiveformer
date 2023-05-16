@@ -75,7 +75,7 @@ def get_observation(task_str: str, variation: int, episode: int, env: RLBenchEnv
 
         if store_intermediate_actions and i < len(key_frame) - 1:
             intermediate_actions = []
-            for j in range(key_frame[i] + 1, key_frame[i + 1]):
+            for j in range(key_frame[i], key_frame[i + 1] + 1):
                 _, action = env.get_obs_action(demo._observations[j])
                 intermediate_actions.append(action.unsqueeze(0))
             intermediate_action_ls.append(torch.cat(intermediate_actions))
@@ -169,7 +169,7 @@ class Dataset(torch.utils.data.Dataset):
         state_dict[2].extend(keyframe_action_ls[1:])
         state_dict[3].extend(attn_indices)
         state_dict[4].extend(keyframe_action_ls[:-1])  # gripper pos
-        state_dict[5].extend(intermediate_action_ls[:-1])  # traj from gripper pos to keyframe action
+        state_dict[5].extend(intermediate_action_ls)   # traj from gripper pos to keyframe action
 
         # np.save(taskvar_dir / f"ep{episode}.npy", state_dict)  # type: ignore
         with open(taskvar_dir / f"ep{episode}.dat", "wb") as f:
