@@ -263,6 +263,21 @@ def goto_pose(fa, pose, duration, up_offset=0.0, up_first=False, up_duration=1.5
     else:
         fa.goto_pose(pose, duration=duration)
 
+def goto_pose2(fa, pose, duration, pre_offset=np.zeros(3), pre=False, pre_duration=1.5, post_offset=np.zeros(3), post_duration=1.5, post=False):
+    if pre:
+        cur_pose = fa.get_pose()
+        cur_pose.translation += pre_offset
+        fa.goto_pose(cur_pose, duration=pre_duration)
+
+    if post:
+        pose.translation += post_offset
+        fa.goto_pose(pose, duration=duration)
+
+        pose.translation -= post_offset
+        fa.goto_pose(pose, duration=post_duration)
+    else:
+        fa.goto_pose(pose, duration=duration)
+
 if __name__ == "__main__":
     args = Arguments().parse_args()
 
@@ -275,6 +290,9 @@ if __name__ == "__main__":
     if args.task == 'real_reach_target':
         fa.close_gripper()
         gripper_open = False
+    elif args.task == 'real_spread_sand':
+        fa.open_gripper_tool()
+        gripper_open = True
     else:
         fa.open_gripper()
         gripper_open = True
@@ -309,6 +327,7 @@ if __name__ == "__main__":
     instr = random.choice(instructions[args.task][args.variation]).unsqueeze(0).to(device)
     task_id = torch.tensor(TASK_TO_ID[args.task]).unsqueeze(0).to(device)
     
+    # for step_id in range(1):
     for step_id in range(max_episodes):
         print(step_id)
         # get obs
@@ -339,7 +358,7 @@ if __name__ == "__main__":
         action = model.compute_action(pred).detach().cpu().numpy()  # type: ignore
         print(action)
         action_gripper_open = action[0, -1] > 0.5
-
+        # import IPython;IPython.embed()
         # move
         target_pose = fa.get_pose()
         if args.task == 'real_press_stapler' and step_id == 1:
@@ -356,7 +375,11 @@ if __name__ == "__main__":
         else:
             target_pose.translation = action[0, :3]
 
-        target_pose.rotation = R.from_quat(action[0, 3:7]).as_matrix()
+        if args.task == 'real_spread_sand':
+            pass
+        else:
+            target_pose.rotation = R.from_quat(action[0, 3:7]).as_matrix()
+
         if args.task == 'real_press_stapler' and step_id > 0:
             duration = 1.0
         elif args.task == 'real_press_hand_san' and step_id > 0:
@@ -378,6 +401,81 @@ if __name__ == "__main__":
             goto_pose(fa, target_pose, duration=duration, down_offset=0.05, down_duration=1.0, down_last=True)
         elif args.task == 'real_unscrew_bottle_cap' and step_id in [1]:
             target_pose.translation = fa.get_pose().translation
+        elif args.task == 'real_spread_sand':
+            if step_id == 0:
+                target_pose.translation = np.array([0.592, 0.225, 0.135])
+                goto_pose(fa, target_pose, duration=duration, down_offset=0.05, down_duration=3.0, down_last=True)
+            elif step_id == 1:
+                target_pose.translation[2] = 0.140
+                goto_pose(fa, target_pose, duration=duration, up_offset=0.14, up_duration=4.0, up_first=True, down_offset=0.05, down_duration=1.0, down_last=True)
+            elif step_id == 2:
+                target_pose.translation[2] = 0.137
+                goto_pose(fa, target_pose, duration=2.5)
+            elif step_id == 3:
+                target_pose.translation[2] = 0.137
+                goto_pose(fa, target_pose, duration=4)
+        elif args.task == 'real_wipe_coffee':
+            if step_id == 0:
+                target_pose.translation[2] = 0.005
+                target_pose.translation[1] += 0.025
+                target_pose.rotation = R.from_quat(np.array([ 0.99798159, -0.01401051,  0.01591191,  0.05986039])).as_matrix()
+                goto_pose(fa, target_pose, duration=duration)
+            elif step_id == 1:
+                target_pose.translation[2] += 0.03
+                goto_pose(fa, target_pose, duration=duration, up_offset=0.05, up_duration=1.0, up_first=True)
+            elif step_id == 2:
+                target_pose.translation[2] = 0.02
+                goto_pose(fa, target_pose, duration=2.0, down_offset=0.03, down_duration=0.5, down_last=True)
+            elif step_id == 3:
+                target_pose.translation[2] = 0.01
+                fa.goto_pose(target_pose, duration=3.5)
+            else:
+                goto_pose(fa, target_pose, duration=duration)
+        elif args.task == 'real_put_duck_in_oven':
+            if step_id == 0:
+                target_pose.translation = np.array([5.6281102e-01, -0.22,  0.26118689])
+                # goto_pose2(fa, target_pose, duration=duration, post_offset=np.array([0, 0.01, 0]), post=True, post_duration=1.0)
+                goto_pose2(fa, target_pose, duration=duration)
+            elif step_id == 2:
+                # avoid collision
+                temp_pose = fa.get_pose()
+                temp_pose.rotation = np.array([[ 0.9600275 , -0.08617114, -0.26627778],
+                       [-0.27268965, -0.50215055, -0.8206576 ],
+                       [-0.06299453,  0.86046505, -0.50558604]])
+                temp_pose.translation = np.array([ 0.64128851, -0.0,  0.08960278])
+                goto_pose2(fa, temp_pose, duration=3.0)
+                temp_pose.translation = np.array([ 0.64128851, -0.0,  0.13960278])
+                goto_pose2(fa, temp_pose, duration=2.0)
+
+                goto_pose2(fa, target_pose, duration=duration, post_offset=np.array([0, 0.0, 0.05]), post=True, post_duration=1.5)
+            elif step_id == 3:
+                goto_pose2(fa, target_pose, duration=duration, pre_offset=np.array([0, 0.0, 0.08]), pre=True, pre_duration=1.5)
+            else:
+                goto_pose(fa, target_pose, duration=duration)
+        elif args.task == 'real_transfer_beans':
+            if step_id == 0:
+                target_pose.translation = np.array([6.5634805e-01, 0.204859,  0.138])
+                goto_pose2(fa, target_pose, duration=duration)
+            elif step_id == 1:
+                target_pose.translation[2] = 0.165
+                # goto_pose2(fa, target_pose, duration=duration, pre_offset=np.array([0, 0.0, 0.20]), pre=True, pre_duration=1.5, post_offset=np.array([0, 0.0, 0.06]), post=True, post_duration=0.5)
+                goto_pose2(fa, target_pose, duration=duration, pre_offset=np.array([0, 0.0, 0.20]), pre=True, pre_duration=3.0, post_offset=np.array([0, 0.0, 0.02]), post=True, post_duration=1.0)
+            elif step_id == 2:
+                target_pose.translation[2] = 0.13
+                goto_pose(fa, target_pose, duration=duration)
+            elif step_id == 3:
+                target_pose.translation[2] = 0.13
+                goto_pose(fa, target_pose, duration=duration)
+            elif step_id == 4:
+                temp_pose = fa.get_pose()
+                temp_pose.translation = target_pose.translation
+                temp_pose.translation[1] += 0.04
+                temp_pose.translation[2] += 0.03
+                target_pose.translation[2] += 0.02
+                goto_pose(fa, temp_pose, duration=4.0)
+                goto_pose(fa, target_pose, duration=2.0)
+            else:
+                goto_pose(fa, target_pose, duration=duration)
         else:
             fa.goto_pose(target_pose, duration=duration)
 
@@ -392,7 +490,13 @@ if __name__ == "__main__":
             gripper_open = True
 
 
+    if args.task == 'real_put_duck_in_oven':
+        pose = fa.get_pose()
+        pose.translation[1] += 0.06
+        goto_pose(fa, pose, duration=1.5)
+
     fa.reset_joints()
+    fa.open_gripper()
 
 
 
