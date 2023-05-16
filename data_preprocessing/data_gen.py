@@ -171,6 +171,9 @@ class Dataset(torch.utils.data.Dataset):
         state_dict[4].extend(keyframe_action_ls[:-1])  # gripper pos
         state_dict[5].extend(intermediate_action_ls[:-1])  # traj from gripper pos to keyframe action
 
+        print("state_dict[5]", state_dict[5])
+        raise NotImplementedError
+
         # np.save(taskvar_dir / f"ep{episode}.npy", state_dict)  # type: ignore
         with open(taskvar_dir / f"ep{episode}.dat", "wb") as f:
             f.write(blosc.compress(pickle.dumps(state_dict)))
