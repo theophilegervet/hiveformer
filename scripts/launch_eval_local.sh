@@ -73,7 +73,8 @@ tasks=(
 )
 
 #data_dir=/home/zhouxian/git/datasets/raw/74_hiveformer_tasks_val
-data_dir=/home/zhouxian/git/datasets/raw/18_peract_tasks_val
+#data_dir=/home/zhouxian/git/datasets/raw/18_peract_tasks_val
+data_dir=/home/sirdome/katefgroup/datasets/raw/18_peract_tasks_val_new
 num_episodes=100
 #gripper_loc_bounds_file=tasks/74_hiveformer_tasks_location_bounds.json
 gripper_loc_bounds_file=tasks/18_peract_tasks_location_bounds.json
