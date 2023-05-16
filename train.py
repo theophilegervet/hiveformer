@@ -205,7 +205,7 @@ def training(
             train_losses["total"] = sum(list(train_losses.values()))  # type: ignore
             train_losses["total"].backward()  # type: ignore
 
-            print(next(model.parameters()).grad)
+            print("GRAD", next(model.parameters()).grad)
             raise NotImplementedError
 
             metrics = loss_and_metrics.compute_metrics(pred, sample)
