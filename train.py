@@ -602,6 +602,7 @@ def get_model(args: Arguments, gripper_loc_bounds) -> Tuple[optim.Optimizer, Hiv
 
     if args.checkpoint is not None:
         model_dict = torch.load(args.checkpoint, map_location="cpu")
+        print("model_dict.keys()", model_dict.keys())
         model_dict_weight = {}
         for key in model_dict["weight"]:
             _key = key[7:]
@@ -610,6 +611,7 @@ def get_model(args: Arguments, gripper_loc_bounds) -> Tuple[optim.Optimizer, Hiv
             # if 'prediction_head.feature_pyramid.layer_blocks' in _key:
             #     _key = _key[:46] + _key[48:]
             model_dict_weight[_key] = model_dict["weight"][key]
+        print("model_dict_weight.keys()", model_dict_weight.keys())
         _model.load_state_dict(model_dict_weight)
 
     devices = [torch.device(d) for d in args.devices]
@@ -631,6 +633,7 @@ def get_model(args: Arguments, gripper_loc_bounds) -> Tuple[optim.Optimizer, Hiv
     optimizer: optim.Optimizer = optim.AdamW(optimizer_grouped_parameters)
 
     if args.checkpoint is not None:
+        print('model_dict["optimizer"].keys()', model_dict["optimizer"].keys())
         optimizer.load_state_dict(model_dict["optimizer"])
 
     model_params = count_parameters(_model)
