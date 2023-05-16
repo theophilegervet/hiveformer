@@ -604,32 +604,64 @@ def get_model(args: Arguments, gripper_loc_bounds) -> Tuple[optim.Optimizer, Hiv
             num_matching_cross_attn_layers=args.num_matching_cross_attn_layers,
         )
 
+    # devices = [torch.device(d) for d in args.devices]
+    # model = _model.to(devices[0])
+    # if args.devices[0] != "cpu":
+    #     assert all("cuda" in d for d in args.devices)
+    #     model = torch.nn.DataParallel(model, device_ids=devices)
+
+    # if args.checkpoint is not None:
+    #     model_dict = torch.load(args.checkpoint, map_location="cpu")
+    #     model.load_state_dict(model_dict["weight"])
+    #
+    # optimizer_grouped_parameters = [
+    #     {"params": [], "weight_decay": 0.0, "lr": args.lr},
+    #     {"params": [], "weight_decay": 5e-4, "lr": args.lr},
+    # ]
+    # no_decay = ["bias", "LayerNorm.weight", "LayerNorm.bias"]
+    # for name, param in model.named_parameters():
+    #     if any(nd in name for nd in no_decay):
+    #         optimizer_grouped_parameters[0]["params"].append(param)  # type: ignore
+    #     else:
+    #         optimizer_grouped_parameters[1]["params"].append(param)  # type: ignore
+    # optimizer: optim.Optimizer = optim.AdamW(optimizer_grouped_parameters)
+    #
+    # # optimizer = optim.Optimizer = optim.AdamW(model.parameters())
+    #
+    # if args.checkpoint is not None:
+    #     optimizer.load_state_dict(model_dict["optimizer"])
+
     devices = [torch.device(d) for d in args.devices]
     model = _model.to(devices[0])
     if args.devices[0] != "cpu":
         assert all("cuda" in d for d in args.devices)
         model = torch.nn.DataParallel(model, device_ids=devices)
 
-    if args.checkpoint is not None:
-        model_dict = torch.load(args.checkpoint, map_location="cpu")
-        model.load_state_dict(model_dict["weight"])
-
     optimizer_grouped_parameters = [
         {"params": [], "weight_decay": 0.0, "lr": args.lr},
         {"params": [], "weight_decay": 5e-4, "lr": args.lr},
     ]
     no_decay = ["bias", "LayerNorm.weight", "LayerNorm.bias"]
-    for name, param in model.named_parameters():
+    for name, param in _model.named_parameters():
         if any(nd in name for nd in no_decay):
             optimizer_grouped_parameters[0]["params"].append(param)  # type: ignore
         else:
             optimizer_grouped_parameters[1]["params"].append(param)  # type: ignore
     optimizer: optim.Optimizer = optim.AdamW(optimizer_grouped_parameters)
 
-    # optimizer = optim.Optimizer = optim.AdamW(model.parameters())
-
     if args.checkpoint is not None:
+        model_dict = torch.load(args.checkpoint, map_location="cpu")
+        model_dict_weight = {}
+        for key in model_dict["weight"]:
+            _key = key[7:]
+            # if 'prediction_head.feature_pyramid.inner_blocks' in _key:
+            #     _key = _key[:46] + _key[48:]
+            # if 'prediction_head.feature_pyramid.layer_blocks' in _key:
+            #     _key = _key[:46] + _key[48:]
+            model_dict_weight[_key] = model_dict["weight"][key]
+        _model.load_state_dict(model_dict_weight)
         optimizer.load_state_dict(model_dict["optimizer"])
+
 
     model_params = count_parameters(_model)
     print("Model parameters:", model_params)
