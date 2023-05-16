@@ -621,13 +621,13 @@ def get_model(args: Arguments, gripper_loc_bounds) -> Tuple[optim.Optimizer, Hiv
     #     else:
     #         optimizer_grouped_parameters[1]["params"].append(param)  # type: ignore
     # optimizer: optim.Optimizer = optim.AdamW(optimizer_grouped_parameters)
-    optim.Optimizer = optim.AdamW(model.parameters())
+    optimizer = optim.Optimizer = optim.AdamW(model.parameters())
 
     if args.checkpoint is not None:
         optimizer.load_state_dict(model_dict["optimizer"])
 
-    print("model.training", model.training)
-    raise NotImplementedError
+    # print("model.training", model.training)
+    # raise NotImplementedError
 
     model_params = count_parameters(_model)
     print("Model parameters:", model_params)
