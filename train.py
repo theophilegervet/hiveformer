@@ -639,9 +639,9 @@ def get_model(args: Arguments, gripper_loc_bounds) -> Tuple[optim.Optimizer, Hiv
         print("OPTIMIZER:")
         print(model_dict["optimizer"]["state"].keys())
         print()
-        print(model_dict["optimizer"]["param_groups"][0].keys())
+        print(model_dict["optimizer"]["param_groups"][0]["params"].keys())
         print()
-        print(model_dict["optimizer"]["param_groups"][1].keys())
+        print(model_dict["optimizer"]["param_groups"][1]["params"].keys())
         print()
         optimizer.load_state_dict(model_dict["optimizer"])
 
