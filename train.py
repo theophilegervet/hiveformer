@@ -600,12 +600,6 @@ def get_model(args: Arguments, gripper_loc_bounds) -> Tuple[optim.Optimizer, Hiv
             num_matching_cross_attn_layers=args.num_matching_cross_attn_layers,
         )
 
-    devices = [torch.device(d) for d in args.devices]
-    model = _model.to(devices[0])
-    if args.devices[0] != "cpu":
-        assert all("cuda" in d for d in args.devices)
-        model = torch.nn.DataParallel(model, device_ids=devices)
-
     if args.checkpoint is not None:
         model_dict = torch.load(args.checkpoint, map_location="cpu")
         model_dict_weight = {}
@@ -617,6 +611,12 @@ def get_model(args: Arguments, gripper_loc_bounds) -> Tuple[optim.Optimizer, Hiv
             #     _key = _key[:46] + _key[48:]
             model_dict_weight[_key] = model_dict["weight"][key]
         _model.load_state_dict(model_dict_weight)
+
+    devices = [torch.device(d) for d in args.devices]
+    _model = _model.to(devices[0])
+    if args.devices[0] != "cpu":
+        assert all("cuda" in d for d in args.devices)
+        model = torch.nn.DataParallel(_model, device_ids=devices)
 
     optimizer_grouped_parameters = [
         {"params": [], "weight_decay": 0.0, "lr": args.lr},
