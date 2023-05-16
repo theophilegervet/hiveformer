@@ -21,8 +21,8 @@
 source_prefix=private/home/theop123/hiveformer/train_logs
 target_prefix=home/zhouxian/git/hiveformer_theo
 #target_prefix=home/sirdome/katefgroup/hiveformer
-exp_src=05_04_eval_on_peract_18_tasks
-exp_tgt=05_04_eval_on_peract_18_tasks
+exp_src=hiveformer_512x512
+exp_tgt=hiveformer_512x512
 ckpt=best.pth
 
 # Get Tensorboard from source
