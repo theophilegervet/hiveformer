@@ -18,11 +18,11 @@
 
 # To Xian through local
 
-source_prefix=private/home/theop123/hiveformer/train_logs
+source_prefix=private/home/theop123/hiveformer2/train_logs
 #target_prefix=home/zhouxian/git/hiveformer_theo
 target_prefix=home/sirdome/katefgroup/hiveformer
-exp_src=05_04_eval_on_peract_18_tasks
-exp_tgt=05_04_eval_on_peract_18_tasks
+exp_src=peract_new_data
+exp_tgt=peract_new_data
 ckpt=best.pth
 
 # Get Tensorboard from source
