@@ -63,27 +63,24 @@ train_iters=4_000_000
 batch_size=24
 batch_size_val=4
 num_workers=24
-for checkpoint in "/private/home/theop123/hiveformer2/train_logs/peract_new_data/MULTI-TASK-PERACT_version8002386/best.pth"; do
-  for embedding_dim in 120; do
-    sbatch train_4gpu_32gb_fair.sh \
-       --devices cuda:0 cuda:1 cuda:2 cuda:3 \
-       --tasks $(cat $task_file | tr '\n' ' ') \
-       --cameras $cameras \
-       --embedding_dim $embedding_dim \
-       --batch_size $batch_size \
-       --batch_size_val $batch_size_val \
-       --num_workers $num_workers \
-       --checkpoint $checkpoint \
-       --cache_size 0 \
-       --cache_size_val 0 \
-       --dataset $dataset \
-       --valset $valset \
-       --exp_log_dir $main_dir \
-       --gripper_loc_bounds_file $gripper_loc_bounds_file \
-       --use_instruction $use_instruction \
-       --logger wandb \
-       --train_iters $train_iters \
-       --variations {0..199} \
-       --run_log_dir MULTI-TASK-PERACT-embedding_dim-$embedding_dim
-  done
+for embedding_dim in 120; do
+  sbatch train_4gpu_32gb_fair.sh \
+     --devices cuda:0 cuda:1 cuda:2 cuda:3 \
+     --tasks $(cat $task_file | tr '\n' ' ') \
+     --cameras $cameras \
+     --embedding_dim $embedding_dim \
+     --batch_size $batch_size \
+     --batch_size_val $batch_size_val \
+     --num_workers $num_workers \
+     --cache_size 0 \
+     --cache_size_val 0 \
+     --dataset $dataset \
+     --valset $valset \
+     --exp_log_dir $main_dir \
+     --gripper_loc_bounds_file $gripper_loc_bounds_file \
+     --use_instruction $use_instruction \
+     --logger wandb \
+     --train_iters $train_iters \
+     --variations {0..199} \
+     --run_log_dir MULTI-TASK-PERACT-embedding_dim-$embedding_dim
 done
