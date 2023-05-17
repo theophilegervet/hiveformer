@@ -307,9 +307,9 @@ class RLBenchEnv:
             print(np.unique(mask))
             import cv2
             for x in np.unique(mask):
-                print(f"test/{str(x)}.rgb")
+                print(f"test/{str(x)}.png")
                 print((mask == x).astype(np.uint8))
-                cv2.imwrite(f"test/{str(x)}.rgb", (mask == x).astype(np.uint8) * 255)
+                cv2.imwrite(f"test/{str(x)}.png", (mask == x).astype(np.uint8) * 255)
             raise NotImplementedError
 
         # fetch action
