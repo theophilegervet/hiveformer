@@ -100,6 +100,9 @@ def save_demo(demo, example_path):
         print(np.unique(mask[:, :, 0]))
         print(np.unique(mask[:, :, 1]))
         print(np.unique(mask[:, :, 2]))
+        for object_handle in np.unique(mask):
+            print(f"Object.get_object_name({object_handle})", Object.get_object_name(object_handle))
+            print(Object.get_object(object_handle))
         raise NotImplementedError
 
         left_shoulder_rgb = Image.fromarray(obs.left_shoulder_rgb)
