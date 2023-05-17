@@ -9,6 +9,9 @@ import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter  # type: ignore
 from torch.utils.data import DataLoader
 from torch.utils.data._utils.collate import default_collate
+import torch.distributed as dist
+import torch.multiprocessing as mp
+from torch.nn.parallel import DistributedDataParallel as DDP
 import numpy as np
 from tqdm import tqdm, trange
 import tap
@@ -138,6 +141,8 @@ class Arguments(tap.Tap):
 
 
 def training(
+    rank: int,
+    world_size: int,
     model: nn.Module,
     optimizer,
     train_loader,
@@ -149,6 +154,11 @@ def training(
     use_ground_truth_position_for_sampling_train=True,
     use_ground_truth_position_for_sampling_val=False,
 ):
+    """
+    This function is called by every training process.
+    """
+    setup(rank, world_size)
+
     iter_loader = iter(train_loader)
 
     aggregated_losses = defaultdict(list)
@@ -236,7 +246,7 @@ def training(
                 aggregated_losses = defaultdict(list)
                 aggregated_metrics = defaultdict(list)
 
-                if val_loaders is not None:
+                if rank == 0 and val_loaders is not None:
                     val_metrics = validation_step(
                         step_id,
                         val_loaders,
@@ -247,11 +257,15 @@ def training(
                         use_ground_truth_position_for_sampling_val=use_ground_truth_position_for_sampling_val
                     )
                     model.train()
-                else:
-                    val_metrics = {}
-                checkpointer(val_metrics)
+                    checkpointer(val_metrics)
 
             tbar.set_postfix(l=float(train_losses["total"]))
+
+
+def setup(rank, world_size):
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = '12355'
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)
 
 
 def get_log_dir(args: Arguments) -> Path:
@@ -724,7 +738,11 @@ if __name__ == "__main__":
 
     if args.train_iters > 0:
         train_loader = get_train_loader(args, gripper_loc_bounds)
-        training(
+
+        # DDP training
+        world_size = len(args.devices)
+        training_args = (
+            world_size,
             model,
             optimizer,
             train_loader,
@@ -733,22 +751,7 @@ if __name__ == "__main__":
             loss_and_metrics,
             args,
             writer,
-            use_ground_truth_position_for_sampling_train=bool(args.use_ground_truth_position_for_sampling_train),
-            use_ground_truth_position_for_sampling_val=bool(args.use_ground_truth_position_for_sampling_val),
+            bool(args.use_ground_truth_position_for_sampling_train),
+            bool(args.use_ground_truth_position_for_sampling_val),
         )
-
-    if val_loaders is not None:
-        val_metrics = validation_step(
-            args.train_iters,
-            val_loaders,
-            model,
-            loss_and_metrics,
-            args,
-            writer,
-            use_ground_truth_position_for_sampling_val=bool(args.use_ground_truth_position_for_sampling_val),
-            val_iters=-1,
-        )
-
-    # Last checkpoint
-    checkpoint = log_dir / f"mtl_{args.seed}_{args.lr}.pth"
-    torch.save(model_dict, checkpoint)
+        mp.spawn(training, args=training_args, nprocs=world_size, join=True)
