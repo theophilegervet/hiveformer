@@ -2,15 +2,7 @@
 
 ## 1 - HiveFormer Data Generation
 ```
-root=/home/theophile_gervet_gmail_com
-data_dir=$root/datasets/raw
-output_dir=$root/datasets/packaged
-train_dir=74_hiveformer_tasks_train
-val_dir=74_hiveformer_tasks_val
-train_episodes_per_task=100
-val_episodes_per_task=100
-image_size="256,256"
-cameras=left_shoulder,right_shoulder,wrist
+
 task_file=tasks/hiveformer_74_tasks.csv
 
 nohup sudo X &
@@ -59,23 +51,31 @@ done
 
 ## 1 - PerAct Data Generation
 ```
-root=/home/theophile_gervet_gmail_com
+root=/home/sirdome/katefgroup
 data_dir=$root/datasets/raw
 output_dir=$root/datasets/packaged
-train_dir=18_peract_tasks_train
-val_dir=18_peract_tasks_val
+train_dir=peract_object_masks_train
+val_dir=peract_object_masks_val
 train_episodes_per_task=100
 val_episodes_per_task=100
 image_size="256,256"
 cameras=left_shoulder,right_shoulder,wrist,front
 task_file=tasks/peract_18_tasks.csv
+
+python -m data_preprocessing.data_gen \
+            --data_dir=$data_dir/18_peract_tasks_train_new \
+            --output=$output_dir/peract_object_masks_train \
+            --image_size=$image_size \
+            --max_variations=60 \
+            --cameras=$cameras \
+            --tasks=stack_cups
 ```
 
 ### A - Generate raw train and val data
 ```
 cd $root/hiveformer/RLBench/tools
 
-processes=3
+processes=1
 python dataset_generator.py \
     --save_path=$data_dir/$train_dir \
     --tasks=$(cat $root/hiveformer/$task_file | tr '\n' ',') \

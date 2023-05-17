@@ -123,13 +123,16 @@ class Dataset(torch.utils.data.Dataset):
         taskvar_dir = args.output / f"{task}+{variation}"
         taskvar_dir.mkdir(parents=True, exist_ok=True)
 
-        try:
-            demo, state_ls, action_ls = get_observation(
-                task, variation, episode, self.env
-            )
-        except (FileNotFoundError, RuntimeError, IndexError, EOFError) as e:
-            print(e)
-            return
+        # try:
+        #     demo, state_ls, action_ls = get_observation(
+        #         task, variation, episode, self.env
+        #     )
+        # except (FileNotFoundError, RuntimeError, IndexError, EOFError) as e:
+        #     print(e)
+        #     return
+        demo, state_ls, action_ls = get_observation(
+            task, variation, episode, self.env
+        )
 
         state_ls = einops.rearrange(
             state_ls,
