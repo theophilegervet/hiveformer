@@ -32,50 +32,50 @@
 # PERACT
 exp=peract_new_data
 ckpts=(
-#  turn_tap-PERACT_version8003386
-#  open_drawer-PERACT_version8003435
+  turn_tap-PERACT_version8003386
+  open_drawer-PERACT_version8003435
   push_buttons-PERACT_version8003438
-#  sweep_to_dustpan_of_size-PERACT_version8003437
-#  slide_block_to_color_target-PERACT_version8003438
-#  insert_onto_square_peg-PERACT_version8003439
-#  meat_off_grill-PERACT_version8003440
-#  place_shape_in_shape_sorter-PERACT_version8003441
-#  place_wine_at_rack_location-PERACT_version8003443
-#  put_groceries_in_cupboard-PERACT_version8003443
-#  put_money_in_safe-PERACT_version8003444
-#  close_jar-PERACT_version8003445
-#  reach_and_drag-PERACT_version8003446
-#  light_bulb_in-PERACT_version8003447
-#  stack_cups-PERACT_version8003448
-#  place_cups-PERACT_version8003449
-#  put_item_in_drawer-PERACT_version8003450
-#  stack_blocks-PERACT_version8003451
+  sweep_to_dustpan_of_size-PERACT_version8003437
+  slide_block_to_color_target-PERACT_version8003438
+  insert_onto_square_peg-PERACT_version8003439
+  meat_off_grill-PERACT_version8003440
+  place_shape_in_shape_sorter-PERACT_version8003441
+  place_wine_at_rack_location-PERACT_version8003443
+  put_groceries_in_cupboard-PERACT_version8003443
+  put_money_in_safe-PERACT_version8003444
+  close_jar-PERACT_version8003445
+  reach_and_drag-PERACT_version8003446
+  light_bulb_in-PERACT_version8003447
+  stack_cups-PERACT_version8003448
+  place_cups-PERACT_version8003449
+  put_item_in_drawer-PERACT_version8003450
+  stack_blocks-PERACT_version8003451
 )
 tasks=(
-#  turn_tap
-#  open_drawer
+  turn_tap
+  open_drawer
   push_buttons
-#  sweep_to_dustpan_of_size
-#  slide_block_to_color_target
-#  insert_onto_square_peg
-#  meat_off_grill
-#  place_shape_in_shape_sorter
-#  place_wine_at_rack_location
-#  put_groceries_in_cupboard
-#  put_money_in_safe
-#  close_jar
-#  reach_and_drag
-#  light_bulb_in
-#  stack_cups
-#  place_cups
-#  put_item_in_drawer
-#  stack_blocks
+  sweep_to_dustpan_of_size
+  slide_block_to_color_target
+  insert_onto_square_peg
+  meat_off_grill
+  place_shape_in_shape_sorter
+  place_wine_at_rack_location
+  put_groceries_in_cupboard
+  put_money_in_safe
+  close_jar
+  reach_and_drag
+  light_bulb_in
+  stack_cups
+  place_cups
+  put_item_in_drawer
+  stack_blocks
 )
 
 #data_dir=/home/zhouxian/git/datasets/raw/74_hiveformer_tasks_val
 #data_dir=/home/zhouxian/git/datasets/raw/18_peract_tasks_val
 data_dir=/home/sirdome/katefgroup/datasets/raw/18_peract_tasks_val_new
-num_episodes=100
+num_episodes=10
 #gripper_loc_bounds_file=tasks/74_hiveformer_tasks_location_bounds.json
 gripper_loc_bounds_file=tasks/18_peract_tasks_location_bounds.json
 #use_instruction=0
