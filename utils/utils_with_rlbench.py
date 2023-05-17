@@ -184,8 +184,8 @@ class Actioner:
         output: Dict[str, Any] = {"action": None, "attention": {}}
 
         # Fix order of views for HiveFormer
-        rgbs = rgbs[:, :, [2, 0, 1]]
-        pcds = pcds[:, :, [2, 0, 1]]
+        # rgbs = rgbs[:, :, [2, 0, 1]]
+        # pcds = pcds[:, :, [2, 0, 1]]
 
         if self._instr is None:
             raise ValueError()
