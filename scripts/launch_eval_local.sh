@@ -32,12 +32,12 @@
 # PERACT
 exp=peract_new_data
 ckpts=(
-  turn_tap-PERACT_version8003386
-  open_drawer-PERACT_version8003435
-  push_buttons-PERACT_version8003438
-  sweep_to_dustpan_of_size-PERACT_version8003437
-  slide_block_to_color_target-PERACT_version8003438
-  insert_onto_square_peg-PERACT_version8003439
+#  turn_tap-PERACT_version8003386
+#  open_drawer-PERACT_version8003435
+#  push_buttons-PERACT_version8003438
+#  sweep_to_dustpan_of_size-PERACT_version8003437
+#  slide_block_to_color_target-PERACT_version8003438
+#  insert_onto_square_peg-PERACT_version8003439
   meat_off_grill-PERACT_version8003440
   place_shape_in_shape_sorter-PERACT_version8003441
   place_wine_at_rack_location-PERACT_version8003443
@@ -52,12 +52,12 @@ ckpts=(
   stack_blocks-PERACT_version8003451
 )
 tasks=(
-  turn_tap
-  open_drawer
-  push_buttons
-  sweep_to_dustpan_of_size
-  slide_block_to_color_target
-  insert_onto_square_peg
+#  turn_tap
+#  open_drawer
+#  push_buttons
+#  sweep_to_dustpan_of_size
+#  slide_block_to_color_target
+#  insert_onto_square_peg
   meat_off_grill
   place_shape_in_shape_sorter
   place_wine_at_rack_location
