@@ -301,7 +301,7 @@ class RLBenchEnv:
                 pc = getattr(obs, "{}_point_cloud".format(cam))
                 state_dict["pc"] += [pc]
 
-            mask = getattr(obs, "{}_point_cloud".format(cam))
+            mask = getattr(obs, "{}_mask".format(cam))
             print(type(mask), mask.shape)
             print(np.unique(mask[:, :, 0]))
             print(np.unique(mask[:, :, 1]))
