@@ -309,7 +309,7 @@ class RLBenchEnv:
             for x in np.unique(mask):
                 print(f"test/{str(x)}.rgb")
                 print((mask == x).astype(np.uint8))
-                plt.imsave(f"test/{str(x)}.rgb", (mask == x).astype(np.uint8))
+                plt.save(f"test/{str(x)}.rgb", (mask == x).astype(np.uint8))
             raise NotImplementedError
 
         # fetch action
