@@ -150,6 +150,7 @@ def training(
     checkpointer,
     loss_and_metrics,
     args: Arguments,
+    log_dir: str,
     use_ground_truth_position_for_sampling_train=True,
     use_ground_truth_position_for_sampling_val=False,
 ):
@@ -751,6 +752,7 @@ if __name__ == "__main__":
             checkpointer,
             loss_and_metrics,
             args,
+            log_dir,
             bool(args.use_ground_truth_position_for_sampling_train),
             bool(args.use_ground_truth_position_for_sampling_val),
         )
