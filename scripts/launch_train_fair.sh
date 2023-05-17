@@ -55,62 +55,93 @@ valset=/private/home/theop123/datasets/rlbench/packaged/18_peract_tasks_val_new
 #done
 
 # Multi-task PerAct
-#train_iters=4_000_000
-##batch_size=32
-##batch_size_val=8
-##num_workers=32
-#batch_size=24
-#batch_size_val=4
-#num_workers=24
-#checkpoint="/private/home/theop123/hiveformer2/train_logs/peract_new_data/MULTI-TASK-PERACT_version8002386/best.pth"
-#for embedding_dim in 120; do
-#  sbatch train_4gpu_32gb_fair.sh \
-#     --devices cuda:0 cuda:1 cuda:2 cuda:3 \
-#     --tasks $(cat $task_file | tr '\n' ' ') \
-#     --checkpoint $checkpoint \
-#     --cameras $cameras \
-#     --embedding_dim $embedding_dim \
-#     --batch_size $batch_size \
-#     --batch_size_val $batch_size_val \
-#     --num_workers $num_workers \
-#     --cache_size 0 \
-#     --cache_size_val 0 \
-#     --dataset $dataset \
-#     --valset $valset \
-#     --exp_log_dir $main_dir \
-#     --gripper_loc_bounds_file $gripper_loc_bounds_file \
-#     --use_instruction $use_instruction \
-#     --logger wandb \
-#     --train_iters $train_iters \
-#     --variations {0..199} \
-#     --run_log_dir MULTI-TASK-PERACT-embedding_dim-$embedding_dim
-#done
 
+# Small
 train_iters=4_000_000
-#batch_size=32
-#batch_size_val=8
-#num_workers=32
-batch_size=48
+batch_size=24
+batch_size_val=4
+num_workers=24
+layers=2
+embedding_dim=60
+sbatch train_4gpu_32gb_fair.sh \
+   --devices cuda:0 cuda:1 cuda:2 cuda:3 \
+   --tasks $(cat $task_file | tr '\n' ' ') \
+   --cameras $cameras \
+   --embedding_dim $embedding_dim \
+   --batch_size $batch_size \
+   --batch_size_val $batch_size_val \
+   --num_workers $num_workers \
+   --cache_size 0 \
+   --cache_size_val 0 \
+   --dataset $dataset \
+   --valset $valset \
+   --exp_log_dir $main_dir \
+   --gripper_loc_bounds_file $gripper_loc_bounds_file \
+   --use_instruction $use_instruction \
+   --logger wandb \
+   --train_iters $train_iters \
+   --variations {0..199} \
+   --num_ghost_point_cross_attn_layers $layers \
+   --num_query_cross_attn_layers $layers \
+   --num_vis_ins_attn_layers $layers \
+   --run_log_dir MULTI-TASK-PERACT-SMALL
+
+# Medium
+train_iters=4_000_000
+batch_size=24
+batch_size_val=4
+num_workers=24
+layers=4
+embedding_dim=120
+sbatch train_4gpu_32gb_fair.sh \
+   --devices cuda:0 cuda:1 cuda:2 cuda:3 \
+   --tasks $(cat $task_file | tr '\n' ' ') \
+   --cameras $cameras \
+   --embedding_dim $embedding_dim \
+   --batch_size $batch_size \
+   --batch_size_val $batch_size_val \
+   --num_workers $num_workers \
+   --cache_size 0 \
+   --cache_size_val 0 \
+   --dataset $dataset \
+   --valset $valset \
+   --exp_log_dir $main_dir \
+   --gripper_loc_bounds_file $gripper_loc_bounds_file \
+   --use_instruction $use_instruction \
+   --logger wandb \
+   --train_iters $train_iters \
+   --variations {0..199} \
+   --num_ghost_point_cross_attn_layers $layers \
+   --num_query_cross_attn_layers $layers \
+   --num_vis_ins_attn_layers $layers \
+   --run_log_dir MULTI-TASK-PERACT-MEDIUM
+
+# Big
+train_iters=4_000_000
+batch_size=24
 batch_size_val=8
 num_workers=48
-for embedding_dim in 120; do
-  sbatch train_8gpu_32gb_fair.sh \
-     --devices cuda:0 cuda:1 cuda:2 cuda:3 cuda:4 cuda:5 cuda:6 cuda:7 \
-     --tasks $(cat $task_file | tr '\n' ' ') \
-     --cameras $cameras \
-     --embedding_dim $embedding_dim \
-     --batch_size $batch_size \
-     --batch_size_val $batch_size_val \
-     --num_workers $num_workers \
-     --cache_size 0 \
-     --cache_size_val 0 \
-     --dataset $dataset \
-     --valset $valset \
-     --exp_log_dir $main_dir \
-     --gripper_loc_bounds_file $gripper_loc_bounds_file \
-     --use_instruction $use_instruction \
-     --logger wandb \
-     --train_iters $train_iters \
-     --variations {0..199} \
-     --run_log_dir MULTI-TASK-PERACT-embedding_dim-$embedding_dim
-done
+layers=4
+embedding_dim=240
+sbatch train_8gpu_32gb_fair.sh \
+   --devices cuda:0 cuda:1 cuda:2 cuda:3 cuda:4 cuda:5 cuda:6 cuda:7 \
+   --tasks $(cat $task_file | tr '\n' ' ') \
+   --cameras $cameras \
+   --embedding_dim $embedding_dim \
+   --batch_size $batch_size \
+   --batch_size_val $batch_size_val \
+   --num_workers $num_workers \
+   --cache_size 0 \
+   --cache_size_val 0 \
+   --dataset $dataset \
+   --valset $valset \
+   --exp_log_dir $main_dir \
+   --gripper_loc_bounds_file $gripper_loc_bounds_file \
+   --use_instruction $use_instruction \
+   --logger wandb \
+   --train_iters $train_iters \
+   --variations {0..199} \
+   --num_ghost_point_cross_attn_layers $layers \
+   --num_query_cross_attn_layers $layers \
+   --num_vis_ins_attn_layers $layers \
+   --run_log_dir MULTI-TASK-PERACT-BIG
