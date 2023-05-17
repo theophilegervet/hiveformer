@@ -765,7 +765,7 @@ class RLBenchEnv:
             rgb=apply_rgb,
             point_cloud=apply_pc,
             depth=apply_depth,
-            mask=False,
+            mask=True,
             image_size=image_size,
             render_mode=RenderMode.OPENGL,
             **kwargs,
