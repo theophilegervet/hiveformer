@@ -94,9 +94,11 @@ def save_demo(demo, example_path):
     check_and_make(front_mask_path)
 
     for i, obs in enumerate(demo):
-        print("obs.front_mask", type(obs.front_mask))
+        mask = obs.front_mask
+        print(type(mask), mask.shape)
+        print(np.unique(mask))
         raise NotImplementedError
-        
+
         left_shoulder_rgb = Image.fromarray(obs.left_shoulder_rgb)
         left_shoulder_depth = utils.float_array_to_rgb_image(
             obs.left_shoulder_depth, scale_factor=DEPTH_SCALE)
