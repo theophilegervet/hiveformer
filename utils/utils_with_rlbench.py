@@ -307,7 +307,6 @@ class RLBenchEnv:
             print(np.unique(mask))
 
             from pyrep.objects.object import Object
-            print("Object.get_name()", Object.get_name())
             for object_handle in np.unique(mask):
                 print(f"Object.get_object_name({object_handle})", Object.get_object_name(object_handle))
                 print(f"Object.get_object_type({object_handle})", Object.get_object_type(object_handle))
