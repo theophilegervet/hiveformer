@@ -253,7 +253,9 @@ class Scene(object):
         front_mask = get_mask(self._cam_front_mask,
                               fc_mask_fn) if fc_ob.mask else None
 
-        print("left_shoulder_mask", type(left_shoulder_mask))
+        mask = left_shoulder_mask
+        print(type(mask), mask.shape)
+        print(np.unique(mask))
         raise NotImplementedError
 
         obs = Observation(
