@@ -187,7 +187,7 @@ def training(
                 optimizer.zero_grad()
 
             model_type = type(model)
-            if model_type == nn.DataParallel:
+            if model_type == DDP:
                 model_type = type(model.module)
 
             if model_type == Hiveformer:
@@ -353,7 +353,7 @@ def validation_step(
                 break
 
             model_type = type(model)
-            if model_type == nn.DataParallel:
+            if model_type == DDP:
                 model_type = type(model.module)
             if model_type == Hiveformer:
                 pred = model(
@@ -630,7 +630,7 @@ def get_model(args: Arguments, gripper_loc_bounds) -> Tuple[optim.Optimizer, Hiv
     model = _model.to(devices[0])
     if args.devices[0] != "cpu":
         assert all("cuda" in d for d in args.devices)
-        model = torch.nn.DataParallel(model, device_ids=devices)
+        model = DDP(model, device_ids=devices)
 
     if args.checkpoint is not None:
         model_dict = torch.load(args.checkpoint, map_location="cpu")
