@@ -97,6 +97,9 @@ def save_demo(demo, example_path):
         mask = obs.front_mask
         print(type(mask), mask.shape)
         print(np.unique(mask))
+        print(np.unique(mask[:, :, 0]))
+        print(np.unique(mask[:, :, 1]))
+        print(np.unique(mask[:, :, 2]))
         raise NotImplementedError
 
         left_shoulder_rgb = Image.fromarray(obs.left_shoulder_rgb)
