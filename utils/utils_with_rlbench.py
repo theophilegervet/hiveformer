@@ -305,11 +305,11 @@ class RLBenchEnv:
             mask = getattr(obs, "{}_mask".format(cam))
             print(type(mask), mask.shape)
             print(np.unique(mask))
-            import matplotlib.pyplot as plt
+            import cv2
             for x in np.unique(mask):
                 print(f"test/{str(x)}.rgb")
                 print((mask == x).astype(np.uint8))
-                plt.save(f"test/{str(x)}.rgb", (mask == x).astype(np.uint8))
+                cv2.imwrite(f"test/{str(x)}.rgb", (mask == x).astype(np.uint8) * 255)
             raise NotImplementedError
 
         # fetch action
