@@ -305,6 +305,9 @@ class RLBenchEnv:
             mask = getattr(obs, "{}_mask".format(cam))
             print(type(mask), mask.shape)
             print(np.unique(mask))
+            import matplotlib.pyplot as plt
+            for x in np.unique(mask):
+                plt.imsave(f"test/{x}.rgb", mask == x)
             raise NotImplementedError
 
         # fetch action
