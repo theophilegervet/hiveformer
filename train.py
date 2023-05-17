@@ -150,7 +150,6 @@ def training(
     checkpointer,
     loss_and_metrics,
     args: Arguments,
-    writer: Optional[SummaryWriter] = None,
     use_ground_truth_position_for_sampling_train=True,
     use_ground_truth_position_for_sampling_val=False,
 ):
@@ -158,6 +157,17 @@ def training(
     This function is called by every training process.
     """
     setup(rank, world_size)
+
+    if rank == 0:
+        if args.logger == "tensorboard":
+            writer = SummaryWriter(log_dir=log_dir)
+        elif args.logger == "wandb":
+            wandb.init(project="analogical_manipulation")
+            wandb.run.name = str(log_dir).split("/")[-1]
+            wandb.config.update(args.__dict__)
+            writer = None
+        else:
+            writer = None
 
     iter_loader = iter(train_loader)
 
@@ -673,16 +683,6 @@ if __name__ == "__main__":
     log_dir.mkdir(exist_ok=True, parents=True)
     args.save(str(log_dir / "hparams.json"))
 
-    if args.logger == "tensorboard":
-        writer = SummaryWriter(log_dir=log_dir)
-    elif args.logger == "wandb":
-        wandb.init(project="analogical_manipulation")
-        wandb.run.name = str(log_dir).split("/")[-1]
-        wandb.config.update(args.__dict__)
-        writer = None
-    else:
-        writer = None
-
     print("Logging:", log_dir)
     print("Args devices:", args.devices)
     print("Available devices (CUDA_VISIBLE_DEVICES):", os.environ.get("CUDA_VISIBLE_DEVICES"))
@@ -751,7 +751,6 @@ if __name__ == "__main__":
             checkpointer,
             loss_and_metrics,
             args,
-            writer,
             bool(args.use_ground_truth_position_for_sampling_train),
             bool(args.use_ground_truth_position_for_sampling_val),
         )
