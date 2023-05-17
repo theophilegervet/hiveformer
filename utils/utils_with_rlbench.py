@@ -304,9 +304,7 @@ class RLBenchEnv:
             print(dir(obs))
             mask = getattr(obs, "{}_mask".format(cam))
             print(type(mask), mask.shape)
-            print(np.unique(mask[:, :, 0]))
-            print(np.unique(mask[:, :, 1]))
-            print(np.unique(mask[:, :, 2]))
+            print(np.unique(mask))
             raise NotImplementedError
 
         # fetch action
