@@ -302,8 +302,8 @@ class RLBenchEnv:
                 state_dict["pc"] += [pc]
 
             print(dir(obs))
-            raise NotImplementedError
             mask = getattr(obs, "{}_mask".format(cam))
+            mask = obs.wrist_mask
             print(type(mask), mask.shape)
             print(np.unique(mask[:, :, 0]))
             print(np.unique(mask[:, :, 1]))
