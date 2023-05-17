@@ -302,13 +302,11 @@ class RLBenchEnv:
                 state_dict["pc"] += [pc]
 
             print(dir(obs))
-            # mask = getattr(obs, "{}_mask".format(cam))
-            print("mask", obs.wrist_mask)
-            print("rgb", type(obs.wrist_rgb))
-            # print(type(mask), mask.shape)
-            # print(np.unique(mask[:, :, 0]))
-            # print(np.unique(mask[:, :, 1]))
-            # print(np.unique(mask[:, :, 2]))
+            mask = getattr(obs, "{}_mask".format(cam))
+            print(type(mask), mask.shape)
+            print(np.unique(mask[:, :, 0]))
+            print(np.unique(mask[:, :, 1]))
+            print(np.unique(mask[:, :, 2]))
             raise NotImplementedError
 
         # fetch action
