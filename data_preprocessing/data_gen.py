@@ -61,6 +61,9 @@ def get_observation(task_str: str, variation: int, episode: int, env: RLBenchEnv
         key_frame = key_frame[6:]
     key_frame.insert(0, 0)
 
+    print(dir(demo._observations[0]))
+    raise NotImplementedError
+
     state_ls = []
     action_ls = []
     for f in key_frame:
