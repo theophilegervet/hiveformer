@@ -301,7 +301,8 @@ class RLBenchEnv:
                 pc = getattr(obs, "{}_point_cloud".format(cam))
                 state_dict["pc"] += [pc]
 
-            print(obs.keys())
+            print(dir(obs))
+            raise NotImplementedError
             mask = getattr(obs, "{}_mask".format(cam))
             print(type(mask), mask.shape)
             print(np.unique(mask[:, :, 0]))
