@@ -303,8 +303,8 @@ class RLBenchEnv:
 
             print(dir(obs))
             # mask = getattr(obs, "{}_mask".format(cam))
-            mask = obs.wrist_mask
-            print("mask", mask)
+            print("mask", obs.wrist_mask)
+            print("rgb", type(obs.wrist_rgb))
             # print(type(mask), mask.shape)
             # print(np.unique(mask[:, :, 0]))
             # print(np.unique(mask[:, :, 1]))
