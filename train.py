@@ -225,39 +225,40 @@ def training(
             if step_id % args.accumulate_grad_batches == args.accumulate_grad_batches - 1:
                 optimizer.step()
 
-            if args.logger == "wandb":
-                wandb.log(
-                    {
-                        "lr": args.lr,
-                        **{f"train-loss/{n}": torch.mean(torch.stack(l)) for n, l in aggregated_losses.items()},
-                        **{f"train-metrics/{n}": torch.mean(torch.stack(l)) for n, l in aggregated_metrics.items()},
-                    },
-                    step=step_id,
-                )
-
-            if (step_id + 1) % args.val_freq == 0:
-                if args.logger == "tensorboard":
-                    writer.add_scalar(f"lr/", args.lr, step_id)
-                    for n, l in aggregated_losses.items():
-                        writer.add_scalar(f"train-loss/{n}", torch.mean(torch.stack(l)), step_id)
-                    for n, l in aggregated_metrics.items():
-                        writer.add_scalar(f"train-metrics/{n}", torch.mean(torch.stack(l)), step_id)
-
-                aggregated_losses = defaultdict(list)
-                aggregated_metrics = defaultdict(list)
-
-                if rank == 0 and val_loaders is not None:
-                    val_metrics = validation_step(
-                        step_id,
-                        val_loaders,
-                        model,
-                        loss_and_metrics,
-                        args,
-                        writer,
-                        use_ground_truth_position_for_sampling_val=use_ground_truth_position_for_sampling_val
+            if rank == 0:
+                if args.logger == "wandb":
+                    wandb.log(
+                        {
+                            "lr": args.lr,
+                            **{f"train-loss/{n}": torch.mean(torch.stack(l)) for n, l in aggregated_losses.items()},
+                            **{f"train-metrics/{n}": torch.mean(torch.stack(l)) for n, l in aggregated_metrics.items()},
+                        },
+                        step=step_id,
                     )
-                    model.train()
-                    checkpointer(val_metrics)
+
+                if (step_id + 1) % args.val_freq == 0:
+                    if args.logger == "tensorboard":
+                        writer.add_scalar(f"lr/", args.lr, step_id)
+                        for n, l in aggregated_losses.items():
+                            writer.add_scalar(f"train-loss/{n}", torch.mean(torch.stack(l)), step_id)
+                        for n, l in aggregated_metrics.items():
+                            writer.add_scalar(f"train-metrics/{n}", torch.mean(torch.stack(l)), step_id)
+
+                    aggregated_losses = defaultdict(list)
+                    aggregated_metrics = defaultdict(list)
+
+                    if val_loaders is not None:
+                        val_metrics = validation_step(
+                            step_id,
+                            val_loaders,
+                            model,
+                            loss_and_metrics,
+                            args,
+                            writer,
+                            use_ground_truth_position_for_sampling_val=use_ground_truth_position_for_sampling_val
+                        )
+                        model.train()
+                        checkpointer(val_metrics)
 
             tbar.set_postfix(l=float(train_losses["total"]))
 
