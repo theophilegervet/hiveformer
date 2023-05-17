@@ -309,8 +309,9 @@ class RLBenchEnv:
             from pyrep.objects.object import Object
             for object_handle in np.unique(mask):
                 object_name = Object.get_object_name(object_handle)
+                print(object_handle, object_name)
             raise NotImplementedError
-            
+
             # import cv2
             # for x in np.unique(mask):
             #     print(f"test/{str(x)}.png")
