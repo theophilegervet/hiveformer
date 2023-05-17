@@ -302,7 +302,7 @@ class RLBenchEnv:
                 state_dict["pc"] += [pc]
 
             mask = getattr(obs, "{}_point_cloud".format(cam))
-            print(type(mask))
+            print(type(mask), mask.shape)
             raise NotImplementedError
 
         # fetch action
