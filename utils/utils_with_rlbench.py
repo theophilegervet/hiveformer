@@ -309,7 +309,8 @@ class RLBenchEnv:
             from pyrep.objects.object import Object
             for object_handle in np.unique(mask):
                 print(f"Object.get_object_name({object_handle})", Object.get_object_name(object_handle))
-                print(f"Object.get_object_type({object_handle})", Object.get_object_type(str(object_handle)))
+                print(Object.get_object(object_handle))
+                # print(f"Object.get_object_type({object_handle})", Object.get_object_type(str(object_handle)))
             raise NotImplementedError
 
             # import cv2
