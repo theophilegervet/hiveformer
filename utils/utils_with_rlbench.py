@@ -303,6 +303,8 @@ class RLBenchEnv:
 
             mask = getattr(obs, "{}_point_cloud".format(cam))
             print(type(mask), mask.shape)
+            print(mask[:, :, 0].sum(), mask[:, :, 1].sum(), mask[:, :, 2].sum())
+            print(np.unique(mask[:, :, 0]))
             raise NotImplementedError
 
         # fetch action
