@@ -301,6 +301,10 @@ class RLBenchEnv:
                 pc = getattr(obs, "{}_point_cloud".format(cam))
                 state_dict["pc"] += [pc]
 
+            mask = getattr(obs, "{}_point_cloud".format(cam))
+            print(type(mask))
+            raise NotImplementedError
+
         # fetch action
         action = np.concatenate([obs.gripper_pose, [obs.gripper_open]])
         return state_dict, torch.from_numpy(action).float()
