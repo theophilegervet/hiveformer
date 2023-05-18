@@ -11,7 +11,6 @@ from torch.utils.data import DataLoader
 from torch.utils.data._utils.collate import default_collate
 import torch.distributed as dist
 import torch.multiprocessing as mp
-mp.set_start_method('fork')
 from torch.nn.parallel import DistributedDataParallel as DDP
 import numpy as np
 from tqdm import tqdm, trange
@@ -145,10 +144,8 @@ def training(
     rank: int,
     world_size: int,
     model: nn.Module,
-    optimizer,
     train_loader,
     val_loaders,
-    checkpointer,
     loss_and_metrics,
     args: Arguments,
     log_dir: str,
@@ -160,8 +157,33 @@ def training(
     """
     setup(rank, world_size)
 
-    model = DDP(model, [rank])
+    # Set up optimizer
+    optimizer_grouped_parameters = [
+        {"params": [], "weight_decay": 0.0, "lr": args.lr},
+        {"params": [], "weight_decay": 5e-4, "lr": args.lr},
+    ]
+    no_decay = ["bias", "LayerNorm.weight", "LayerNorm.bias"]
+    for name, param in model.named_parameters():
+        if any(nd in name for nd in no_decay):
+            optimizer_grouped_parameters[0]["params"].append(param)
+        else:
+            optimizer_grouped_parameters[1]["params"].append(param)
+    optimizer: optim.Optimizer = optim.AdamW(optimizer_grouped_parameters)
 
+    # Load checkpoint
+    if args.checkpoint is not None:
+        model_dict = torch.load(args.checkpoint, map_location="cpu")
+        model_dict_weight = {}
+        for key in model_dict["weight"]:
+            _key = key[7:]
+            model_dict_weight[_key] = model_dict["weight"][key]
+        model.load_state_dict(model_dict_weight)
+        optimizer.load_state_dict(model_dict["optimizer"])
+
+    model = DDP(model, [rank])
+    model.train()
+
+    # Set up logging and checkpointing
     if rank == 0:
         if args.logger == "tensorboard":
             writer = SummaryWriter(log_dir=log_dir)
@@ -172,6 +194,19 @@ def training(
             writer = None
         else:
             writer = None
+
+        model_dict = {
+            "weight": model.state_dict(),
+            "optimizer": optimizer.state_dict(),
+        }
+        checkpointer = CheckpointCallback(
+            "val-metrics-0/pos_l2_final",
+            log_dir,
+            model_dict,
+            val_freq=args.val_freq,
+            minimizing=True,
+            checkpoint_freq=args.checkpoint_freq,
+        )
 
     iter_loader = iter(train_loader)
 
@@ -629,31 +664,10 @@ def get_model(args: Arguments, gripper_loc_bounds) -> Tuple[optim.Optimizer, Hiv
             num_matching_cross_attn_layers=args.num_matching_cross_attn_layers,
         )
 
-    optimizer_grouped_parameters = [
-        {"params": [], "weight_decay": 0.0, "lr": args.lr},
-        {"params": [], "weight_decay": 5e-4, "lr": args.lr},
-    ]
-    no_decay = ["bias", "LayerNorm.weight", "LayerNorm.bias"]
-    for name, param in model.named_parameters():
-        if any(nd in name for nd in no_decay):
-            optimizer_grouped_parameters[0]["params"].append(param)  # type: ignore
-        else:
-            optimizer_grouped_parameters[1]["params"].append(param)  # type: ignore
-    optimizer: optim.Optimizer = optim.AdamW(optimizer_grouped_parameters)
-
-    if args.checkpoint is not None:
-        model_dict = torch.load(args.checkpoint, map_location="cpu")
-        model_dict_weight = {}
-        for key in model_dict["weight"]:
-            _key = key[7:]
-            model_dict_weight[_key] = model_dict["weight"][key]
-        model.load_state_dict(model_dict_weight)
-        optimizer.load_state_dict(model_dict["optimizer"])
-
     model_params = count_parameters(model)
     print("Model parameters:", model_params)
 
-    return optimizer, model
+    return model
 
 
 if __name__ == "__main__":
@@ -698,7 +712,7 @@ if __name__ == "__main__":
     gripper_loc_bounds = get_gripper_loc_bounds(
         args.gripper_loc_bounds_file, task=task, buffer=args.gripper_bounds_buffer)
 
-    optimizer, model = get_model(args, gripper_loc_bounds)
+    model = get_model(args, gripper_loc_bounds)
 
     print()
     print("-" * 100)
@@ -719,20 +733,6 @@ if __name__ == "__main__":
         symmetric_rotation_loss=bool(args.symmetric_rotation_loss)
     )
 
-    model_dict = {
-        "weight": model.state_dict(),
-        "optimizer": optimizer.state_dict(),
-    }
-    checkpointer = CheckpointCallback(
-        "val-metrics-0/pos_l2_final",
-        log_dir,
-        model_dict,
-        val_freq=args.val_freq,
-        minimizing=True,
-        checkpoint_freq=args.checkpoint_freq,
-    )
-    model.train()
-
     val_loaders = get_val_loaders(args, gripper_loc_bounds)
 
     if args.train_iters > 0:
@@ -743,10 +743,8 @@ if __name__ == "__main__":
         training_args = (
             world_size,
             model,
-            optimizer,
             train_loader,
             val_loaders,
-            checkpointer,
             loss_and_metrics,
             args,
             log_dir,
