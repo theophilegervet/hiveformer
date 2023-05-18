@@ -539,7 +539,7 @@ def get_train_loader(rank: int, world_size: int, args: Arguments, gripper_loc_bo
     loader = DataLoader(
         dataset=dataset,
         batch_size=args.batch_size,
-        shuffle=True,
+        shuffle=False,
         num_workers=args.num_workers,
         pin_memory=False,
         collate_fn=collate_fn,
