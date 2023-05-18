@@ -11,6 +11,7 @@ from torch.utils.data import DataLoader
 from torch.utils.data._utils.collate import default_collate
 import torch.distributed as dist
 import torch.multiprocessing as mp
+mp.set_start_method('fork')
 from torch.nn.parallel import DistributedDataParallel as DDP
 import numpy as np
 from tqdm import tqdm, trange
