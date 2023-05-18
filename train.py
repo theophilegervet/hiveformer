@@ -12,6 +12,7 @@ from torch.utils.data._utils.collate import default_collate
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data.distributed import DistributedSampler
 import numpy as np
 from tqdm import tqdm, trange
 import tap
@@ -144,7 +145,6 @@ def training(
     rank: int,
     world_size: int,
     model: nn.Module,
-    train_loader,
     val_loaders,
     loss_and_metrics,
     args: Arguments,
@@ -156,6 +156,8 @@ def training(
     This function is called by every training process.
     """
     setup(rank, world_size)
+
+    train_loader = get_train_loader(rank, world_size, args, gripper_loc_bounds)
 
     # Set up optimizer
     optimizer_grouped_parameters = [
@@ -473,7 +475,7 @@ def collate_fn(batch: List[Dict]):
     }
 
 
-def get_train_loader(args: Arguments, gripper_loc_bounds) -> DataLoader:
+def get_train_loader(rank: int, world_size: int, args: Arguments, gripper_loc_bounds) -> DataLoader:
     instruction = load_instructions(
         args.instructions, tasks=args.tasks, variations=args.variations
     )
@@ -525,6 +527,14 @@ def get_train_loader(args: Arguments, gripper_loc_bounds) -> DataLoader:
             support_set_size=args.support_set_size,
         )
 
+    sampler = DistributedSampler(
+        dataset,
+        num_replicas=world_size,
+        rank=rank,
+        shuffle=True,
+        drop_last=False
+    )
+
     loader = DataLoader(
         dataset=dataset,
         batch_size=args.batch_size,
@@ -532,6 +542,7 @@ def get_train_loader(args: Arguments, gripper_loc_bounds) -> DataLoader:
         num_workers=args.num_workers,
         pin_memory=False,
         collate_fn=collate_fn,
+        sampler=sampler
     )
     return loader
 
@@ -737,14 +748,11 @@ if __name__ == "__main__":
     val_loaders = get_val_loaders(args, gripper_loc_bounds)
 
     if args.train_iters > 0:
-        train_loader = get_train_loader(args, gripper_loc_bounds)
-
         # DDP training
         world_size = len(args.devices)
         training_args = (
             world_size,
             model,
-            train_loader,
             val_loaders,
             loss_and_metrics,
             args,
