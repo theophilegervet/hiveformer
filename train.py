@@ -149,6 +149,7 @@ def training(
     loss_and_metrics,
     args: Arguments,
     log_dir: str,
+    gripper_loc_bounds,
     use_ground_truth_position_for_sampling_train=True,
     use_ground_truth_position_for_sampling_val=False,
 ):
@@ -757,6 +758,7 @@ if __name__ == "__main__":
             loss_and_metrics,
             args,
             log_dir,
+            gripper_loc_bounds,
             bool(args.use_ground_truth_position_for_sampling_train),
             bool(args.use_ground_truth_position_for_sampling_val),
         )
