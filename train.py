@@ -158,6 +158,7 @@ def training(
     This function is called by every training process.
     """
     setup(rank, world_size)
+    model = DDP(model, device_ids=[rank])
 
     if rank == 0:
         if args.logger == "tensorboard":
@@ -571,7 +572,7 @@ def get_model(args: Arguments, gripper_loc_bounds) -> Tuple[optim.Optimizer, Hiv
     max_episode_length = get_max_episode_length(args.tasks, args.variations)
 
     if args.model == "original":
-        _model = Hiveformer(
+        model = Hiveformer(
             depth=args.depth,
             dim_feedforward=args.dim_feedforward,
             hidden_dim=args.hidden_dim,
@@ -581,7 +582,7 @@ def get_model(args: Arguments, gripper_loc_bounds) -> Tuple[optim.Optimizer, Hiv
             num_layers=args.num_layers,
         )
     elif args.model == "baseline":
-        _model = Baseline(
+        model = Baseline(
             backbone=args.backbone,
             image_size=tuple(int(x) for x in args.image_size.split(",")),
             embedding_dim=args.embedding_dim,
@@ -604,7 +605,7 @@ def get_model(args: Arguments, gripper_loc_bounds) -> Tuple[optim.Optimizer, Hiv
             task_ids=[TASK_TO_ID[task] for task in args.tasks],
         )
     elif args.model == "analogical":
-        _model = AnalogicalNetwork(
+        model = AnalogicalNetwork(
             backbone=args.backbone,
             image_size=tuple(int(x) for x in args.image_size.split(",")),
             embedding_dim=args.embedding_dim,
@@ -626,16 +627,6 @@ def get_model(args: Arguments, gripper_loc_bounds) -> Tuple[optim.Optimizer, Hiv
             num_matching_cross_attn_layers=args.num_matching_cross_attn_layers,
         )
 
-    devices = [torch.device(d) for d in args.devices]
-    model = _model.to(devices[0])
-    if args.devices[0] != "cpu":
-        assert all("cuda" in d for d in args.devices)
-        model = DDP(model, device_ids=devices)
-
-    if args.checkpoint is not None:
-        model_dict = torch.load(args.checkpoint, map_location="cpu")
-        model.load_state_dict(model_dict["weight"])
-
     optimizer_grouped_parameters = [
         {"params": [], "weight_decay": 0.0, "lr": args.lr},
         {"params": [], "weight_decay": 5e-4, "lr": args.lr},
@@ -649,9 +640,15 @@ def get_model(args: Arguments, gripper_loc_bounds) -> Tuple[optim.Optimizer, Hiv
     optimizer: optim.Optimizer = optim.AdamW(optimizer_grouped_parameters)
 
     if args.checkpoint is not None:
+        model_dict = torch.load(args.checkpoint, map_location="cpu")
+        model_dict_weight = {}
+        for key in model_dict["weight"]:
+            _key = key[7:]
+            model_dict_weight[_key] = model_dict["weight"][key]
+        model.load_state_dict(model_dict_weight)
         optimizer.load_state_dict(model_dict["optimizer"])
 
-    model_params = count_parameters(_model)
+    model_params = count_parameters(model)
     print("Model parameters:", model_params)
 
     return optimizer, model
