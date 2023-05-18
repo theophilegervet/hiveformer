@@ -158,7 +158,6 @@ def training(
     This function is called by every training process.
     """
     setup(rank, world_size)
-    model = DDP(model, device_ids=[rank])
 
     if rank == 0:
         if args.logger == "tensorboard":
@@ -278,7 +277,7 @@ def training(
 def setup(rank, world_size):
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '12355'
-    dist.init_process_group("gloo", rank=rank, world_size=world_size)
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)
 
 
 def get_log_dir(args: Arguments) -> Path:
@@ -650,6 +649,8 @@ def get_model(args: Arguments, gripper_loc_bounds) -> Tuple[optim.Optimizer, Hiv
 
     model_params = count_parameters(model)
     print("Model parameters:", model_params)
+
+    model = DDP(model, [torch.device(d) for d in args.devices])
 
     return optimizer, model
 
