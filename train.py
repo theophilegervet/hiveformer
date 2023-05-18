@@ -159,6 +159,8 @@ def training(
     """
     setup(rank, world_size)
 
+    model = DDP(model, [rank])
+
     if rank == 0:
         if args.logger == "tensorboard":
             writer = SummaryWriter(log_dir=log_dir)
@@ -649,8 +651,6 @@ def get_model(args: Arguments, gripper_loc_bounds) -> Tuple[optim.Optimizer, Hiv
 
     model_params = count_parameters(model)
     print("Model parameters:", model_params)
-
-    model = DDP(model, [torch.device(d) for d in args.devices])
 
     return optimizer, model
 
