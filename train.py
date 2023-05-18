@@ -143,12 +143,12 @@ class Arguments(tap.Tap):
 def training(
     rank: int,
     world_size: int,
+    model: nn.Module,
     train_loader,
     val_loaders,
     loss_and_metrics,
     args: Arguments,
     log_dir: str,
-    gripper_loc_bounds,
     use_ground_truth_position_for_sampling_train=True,
     use_ground_truth_position_for_sampling_val=False,
 ):
@@ -156,8 +156,6 @@ def training(
     This function is called by every training process.
     """
     setup(rank, world_size)
-
-    model = get_model(args, gripper_loc_bounds)
 
     # Set up optimizer
     optimizer_grouped_parameters = [
@@ -715,6 +713,8 @@ if __name__ == "__main__":
     gripper_loc_bounds = get_gripper_loc_bounds(
         args.gripper_loc_bounds_file, task=task, buffer=args.gripper_bounds_buffer)
 
+    model = get_model(args, gripper_loc_bounds)
+
     print()
     print("-" * 100)
     print()
@@ -743,12 +743,12 @@ if __name__ == "__main__":
         world_size = len(args.devices)
         training_args = (
             world_size,
+            model,
             train_loader,
             val_loaders,
             loss_and_metrics,
             args,
             log_dir,
-            gripper_loc_bounds,
             bool(args.use_ground_truth_position_for_sampling_train),
             bool(args.use_ground_truth_position_for_sampling_val),
         )
