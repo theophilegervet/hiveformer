@@ -180,6 +180,7 @@ def training(
         model.load_state_dict(model_dict_weight)
         optimizer.load_state_dict(model_dict["optimizer"])
 
+    model = model.to(rank)
     model = DDP(model, [rank])
     model.train()
 
