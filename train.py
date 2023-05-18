@@ -181,7 +181,7 @@ def training(
         optimizer.load_state_dict(model_dict["optimizer"])
 
     model = model.to(rank)
-    model = DDP(model, [rank])
+    model = DDP(model, [rank], find_unused_parameters=True)
     model.train()
 
     # Set up logging and checkpointing
