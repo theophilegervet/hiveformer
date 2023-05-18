@@ -530,7 +530,7 @@ def get_train_loader(args: Arguments, gripper_loc_bounds) -> DataLoader:
         batch_size=args.batch_size,
         shuffle=True,
         num_workers=args.num_workers,
-        pin_memory=True,
+        pin_memory=False,
         collate_fn=collate_fn,
     )
     return loader
