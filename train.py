@@ -80,6 +80,7 @@ class Arguments(tap.Tap):
 
     # Data augmentations
     image_rescale: str = "0.75,1.25"  # (min, max), "1.0,1.0" for no rescaling
+    # image_rescale: str = "1.0,1.0"  # (min, max), "1.0,1.0" for no rescaling
     point_cloud_rotate_yaw_range: float = 0.0  # in degrees, 0.0 for no rotation
 
     visualize_rgb_attn: int = 0  # deactivate by default during training as this has memory overhead

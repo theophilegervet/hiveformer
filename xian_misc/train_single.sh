@@ -37,6 +37,8 @@ main_dir=05_01_singletask
 main_dir=05_02_singletask
 main_dir=05_03_singletask
 main_dir=debug
+main_dir=05_19_noresize
+main_dir=05_19_resize
 
 # dataset=/home/tgervet/datasets/hiveformer/packaged/2
 # valset=/home/tgervet/datasets/hiveformer/packaged/3
@@ -48,11 +50,11 @@ num_workers=2
 train_cache_size=100
 val_cache_size=100
 
-dataset=/home/zhouxian/git/datasets/packaged/74_hiveformer_tasks_train
-valset=/home/zhouxian/git/datasets/packaged/74_hiveformer_tasks_val
-num_workers=2
-train_cache_size=0
-val_cache_size=0
+# dataset=/home/zhouxian/git/datasets/packaged/74_hiveformer_tasks_train
+# valset=/home/zhouxian/git/datasets/packaged/74_hiveformer_tasks_val
+# num_workers=2
+# train_cache_size=0
+# val_cache_size=0
 
 # task=reach_target
 # task=push_button
@@ -66,7 +68,7 @@ val_cache_size=0
 # task=stack_wine
 
 # task_file=tasks/pick_and_lift.csv
-task=put_umbrella_in_umbrella_stand
+# task=put_umbrella_in_umbrella_stand
 
 
 task=insert_onto_square_peg
@@ -96,22 +98,16 @@ regress_position_offset=0
 vis_ins_att_complex=0
 vis_ins_att=0
 
-new_rotation_loss=0
-batch_size=16
 ins_pos_emb=0
 instruction_file=instructions_local.pkl
 symmetric_rotation_loss=0
-disc_rot=1
-disc_rot_res=5.0
-disc_rot_smooth=6.0
-rotation_loss_coeff=1
 
-batch_size=12
-new_rotation_loss=1
-disc_rot=0
-rotation_loss_coeff=1.0
+batch_size=16
+batch_size_val=4
+new_rotation_loss=0
+rotation_loss_coeff=10.0
 
-high_res=1
+high_res=0
 num_sampling_level=3
 
 python train.py\
@@ -133,9 +129,6 @@ python train.py\
      --ins_pos_emb $ins_pos_emb\
      --vis_ins_att $vis_ins_att\
      --vis_ins_att_complex $vis_ins_att_complex\
-     --disc_rot $disc_rot\
-     --disc_rot_res $disc_rot_res\
-     --disc_rot_smooth $disc_rot_smooth\
      --exp_log_dir $main_dir \
      --batch_size $batch_size \
      --batch_size_val $batch_size_val \
@@ -154,5 +147,5 @@ python train.py\
      --num_vis_ins_attn_layers $n_layer\
      --seed $seed\
      --lr $lr\
-     --run_log_dir $task-offset$regress_position_offset-N$num_sampling_level-T$num_ghost_points-V$num_ghost_points_val-symrot$symmetric_rotation_loss-newrot$new_rotation_loss-gptie$gp_emb_tying-simp$simplify-B$batch_size-demo$max_episodes_per_taskvar-dim$embedding_dim-L$n_layer-lr$lr-seed$seed-simpins$simplify_ins-ins_pos_emb$ins_pos_emb-vis_ins_att$vis_ins_att-disc_rot$disc_rot-$disc_rot_res-$disc_rot_smooth-rotcoef$rotation_loss_coeff-ins$instruction_file
+     --run_log_dir $task-offset$regress_position_offset-N$num_sampling_level-T$num_ghost_points-V$num_ghost_points_val-symrot$symmetric_rotation_loss-newrot$new_rotation_loss-gptie$gp_emb_tying-simp$simplify-B$batch_size-demo$max_episodes_per_taskvar-dim$embedding_dim-L$n_layer-lr$lr-seed$seed-simpins$simplify_ins-ins_pos_emb$ins_pos_emb-vis_ins_att$vis_ins_att-rotcoef$rotation_loss_coeff-ins$instruction_file
 
