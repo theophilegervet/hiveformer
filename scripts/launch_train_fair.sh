@@ -62,32 +62,30 @@ valset=/private/home/theop123/datasets/rlbench/packaged/18_peract_tasks_val_new
 batch_size_val=1
 layers=2
 embedding_dim=120
-for batch_size in 3 6; do
-  for num_workers in 0 1 2 4; do
-    sbatch train_8gpu_32gb_fair.sh \
-       --devices cuda:0 cuda:1 cuda:2 cuda:3 cuda:4 cuda:5 cuda:6 cuda:7 \
-       --tasks $(cat $task_file | tr '\n' ' ') \
-       --cameras $cameras \
-       --embedding_dim $embedding_dim \
-       --batch_size $batch_size \
-       --batch_size_val $batch_size_val \
-       --num_workers $num_workers \
-       --cache_size 0 \
-       --cache_size_val 0 \
-       --dataset $dataset \
-       --valset $valset \
-       --exp_log_dir $main_dir \
-       --gripper_loc_bounds_file $gripper_loc_bounds_file \
-       --use_instruction $use_instruction \
-       --logger wandb \
-       --train_iters $train_iters \
-       --variations {0..199} \
-       --num_ghost_point_cross_attn_layers $layers \
-       --num_query_cross_attn_layers $layers \
-       --num_vis_ins_attn_layers $layers \
-       --run_log_dir PERACT-DDP-MULTI-TASK-$embedding_dim-$layers-$num_workers-$batch_size
-  done
-done
+num_workers=1
+batch_size=6
+sbatch train_8gpu_32gb_fair_devlab.sh \
+   --devices cuda:0 cuda:1 cuda:2 cuda:3 cuda:4 cuda:5 cuda:6 cuda:7 \
+   --tasks $(cat $task_file | tr '\n' ' ') \
+   --cameras $cameras \
+   --embedding_dim $embedding_dim \
+   --batch_size $batch_size \
+   --batch_size_val $batch_size_val \
+   --num_workers $num_workers \
+   --cache_size 0 \
+   --cache_size_val 0 \
+   --dataset $dataset \
+   --valset $valset \
+   --exp_log_dir $main_dir \
+   --gripper_loc_bounds_file $gripper_loc_bounds_file \
+   --use_instruction $use_instruction \
+   --logger wandb \
+   --train_iters $train_iters \
+   --variations {0..199} \
+   --num_ghost_point_cross_attn_layers $layers \
+   --num_query_cross_attn_layers $layers \
+   --num_vis_ins_attn_layers $layers \
+   --run_log_dir PERACT-DDP-MULTI-TASK-$embedding_dim-$layers-$num_workers-$batch_size
 
 # Medium 2
 #batch_size=3
