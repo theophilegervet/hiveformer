@@ -214,7 +214,6 @@ class Actioner:
             )
             output["action"] = self._model.compute_action(pred)  # type: ignore
         elif type(self._model) == DiffusionPlanner:
-            breakpoint()
             output["trajectory"] = self._model.compute_trajectory(
                 trajectory_mask,
                 rgbs,
@@ -223,6 +222,7 @@ class Actioner:
                 gripper,
                 gt_action,  # TODO Replace this with predicted keypoint
             )
+            breakpoint()
         elif type(self._model) == AnalogicalNetwork:
             # TODO Implement evaluation with analogical network
             raise NotImplementedError
