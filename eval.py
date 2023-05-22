@@ -214,7 +214,7 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
             task_ids=[TASK_TO_ID[task] for task in args.tasks],
         ).to(device)
     elif args.model == "diffusion":
-        _model = DiffusionPlanner(
+        model = DiffusionPlanner(
             backbone=args.backbone,
             image_size=tuple(int(x) for x in args.image_size.split(",")),
             embedding_dim=args.embedding_dim,
