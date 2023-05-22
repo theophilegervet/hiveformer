@@ -64,6 +64,7 @@ layers=2
 embedding_dim=120
 num_workers=1
 batch_size=6
+checkpoint=/private/home/theop123/hiveformer2/train_logs/peract_new_data/PERACT-DDP-MULTI-TASK-120-2-1-6_version8373980/model.step=110000-value=0.00000.pth
 sbatch train_8gpu_32gb_fair_devlab.sh \
    --devices cuda:0 cuda:1 cuda:2 cuda:3 cuda:4 cuda:5 cuda:6 cuda:7 \
    --tasks $(cat $task_file | tr '\n' ' ') \
@@ -82,6 +83,7 @@ sbatch train_8gpu_32gb_fair_devlab.sh \
    --logger wandb \
    --train_iters $train_iters \
    --variations {0..199} \
+   --checkpoint $checkpoint \
    --num_ghost_point_cross_attn_layers $layers \
    --num_query_cross_attn_layers $layers \
    --num_vis_ins_attn_layers $layers \
