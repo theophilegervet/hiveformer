@@ -12,6 +12,7 @@ from train import Arguments as TrainArguments
 from model.released_hiveformer.network import Hiveformer
 from model.non_analogical_baseline.baseline import Baseline
 from model.analogical_network.analogical_network import AnalogicalNetwork
+from model.diffusion_planner.diffusion_model import DiffusionPlanner
 from utils.utils_with_rlbench import (
     RLBenchEnv,
     Actioner,
@@ -211,6 +212,16 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
             positional_features=args.positional_features,
             task_ids=[TASK_TO_ID[task] for task in args.tasks],
         ).to(device)
+    elif args.model == "diffusion":
+        _model = DiffusionPlanner(
+            backbone=args.backbone,
+            image_size=tuple(int(x) for x in args.image_size.split(",")),
+            embedding_dim=args.embedding_dim,
+            num_vis_ins_attn_layers=args.num_vis_ins_attn_layers,
+            num_sampling_level=args.num_sampling_level,
+            use_instruction=bool(args.use_instruction),
+            positional_features=args.positional_features
+        )
     elif args.model == "analogical":
         raise NotImplementedError
         model = AnalogicalNetwork(
