@@ -10,7 +10,7 @@ from torch.utils.tensorboard import SummaryWriter  # type: ignore
 from torch.utils.data import DataLoader
 from torch.utils.data._utils.collate import default_collate
 import numpy as np
-from tqdm import tqdm, trange
+from tqdm import trange
 import tap
 import wandb
 

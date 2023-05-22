@@ -104,6 +104,32 @@ def load_instructions(
 
 
 class LossAndMetrics:
+    """
+    Each method expects two dictionaries:
+     - pred: {
+        'position': (B, 3) gripper position,
+        'rotation': (B, 4) gripper rotation,
+        'gripper': (B, 1) whether gripper should open/close (0/1),
+        'position_pyramid': list of 3 elements, (B, 1, 3) interm gripper pos,
+        'visible_rgb_mask_pyramid': not used in loss,
+        'ghost_pcd_masks_pyramid',
+        'ghost_pcd_pyramid',
+        'fine_ghost_pcd_offsets',
+        'task'
+     }
+     - sample: {
+        'frame_id',
+        'task_id',
+        'task',
+        'variation',
+        'rgbs',
+        'pcds',
+        'action': (B, 1, 8),
+        'padding_mask': (B, 1),
+        'instr',
+        'gripper'
+     }
+    """
     def __init__(
         self,
         position_loss,

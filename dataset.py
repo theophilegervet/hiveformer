@@ -1,5 +1,7 @@
 import itertools
 import random
+import blosc
+import pickle
 from typing import (
     Union,
     Optional,
@@ -16,7 +18,7 @@ from pathlib import Path
 import numpy as np
 import math
 import torch
-import torch.utils.data as data
+from torch.utils.data import Dataset
 from torch.nn import functional as F
 import torchvision.transforms as transforms
 import torchvision.transforms.functional as transforms_f
@@ -27,7 +29,9 @@ try:
 except:
     pass
 
-from utils.utils_without_rlbench import Instructions, Sample, Camera, TASK_TO_ID, load_episodes
+from utils.utils_without_rlbench import (
+    Instructions, Sample, Camera, TASK_TO_ID, load_episodes
+)
 
 
 T = TypeVar("T")
@@ -124,10 +128,19 @@ def data_transform(scales, **kwargs: torch.Tensor) -> Dict[str, torch.Tensor]:
 
 
 def loader(file: Path) -> Optional[np.ndarray]:
-    try:
-        return np.load(file, allow_pickle=True)
-    except UnpicklingError as e:
-        print(f"Can't load {file}: {e}")
+    if str(file).endswith(".npy"):
+        try:
+            content = np.load(file, allow_pickle=True)
+            return content
+        except UnpicklingError as e:
+            print(f"Can't load {file}: {e}")
+    elif str(file).endswith(".dat"):
+        try:
+            with open(file, "rb") as f:
+                content = pickle.loads(blosc.decompress(f.read()))
+            return content
+        except UnpicklingError as e:
+            print(f"Can't load {file}: {e}")
     return None
 
 
@@ -203,13 +216,16 @@ class Rotate:
         self.yaw_range = np.deg2rad(yaw_range)
         self.num_tries = num_tries
 
-    def __call__(self, pcds, gripper, action, mask):
+    def __call__(self, pcds, gripper, action, mask, trajectory=None):
         if self.yaw_range == 0.0:
-            return pcds, gripper, action
+            return pcds, gripper, action, trajectory
 
         augmentation_rot_4x4 = self._sample_rotation()
         gripper_rot_4x4 = self._gripper_action_to_matrix(gripper)
         action_rot_4x4 = self._gripper_action_to_matrix(action)
+        if trajectory is not None:
+            trajectory = einops.rearrange(trajectory, 'b l c -> (b l ) c')
+            traj_rot = self._gripper_action_to_matrix(trajectory)
 
         for i in range(self.num_tries):
             gripper_rot_4x4 = augmentation_rot_4x4 @ gripper_rot_4x4
@@ -217,15 +233,20 @@ class Rotate:
 
             gripper_position, gripper_quaternion = self._gripper_matrix_to_action(gripper_rot_4x4)
             action_position, action_quaternion = self._gripper_matrix_to_action(action_rot_4x4)
+            if trajectory is not None:
+                traj_position, traj_quaternion = self._gripper_matrix_to_action(traj_rot)
 
             if self._check_bounds(gripper_position[mask], action_position[mask]):
                 gripper[mask, :3], gripper[mask, 3:7] = gripper_position[mask], gripper_quaternion[mask]
                 action[mask, :3], action[mask, 3:7] = action_position[mask], action_quaternion[mask]
+                if trajectory is not None:
+                    trajectory[:, :3], trajectory[:, 3:7] = traj_position, traj_quaternion
+                    trajectory = trajectory.reshape(len(action), -1, trajectory.size(-1))
                 pcds[mask] = einops.einsum(
                     augmentation_rot_4x4[:3, :3], pcds[mask], "c2 c1, t ncam c1 h w -> t ncam c2 h w")
                 break
 
-        return pcds, gripper, action
+        return pcds, gripper, action, trajectory
 
     def _check_bounds(self, gripper_position, action_position):
         return (
@@ -260,10 +281,8 @@ class Rotate:
         return position, quaternion
 
 
-class RLBenchDataset(data.Dataset):
-    """
-    RLBench dataset.
-    """
+class RLBenchDataset(Dataset):
+    """RLBench dataset."""
 
     def __init__(
         self,
@@ -280,6 +299,7 @@ class RLBenchDataset(data.Dataset):
         training: bool = True,
         image_rescale=(1.0, 1.0),
         point_cloud_rotate_yaw_range=0.0,
+        return_low_lvl_trajectory=False
     ):
         self._cache = Cache(cache_size, loader)
         self._cameras = cameras
@@ -289,6 +309,7 @@ class RLBenchDataset(data.Dataset):
         self._num_iters = num_iters
         self._training = training
         self._taskvar = taskvar
+        self._return_low_lvl_trajectory = return_low_lvl_trajectory
         if isinstance(root, (Path, str)):
             root = [Path(root)]
         self._root: List[Path] = [Path(r).expanduser() for r in root]
@@ -296,7 +317,7 @@ class RLBenchDataset(data.Dataset):
 
         # We keep only useful instructions to save mem
         self._instructions: Instructions = defaultdict(dict)
-        self._num_vars = Counter()
+        self._num_vars = Counter()  # variations of the same task
         for root, (task, var) in itertools.product(self._root, taskvar):
             data_dir = root / f"{task}+{var}"
             if data_dir.is_dir():
@@ -305,6 +326,7 @@ class RLBenchDataset(data.Dataset):
             else:
                 print(f"Can't find dataset folder {data_dir}")
 
+        # If training, initialize augmentation classes
         if self._training:
             self._resize = Resize(scales=image_rescale)
             self._rotate = Rotate(
@@ -312,6 +334,7 @@ class RLBenchDataset(data.Dataset):
                 yaw_range=point_cloud_rotate_yaw_range
             )
 
+        # File-names of episodes per-task and variation
         self._data_dirs = []
         episodes_by_task = defaultdict(list)
         for root, (task, var) in itertools.product(self._root, taskvar):
@@ -319,8 +342,11 @@ class RLBenchDataset(data.Dataset):
             if not data_dir.is_dir():
                 print(f"Can't find dataset folder {data_dir}")
                 continue
-            episodes = [(task, var, ep) for ep in data_dir.glob("*.npy")]
-            episodes = episodes[: self._max_episodes_per_task // self._num_vars[task] + 1]
+            npy_episodes = [(task, var, ep) for ep in data_dir.glob("*.npy")]  # Backward compatibility
+            dat_episodes = [(task, var, ep) for ep in data_dir.glob("*.dat")]
+            episodes = npy_episodes + dat_episodes
+            # Split episodes equally into task variations
+            episodes = episodes[:self._max_episodes_per_task // self._num_vars[task] + 1]
             num_episodes = len(episodes)
             if num_episodes == 0:
                 print(f"Can't find episodes at folder {data_dir}")
@@ -328,12 +354,14 @@ class RLBenchDataset(data.Dataset):
             self._data_dirs.append(data_dir)
             episodes_by_task[task] += episodes
 
+        # All episodes in the dataset
         self._episodes = []
         self._num_episodes = 0
         for task, eps in episodes_by_task.items():
             if len(eps) > self._max_episodes_per_task:
                 eps = random.sample(eps, self._max_episodes_per_task)
             history_truncated_eps = []
+            # Chunk too long episodes (repeat episode with diff chunk id)
             for (task, var, ep) in eps:
                 chunks = math.ceil(max_episode_length_dict[task] / self._max_episode_length)
                 for chunk in range(chunks):
@@ -344,14 +372,27 @@ class RLBenchDataset(data.Dataset):
         print(f"Created dataset from {root} with {self._num_episodes} episodes (after chunking "
               f"them by max episode length)")
 
-    def __getitem__(self, episode_id: int) -> Optional[Sample]:
+    def __getitem__(self, episode_id):
+        """
+        the episode item: [
+            [frame_ids],  # we use chunk and max_episode_length to index it
+            [obs_tensors],  # wrt frame_ids, (n_cam, 2, 3, 256, 256)
+                obs_tensors[i][:, 0] is RGB, obs_tensors[i][:, 1] is XYZ
+            [action_tensors],  # wrt frame_ids, (1, 8)
+            [camera_dicts],
+            [gripper_tensors]  # wrt frame_ids, (1, 8)
+            [trajectories],  # wrt frame_ids, (N_i, 8)
+        ]
+        """
         episode_id %= self._num_episodes
         task, variation, file, chunk = self._episodes[episode_id]
-        episode = self._cache(file)
 
+        # Load episode
+        episode = self._cache(file)
         if episode is None:
             return None
 
+        # Get frame ids for this chunk
         frame_ids = episode[0][chunk * self._max_episode_length: (chunk + 1) * self._max_episode_length]
         num_ind = len(frame_ids)
         if num_ind == 0:
@@ -360,21 +401,27 @@ class RLBenchDataset(data.Dataset):
             return self.__getitem__(episode_id)
         pad_len = max(0, self._max_episode_length - num_ind)
 
-        states: torch.Tensor = torch.stack([episode[1][i].squeeze(0) for i in frame_ids])
+        # Get the image tensors for the frame ids we got
+        states: torch.Tensor = torch.stack([torch.from_numpy(episode[1][i]) for i in frame_ids])
         if states.shape[-1] != self._image_size[1] or states.shape[-2] != self._image_size[0]:
             raise ValueError(f"{states.shape} {self._episodes[episode_id]}")
         pad_vec = [0] * (2 * states.dim())
         pad_vec[-1] = pad_len
         states = F.pad(states, pad_vec)
 
+        # Camera ids
         cameras = list(episode[3][0].keys())
         assert all(c in cameras for c in self._cameras)
         index = torch.tensor([cameras.index(c) for c in self._cameras])
 
+        # Re-map states based on camera ids
         states = states[:, index]
+
+        # Split RGB and XYZ
         rgbs = states[:, :, 0]
         pcds = states[:, :, 1]
 
+        # Concatenate to RGB a tensor of one-hot camera position in pixel space
         attns = torch.Tensor([])
         for i in frame_ids:
             attn_cams = torch.Tensor([])
@@ -390,6 +437,7 @@ class RLBenchDataset(data.Dataset):
         attns = F.pad(attns, pad_vec)
         rgbs = torch.cat([rgbs, attns], 2)
 
+        # Get action tensors for respective frame ids
         action = torch.cat([episode[2][i] for i in frame_ids])
         shape = [0, 0] * action.dim()
         shape[-1] = pad_len
@@ -397,8 +445,10 @@ class RLBenchDataset(data.Dataset):
 
         mask = torch.tensor([True] * num_ind + [False] * pad_len)
 
+        # Sample one instruction feature
         instr: torch.Tensor = random.choice(self._instructions[task][variation])
 
+        # Get gripper tensors for respective frame ids
         gripper = torch.cat([episode[4][i] for i in frame_ids])
         shape = [0, 0] * gripper.dim()
         shape[-1] = pad_len
@@ -407,23 +457,38 @@ class RLBenchDataset(data.Dataset):
         tframe_ids = torch.tensor(frame_ids)
         tframe_ids = F.pad(tframe_ids, (0, pad_len), value=-1)
 
+        # Low-level trajectory
+        traj, traj_lens = None, 0
+        if self._return_low_lvl_trajectory:
+            max_l = max(len(item) for item in episode[5])
+            traj = torch.zeros(len(episode[5]), max_l, 8)
+            traj_lens = torch.as_tensor([len(item) for item in episode[5]])
+            for i, item in enumerate(episode[5]):
+                traj[i, :len(item)] = item
+
+        # Augmentations
         if self._training:
-            pcds, gripper, action = self._rotate(pcds, gripper, action, mask)
+            pcds, gripper, action, traj = self._rotate(pcds, gripper, action, mask, traj)
+            if traj is not None:
+                for t, tlen in enumerate(traj_lens):
+                    traj[t, tlen:] = 0
             modals = self._resize(rgbs=rgbs, pcds=pcds)
             rgbs = modals["rgbs"]
             pcds = modals["pcds"]
 
         return {
-            "frame_id": tframe_ids,
-            "task_id": TASK_TO_ID[task],
-            "task": task,
-            "variation": variation,
-            "rgbs": rgbs,
-            "pcds": pcds,
-            "action": action,
-            "padding_mask": mask,
-            "instr": instr,
-            "gripper": gripper,
+            "frame_id": tframe_ids,  # e.g. tensor([0, 1])
+            "task_id": TASK_TO_ID[task],  # e.g. 52
+            "task": task,  # e.g. 'reach_target'
+            "variation": variation,  # e.g. 0
+            "rgbs": rgbs,  # e.g. tensor (n_frames, n_cam, 3+1, H, W)
+            "pcds": pcds,  # e.g. tensor (n_frames, n_cam, 3, H, W)
+            "action": action,  # e.g. tensor (n_frames, 8), target pose
+            "padding_mask": mask,  # e.g. tensor([True])
+            "instr": instr,  # a (53, 512) tensor
+            "curr_gripper": gripper,  # e.g. tensor (n_frames, 8), current pose
+            "trajectory": traj,  # e.g. tensor (n_frames, 67, 8)
+            "trajectory_len": traj_lens  # e.g. tensor (n_frames,)
         }
 
     def __len__(self):
@@ -432,7 +497,7 @@ class RLBenchDataset(data.Dataset):
         return self._num_episodes
 
 
-class RLBenchAnalogicalDataset(data.Dataset):
+class RLBenchAnalogicalDataset(Dataset):
     """
     RLBench analogical dataset:
     - Instead of a single demo, each dataset element is a set of demos from the same task
