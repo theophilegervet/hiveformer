@@ -171,14 +171,21 @@ class Actioner:
         """
         key_frame = keypoint_discovery(demo)
         action_ls = []
-        breakpoint()
-        trajectory_mask_ls = []
+
         for f in key_frame:
             obs = demo[f]
             action_np = np.concatenate([obs.gripper_pose, [obs.gripper_open]])
             action = torch.from_numpy(action_np)
             action_ls.append(action.unsqueeze(0))
-        return action_ls, trajectory_mask_ls
+
+        trajectory_length = [key_frame[i] - (key_frame[i - 1] if i > 0 else 0) for i in range(len(key_frame))]
+        trajectory_mask = torch.zeros(len(key_frame), max(trajectory_length))
+        for i in range(len(key_frame)):
+            trajectory_mask[i, :trajectory_length[i]] = 1
+        trajectory_mask = trajectory_mask.bool()
+        breakpoint()
+
+        return action_ls, trajectory_mask
 
     def predict(
         self, step_id: int, rgbs: torch.Tensor, pcds: torch.Tensor, gripper: torch.Tensor,
@@ -566,7 +573,7 @@ class RLBenchEnv:
                     grippers = torch.cat([grippers, gripper.unsqueeze(1)], dim=1)
                     output = actioner.predict(step_id, rgbs[:, -1:], pcds[:, -1:], grippers[:, -1:],
                                               gt_action=torch.stack(gt_keyframe_actions[:step_id + 1]).float().to(device),
-                                              trajectory_mask=trajectory_mask)
+                                              trajectory_mask=trajectory_mask[:step_id + 1].to(device))
 
                     if offline:
                         # Follow demo
