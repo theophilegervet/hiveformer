@@ -36,6 +36,7 @@ main_dir=05_02_multitask
 main_dir=05_05_multitask_highres
 main_dir=05_06_multitask_reverifyZ
 main_dir=05_07_multitask_highres
+main_dir=05_22_multitask_10demo
 # main_dir=debug
 
 # dataset=/home/tgervet/datasets/hiveformer/packaged/2
@@ -94,14 +95,15 @@ regress_position_offset=0
 ins_pos_emb=0
 instruction_file=instructions_local.pkl
 
-high_res=1
+high_res=0
 num_sampling_level=3
-batch_size=18
-batch_size_val=6
+batch_size=16
+batch_size_val=4
+max_episodes_per_taskvar=10
 
 
 python train.py\
-     --devices cuda:0 cuda:1 cuda:2\
+     --devices cuda:0 cuda:1\
      --instructions instructions_old/$instruction_file \
      --tasks $(cat $task_file | tr '\n' ' ') \
      --dataset $dataset \

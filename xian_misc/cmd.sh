@@ -1,5 +1,5 @@
 rsync -avzh  --info=progress2 --exclude-from='/home/zhouxian/git/hiveformer/xian_misc/rsync-exclude-file.txt' /home/zhouxian/git/hiveformer xianz1@matrix.ml.cmu.edu:/home/xianz1/git/
-rsync -avzh --info=progress2  --exclude-from='/home/zhouxian/git/hiveformer/xian_misc/rsync-exclude-pth.txt' xianz1@matrix.ml.cmu.edu:/home/xianz1/git/hiveformer/train_logs/05_06*  /home/zhouxian/git/hiveformer/train_logs/
+rsync -avzh --info=progress2  --exclude-from='/home/zhouxian/git/hiveformer/xian_misc/rsync-exclude-pth.txt' xianz1@matrix.ml.cmu.edu:/home/xianz1/git/hiveformer/train_logs/05_19*  /home/zhouxian/git/hiveformer/train_logs/
 rsync -avzh --info=progress2  --exclude-from='/home/zhouxian/git/hiveformer/xian_misc/rsync-exclude-pth.txt' xianz1@matrix.ml.cmu.edu:/home/xianz1/git/hiveformer/train_logs/03_22_wine/stack_wine-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B16-demo100-dim60-lr1e-4-seed0_version159992*  /home/zhouxian/git/hiveformer/train_logs/
 
 rsync -avzh --info=progress2 xianz1@matrix.ml.cmu.edu:/home/xianz1/git/hiveformer/train_logs/05_03_singletask/insert_onto_square_peg-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B32-demo100-dim60-L2-lr1e-4-seed0-simpins0-ins_pos_emb0-vis_ins_att0-disc_rot0-5.0-6.0-rotcoef10-insinstructions_local.pkl_version168220/model.step=125000-value=0.00000.pth  /home/zhouxian/git/hiveformer/train_logs/05_03_singletask/insert_onto_square_peg-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B32-demo100-dim60-L2-lr1e-4-seed0-simpins0-ins_pos_emb0-vis_ins_att0-disc_rot0-5.0-6.0-rotcoef10-insinstructions_local.pkl_version168220/
@@ -23,6 +23,7 @@ squeue -o "%u %c %m %b %P %M %N" |grep 0-22
 srun -p kate_reserved --time=72:00:00  --gres gpu:1 -c10 --mem=62g  --nodelist=matrix-2-25 --pty $SHELL 
 srun -p kate_reserved --time=72:00:00  --gres gpu:4 -c50 --mem=250g  --nodelist=matrix-2-25 --pty $SHELL 
 srun -p kate_reserved --time=72:00:00  --gres gpu:2 -c20 --mem=120g  --nodelist=matrix-2-25 --pty $SHELL 
+srun -p kate_reserved --time=72:00:00  --gres gpu:3 -c30 --mem=120g  --nodelist=matrix-2-25 --pty $SHELL 
 srun -p kate_reserved --time=72:00:00  --gres gpu:1 -c10 --mem=62g  --nodelist=matrix-2-29 --pty $SHELL 
 srun -p kate_reserved --time=72:00:00  --gres gpu:2 -c20 --mem=120g  --nodelist=matrix-2-29 --pty $SHELL 
 srun -p kate_reserved --time=72:00:00  --gres gpu:2 -c20 --mem=60g  --nodelist=matrix-2-29 --pty $SHELL 
