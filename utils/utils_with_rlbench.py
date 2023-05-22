@@ -183,7 +183,6 @@ class Actioner:
         for i in range(len(key_frame)):
             trajectory_mask[i, :trajectory_length[i]] = 1
         trajectory_mask = trajectory_mask.bool()
-        breakpoint()
 
         return action_ls, trajectory_mask
 
@@ -215,6 +214,7 @@ class Actioner:
             )
             output["action"] = self._model.compute_action(pred)  # type: ignore
         elif type(self._model) == DiffusionPlanner:
+            breakpoint()
             output["trajectory"] = self._model.compute_trajectory(
                 trajectory_mask,
                 rgbs,
