@@ -85,7 +85,7 @@ class DiffusionPlanner(nn.Module):
 
         return trajectory
     
-    def predict_action(
+    def compute_trajectory(
         self,
         trajectory_mask,
         rgb_obs,
