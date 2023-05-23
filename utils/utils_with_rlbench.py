@@ -172,16 +172,23 @@ class Actioner:
         key_frame = keypoint_discovery(demo)
 
         action_ls = []
-        for f in key_frame:
-            obs = demo[f]
+        trajectory_ls = []
+        for i in range(len(key_frame)):
+            obs = demo[key_frame[i]]
             action_np = np.concatenate([obs.gripper_pose, [obs.gripper_open]])
             action = torch.from_numpy(action_np)
             action_ls.append(action.unsqueeze(0))
 
+            trajectory_np = []
+            for j in range(key_frame[i - 1] if i > 0 else 0, key_frame[i]):
+                obs = demo[key_frame[j]]
+                trajectory_np.append(np.concatenate([obs.gripper_pose, [obs.gripper_open]]))
+            trajectory_ls.append(np.stack(trajectory_np))
+
         trajectory_mask_ls = [torch.zeros(1, key_frame[i] - (key_frame[i - 1] if i > 0 else 0)).bool()
                               for i in range(len(key_frame))]
 
-        return action_ls, trajectory_mask_ls
+        return action_ls, trajectory_ls, trajectory_mask_ls
 
     def predict(
         self, step_id: int, rgbs: torch.Tensor, pcds: torch.Tensor, gripper: torch.Tensor,
@@ -551,7 +558,8 @@ class RLBenchEnv:
                 )
                 move = Mover(task, max_tries=max_tries)
                 reward = None
-                gt_keyframe_actions, trajectory_masks = actioner.get_action_from_demo(demo)
+                gt_keyframe_actions, trajectories, trajectory_masks = actioner.get_action_from_demo(demo)
+                breakpoint()
                 if offline:
                     max_steps = len(gt_keyframe_actions)
                 gt_keyframe_gripper_matrices = np.stack([self.get_gripper_matrix_from_action(a[-1])
