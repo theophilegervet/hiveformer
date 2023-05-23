@@ -632,7 +632,7 @@ class RLBenchEnv:
                                 print("...")
                                 print(trajectories[step_id][-5:, :3])
                                 print("target gripper xyz")
-                                print(action[-1:, :3].cpu().numpy())
+                                print(action[-1, :3].cpu().numpy())
                                 print()
                                 print("Metrics:")
                                 pos_l2 = ((trajectory_np - trajectories[step_id]) ** 2).sum(1).sqrt()
