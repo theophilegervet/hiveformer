@@ -201,6 +201,7 @@ class Actioner:
         self._task_id = self._task_id.to(rgbs.device)
 
         if type(self._model) in [Hiveformer, Baseline]:
+            breakpoint()
             pred = self._model(
                 rgbs,
                 pcds,
