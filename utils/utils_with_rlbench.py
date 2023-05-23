@@ -30,6 +30,7 @@ from model.released_hiveformer.network import Hiveformer
 from model.non_analogical_baseline.baseline import Baseline
 from model.analogical_network.analogical_network import AnalogicalNetwork
 from .utils_without_rlbench import TASK_TO_ID
+from model.diffusion_planner.diffusion_model import DiffusionPlanner
 
 
 def task_file_to_task_class(task_file):
@@ -169,16 +170,29 @@ class Actioner:
             :return: a list of obs and action
         """
         key_frame = keypoint_discovery(demo)
+
         action_ls = []
-        for f in key_frame:
-            obs = demo[f]
+        trajectory_ls = []
+        for i in range(len(key_frame)):
+            obs = demo[key_frame[i]]
             action_np = np.concatenate([obs.gripper_pose, [obs.gripper_open]])
             action = torch.from_numpy(action_np)
             action_ls.append(action.unsqueeze(0))
-        return action_ls
+
+            trajectory_np = []
+            for j in range(key_frame[i - 1] if i > 0 else 0, key_frame[i]):
+                obs = demo[j]
+                trajectory_np.append(np.concatenate([obs.gripper_pose, [obs.gripper_open]]))
+            trajectory_ls.append(np.stack(trajectory_np))
+
+        trajectory_mask_ls = [torch.zeros(1, key_frame[i] - (key_frame[i - 1] if i > 0 else 0)).bool()
+                              for i in range(len(key_frame))]
+
+        return action_ls, trajectory_ls, trajectory_mask_ls
 
     def predict(
-        self, step_id: int, rgbs: torch.Tensor, pcds: torch.Tensor, gripper: torch.Tensor, gt_action: torch.Tensor
+        self, step_id: int, rgbs: torch.Tensor, pcds: torch.Tensor, gripper: torch.Tensor,
+        gt_action: torch.Tensor, trajectory_mask: torch.Tensor
     ) -> Dict[str, Any]:
         padding_mask = torch.ones_like(rgbs[:, :, 0, 0, 0, 0]).bool()
         output: Dict[str, Any] = {"action": None, "attention": {}}
@@ -202,23 +216,33 @@ class Actioner:
                 gripper,
                 self._task_id,
             )
+            output["action"] = self._model.compute_action(pred)  # type: ignore
+
+            # if pred.get("coarse_position") is not None:
+            #     output["coarse_position"] = pred["coarse_position"][-1, 0].cpu().numpy()
+            # if pred.get("fine_position") is not None:
+            #     output["fine_position"] = pred["fine_position"][-1, 0].cpu().numpy()
+            #
+            # if pred.get("coarse_visible_rgb_mask") is not None:
+            #     top_value = pred["coarse_visible_rgb_mask"][-1].flatten().topk(k=10000).values[-1]
+            #     output["top_coarse_rgb"] = (pred["coarse_visible_rgb_mask"][-1] >= top_value).cpu().numpy()
+            # if pred.get("fine_visible_rgb_mask") is not None:
+            #     top_value = pred["fine_visible_rgb_mask"][-1].flatten().topk(k=5000).values[-1]
+            #     output["top_fine_rgb"] = (pred["fine_visible_rgb_mask"][-1] >= top_value).cpu().numpy()
+
+        elif type(self._model) == DiffusionPlanner:
+            output["trajectory"] = self._model.compute_trajectory(
+                trajectory_mask,
+                rgbs[:, -1],
+                pcds[:, -1],
+                self._instr,
+                gripper[:, -1],
+                gt_action[:, -1],  # TODO Replace this with predicted keypoint
+            )
+
         elif type(self._model) == AnalogicalNetwork:
             # TODO Implement evaluation with analogical network
             raise NotImplementedError
-
-        output["action"] = self._model.compute_action(pred)  # type: ignore
-
-        if pred.get("coarse_position") is not None:
-            output["coarse_position"] = pred["coarse_position"][-1, 0].cpu().numpy()
-        if pred.get("fine_position") is not None:
-            output["fine_position"] = pred["fine_position"][-1, 0].cpu().numpy()
-
-        if pred.get("coarse_visible_rgb_mask") is not None:
-            top_value = pred["coarse_visible_rgb_mask"][-1].flatten().topk(k=10000).values[-1]
-            output["top_coarse_rgb"] = (pred["coarse_visible_rgb_mask"][-1] >= top_value).cpu().numpy()
-        if pred.get("fine_visible_rgb_mask") is not None:
-            top_value = pred["fine_visible_rgb_mask"][-1].flatten().topk(k=5000).values[-1]
-            output["top_fine_rgb"] = (pred["fine_visible_rgb_mask"][-1] >= top_value).cpu().numpy()
 
         return output
 
@@ -534,7 +558,7 @@ class RLBenchEnv:
                 )
                 move = Mover(task, max_tries=max_tries)
                 reward = None
-                gt_keyframe_actions = actioner.get_action_from_demo(demo)
+                gt_keyframe_actions, trajectories, trajectory_masks = actioner.get_action_from_demo(demo)
                 if offline:
                     max_steps = len(gt_keyframe_actions)
                 gt_keyframe_gripper_matrices = np.stack([self.get_gripper_matrix_from_action(a[-1])
@@ -553,7 +577,8 @@ class RLBenchEnv:
                     pcds = torch.cat([pcds, pcd.unsqueeze(1)], dim=1)
                     grippers = torch.cat([grippers, gripper.unsqueeze(1)], dim=1)
                     output = actioner.predict(step_id, rgbs[:, -1:], pcds[:, -1:], grippers[:, -1:],
-                                              gt_action=torch.stack(gt_keyframe_actions[:step_id + 1]).float().to(device))
+                                              gt_action=gt_keyframe_actions[step_id].unsqueeze(0).float().to(device),
+                                              trajectory_mask=trajectory_masks[step_id].to(device))
 
                     if offline:
                         # Follow demo
@@ -589,15 +614,51 @@ class RLBenchEnv:
                             top_fine_rgb_heatmap=output.get("top_fine_rgb"),
                         )
 
-                    if action is None:
-                        break
-
                     # Update the observation based on the predicted action
                     try:
-                        action_np = action[-1].detach().cpu().numpy()
+                        # Execute entire predicted trajectory step by step
+                        if "trajectory" in output:
+                            trajectory_np = output["trajectory"][-1].detach().cpu().numpy()
 
-                        collision_checking = self._collision_checking(task_str, step_id)
-                        obs, reward, terminate, step_images = move(action_np, collision_checking=collision_checking)
+                            if verbose:
+                                print("current gripper xyz")
+                                print(grippers[-1, step_id, :3])
+                                print()
+                                print("predicted trajectory xyz")
+                                print(trajectory_np[:5, :3])
+                                print("...")
+                                print(trajectory_np[-5:, :3])
+                                print()
+                                print("ground-truth trajectory xyz")
+                                print(trajectories[step_id][:5, :3])
+                                print("...")
+                                print(trajectories[step_id][-5:, :3])
+                                print()
+                                print("target gripper xyz")
+                                print(action[-1, :3].cpu().numpy())
+                                print()
+                                print("Metrics:")
+                                pos_l2 = np.sqrt(((trajectory_np[:, :3] - trajectories[step_id][:, :3]) ** 2).sum(1))
+                                rot_l1 = np.abs(trajectory_np[:, 3:7] - trajectories[step_id][:, 3:7]).sum(1)
+                                print("Mean pos L2", pos_l2.mean())
+                                print("Min pos L2", pos_l2.min())
+                                print("Max pos L2", pos_l2.max())
+                                print("Mean rot L1", rot_l1.mean())
+                                print("Min rot L1", rot_l1.min())
+                                print("Max rot L1", rot_l1.max())
+                                print()
+                                print()
+                                print()
+
+                            for action_np in trajectory_np[1:]:
+                            # for action_np in trajectories[step_id][1:]:  # To execute ground-truth trajectory
+                                obs, reward, terminate, step_images = move(action_np)
+
+                        # Or plan to reach next predicted keypoint
+                        else:
+                            action_np = action[-1].detach().cpu().numpy()
+                            collision_checking = self._collision_checking(task_str, step_id)
+                            obs, reward, terminate, step_images = move(action_np, collision_checking=collision_checking)
 
                         images += step_images
 

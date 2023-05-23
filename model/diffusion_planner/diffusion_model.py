@@ -4,6 +4,7 @@ from torch import nn
 from torch.nn import functional as F
 
 from .diffusion_head_simple import DiffusionHead
+from model.utils.utils import normalise_quat
 
 
 class DiffusionPlanner(nn.Module):
@@ -85,9 +86,12 @@ class DiffusionPlanner(nn.Module):
             ).prev_sample
             trajectory[condition_mask] = condition_data[condition_mask]
 
+        # Normalize quaternion
+        trajectory[:, :, 3:7] = normalise_quat(trajectory[:, :, 3:7])
+
         return trajectory
     
-    def predict_action(
+    def compute_trajectory(
         self,
         trajectory_mask,
         rgb_obs,
@@ -129,6 +133,10 @@ class DiffusionPlanner(nn.Module):
             cond_mask,
             fixed_inputs
         )
+
+        # TODO We should normalize the quaternion at inference time but it should have
+        #  been normalized at training time as well
+
         return actions
 
     def forward(
