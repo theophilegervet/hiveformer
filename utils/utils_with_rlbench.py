@@ -210,6 +210,19 @@ class Actioner:
                 self._task_id,
             )
             output["action"] = self._model.compute_action(pred)  # type: ignore
+
+            # if pred.get("coarse_position") is not None:
+            #     output["coarse_position"] = pred["coarse_position"][-1, 0].cpu().numpy()
+            # if pred.get("fine_position") is not None:
+            #     output["fine_position"] = pred["fine_position"][-1, 0].cpu().numpy()
+            #
+            # if pred.get("coarse_visible_rgb_mask") is not None:
+            #     top_value = pred["coarse_visible_rgb_mask"][-1].flatten().topk(k=10000).values[-1]
+            #     output["top_coarse_rgb"] = (pred["coarse_visible_rgb_mask"][-1] >= top_value).cpu().numpy()
+            # if pred.get("fine_visible_rgb_mask") is not None:
+            #     top_value = pred["fine_visible_rgb_mask"][-1].flatten().topk(k=5000).values[-1]
+            #     output["top_fine_rgb"] = (pred["fine_visible_rgb_mask"][-1] >= top_value).cpu().numpy()
+
         elif type(self._model) == DiffusionPlanner:
             output["trajectory"] = self._model.compute_trajectory(
                 trajectory_mask,
@@ -219,21 +232,10 @@ class Actioner:
                 gripper[:, step_id],
                 gt_action[:, step_id],  # TODO Replace this with predicted keypoint
             )
+
         elif type(self._model) == AnalogicalNetwork:
             # TODO Implement evaluation with analogical network
             raise NotImplementedError
-
-        if pred.get("coarse_position") is not None:
-            output["coarse_position"] = pred["coarse_position"][-1, 0].cpu().numpy()
-        if pred.get("fine_position") is not None:
-            output["fine_position"] = pred["fine_position"][-1, 0].cpu().numpy()
-
-        if pred.get("coarse_visible_rgb_mask") is not None:
-            top_value = pred["coarse_visible_rgb_mask"][-1].flatten().topk(k=10000).values[-1]
-            output["top_coarse_rgb"] = (pred["coarse_visible_rgb_mask"][-1] >= top_value).cpu().numpy()
-        if pred.get("fine_visible_rgb_mask") is not None:
-            top_value = pred["fine_visible_rgb_mask"][-1].flatten().topk(k=5000).values[-1]
-            output["top_fine_rgb"] = (pred["fine_visible_rgb_mask"][-1] >= top_value).cpu().numpy()
 
         return output
 
