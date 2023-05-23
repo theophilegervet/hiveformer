@@ -640,7 +640,6 @@ class RLBenchEnv:
                                 print("Metrics:")
                                 pos_l2 = np.sqrt(((trajectory_np[:, :3] - trajectories[step_id][:, :3]) ** 2).sum(1))
                                 rot_l1 = np.abs(trajectory_np[:, 3:7] - trajectories[step_id][:, 3:7]).sum(1)
-                                print(rot_l1.shape)
                                 print("Mean pos L2", pos_l2.mean())
                                 print("Min pos L2", pos_l2.min())
                                 print("Max pos L2", pos_l2.max())
