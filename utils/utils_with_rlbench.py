@@ -226,11 +226,11 @@ class Actioner:
         elif type(self._model) == DiffusionPlanner:
             output["trajectory"] = self._model.compute_trajectory(
                 trajectory_mask,
-                rgbs[:, step_id],
-                pcds[:, step_id],
+                rgbs[:, -1],
+                pcds[:, -1],
                 self._instr,
-                gripper[:, step_id],
-                gt_action[:, step_id],  # TODO Replace this with predicted keypoint
+                gripper[:, -1],
+                gt_action[:, -1],  # TODO Replace this with predicted keypoint
             )
 
         elif type(self._model) == AnalogicalNetwork:
@@ -570,7 +570,7 @@ class RLBenchEnv:
                     pcds = torch.cat([pcds, pcd.unsqueeze(1)], dim=1)
                     grippers = torch.cat([grippers, gripper.unsqueeze(1)], dim=1)
                     output = actioner.predict(step_id, rgbs[:, -1:], pcds[:, -1:], grippers[:, -1:],
-                                              gt_action=torch.stack(gt_keyframe_actions[:step_id + 1]).float().to(device),
+                                              gt_action=torch.stack(gt_keyframe_actions[step_id]).float().to(device),
                                               trajectory_mask=trajectory_masks[step_id].to(device))
 
                     if offline:
@@ -609,9 +609,10 @@ class RLBenchEnv:
 
                     # Update the observation based on the predicted action
                     try:
-                        # Execute predicted trajectory step by step
+                        # Execute entire predicted trajectory step by step
                         if "trajectory" in output:
                             trajectory_np = output["trajectory"][-1].detach().cpu().numpy()
+
                             if verbose:
                                 print("gripper xyz")
                                 print(grippers[-1, step_id, :3])
@@ -622,6 +623,7 @@ class RLBenchEnv:
                                 print("keypoint xyz")
                                 print(action[-1:, :3])
                                 print()
+
                             for action_np in trajectory_np:
                                 obs, reward, terminate, step_images = move(action_np)
 
