@@ -620,7 +620,7 @@ class RLBenchEnv:
                                 print("...")
                                 print(trajectory_np[-5:, :3])
                                 print("keypoint xyz")
-                                print(action_np[:3])
+                                print(action[-1:, :3])
                                 print()
                             for action_np in trajectory_np:
                                 obs, reward, terminate, step_images = move(action_np)
