@@ -94,8 +94,6 @@ class DiffusionPlanner(nn.Module):
         curr_gripper,
         goal_gripper
     ):
-        breakpoint()
-
         # Prepare inputs
         fixed_inputs = (
             trajectory_mask,
