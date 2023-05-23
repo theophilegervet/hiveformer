@@ -623,14 +623,17 @@ class RLBenchEnv:
                             if verbose:
                                 print("current gripper xyz")
                                 print(grippers[-1, step_id, :3])
+                                print()
                                 print("predicted trajectory xyz")
                                 print(trajectory_np[:5, :3])
                                 print("...")
                                 print(trajectory_np[-5:, :3])
+                                print()
                                 print("ground-truth trajectory xyz")
                                 print(trajectories[step_id][:5, :3])
                                 print("...")
                                 print(trajectories[step_id][-5:, :3])
+                                print()
                                 print("target gripper xyz")
                                 print(action[-1, :3].cpu().numpy())
                                 print()
@@ -638,12 +641,13 @@ class RLBenchEnv:
                                 pos_l2 = np.sqrt(((trajectory_np - trajectories[step_id]) ** 2).sum(1))
                                 print(pos_l2.shape)
                                 print("Mean pos L2", pos_l2.mean())
+                                print("Min pos L2", pos_l2.min())
                                 print("Max pos L2", pos_l2.max())
                                 print()
                                 print()
                                 print()
 
-                            for action_np in trajectory_np:
+                            for action_np in trajectory_np[1:]:
                                 obs, reward, terminate, step_images = move(action_np)
 
                         # Or plan to reach next predicted keypoint
