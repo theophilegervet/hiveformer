@@ -122,6 +122,7 @@ class Arguments(tap.Tap):
     # one of "quat_from_top_ghost", "quat_from_query", "6D_from_top_ghost", "6D_from_query"
     rotation_parametrization: str = "quat_from_query"
     use_instruction: int = 0
+    use_goal: int = 0
     task_specific_biases: int = 0
 
     # Positional features

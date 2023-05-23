@@ -299,7 +299,8 @@ class RLBenchDataset(Dataset):
         training: bool = True,
         image_rescale=(1.0, 1.0),
         point_cloud_rotate_yaw_range=0.0,
-        return_low_lvl_trajectory=False
+        return_low_lvl_trajectory=False,
+        action_dim=8
     ):
         self._cache = Cache(cache_size, loader)
         self._cameras = cameras
@@ -310,6 +311,7 @@ class RLBenchDataset(Dataset):
         self._training = training
         self._taskvar = taskvar
         self._return_low_lvl_trajectory = return_low_lvl_trajectory
+        self._action_dim = action_dim
         if isinstance(root, (Path, str)):
             root = [Path(root)]
         self._root: List[Path] = [Path(r).expanduser() for r in root]
@@ -483,11 +485,11 @@ class RLBenchDataset(Dataset):
             "variation": variation,  # e.g. 0
             "rgbs": rgbs,  # e.g. tensor (n_frames, n_cam, 3+1, H, W)
             "pcds": pcds,  # e.g. tensor (n_frames, n_cam, 3, H, W)
-            "action": action,  # e.g. tensor (n_frames, 8), target pose
+            "action": action[..., :self._action_dim],  # e.g. tensor (n_frames, 8), target pose
             "padding_mask": mask,  # e.g. tensor([True])
             "instr": instr,  # a (53, 512) tensor
-            "curr_gripper": gripper,  # e.g. tensor (n_frames, 8), current pose
-            "trajectory": traj,  # e.g. tensor (n_frames, 67, 8)
+            "curr_gripper": gripper[..., :self._action_dim],  # e.g. tensor (n_frames, 8), current pose
+            "trajectory": traj[..., :self._action_dim],  # e.g. tensor (n_frames, 67, 8)
             "trajectory_len": traj_lens  # e.g. tensor (n_frames,)
         }
 
