@@ -650,7 +650,8 @@ class RLBenchEnv:
                                 print()
                                 print()
 
-                            for action_np in trajectory_np[1:]:
+                            # for action_np in trajectory_np[1:]:
+                            for action_np in trajectories[step_id][1:]:
                                 obs, reward, terminate, step_images = move(action_np)
 
                         # Or plan to reach next predicted keypoint
