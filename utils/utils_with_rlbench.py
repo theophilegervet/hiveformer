@@ -170,21 +170,18 @@ class Actioner:
             :return: a list of obs and action
         """
         key_frame = keypoint_discovery(demo)
-        action_ls = []
 
+        action_ls = []
         for f in key_frame:
             obs = demo[f]
             action_np = np.concatenate([obs.gripper_pose, [obs.gripper_open]])
             action = torch.from_numpy(action_np)
             action_ls.append(action.unsqueeze(0))
 
-        trajectory_length = [key_frame[i] - (key_frame[i - 1] if i > 0 else 0) for i in range(len(key_frame))]
-        trajectory_mask = torch.zeros(len(key_frame), max(trajectory_length))
-        for i in range(len(key_frame)):
-            trajectory_mask[i, :trajectory_length[i]] = 1
-        trajectory_mask = trajectory_mask.bool()
+        trajectory_mask_ls = [torch.ones(1, key_frame[i] - (key_frame[i - 1] if i > 0 else 0)).bool()
+                              for i in range(len(key_frame))]
 
-        return action_ls, trajectory_mask
+        return action_ls, trajectory_mask_ls
 
     def predict(
         self, step_id: int, rgbs: torch.Tensor, pcds: torch.Tensor, gripper: torch.Tensor,
@@ -216,11 +213,11 @@ class Actioner:
         elif type(self._model) == DiffusionPlanner:
             output["trajectory"] = self._model.compute_trajectory(
                 trajectory_mask,
-                rgbs,
-                pcds,
+                rgbs[:, step_id],
+                pcds[:, step_id],
                 self._instr,
-                gripper,
-                gt_action,  # TODO Replace this with predicted keypoint
+                gripper[:, step_id],
+                gt_action[:, step_id],  # TODO Replace this with predicted keypoint
             )
             breakpoint()
         elif type(self._model) == AnalogicalNetwork:
@@ -553,7 +550,7 @@ class RLBenchEnv:
                 )
                 move = Mover(task, max_tries=max_tries)
                 reward = None
-                gt_keyframe_actions, trajectory_mask = actioner.get_action_from_demo(demo)
+                gt_keyframe_actions, trajectory_masks = actioner.get_action_from_demo(demo)
                 if offline:
                     max_steps = len(gt_keyframe_actions)
                 gt_keyframe_gripper_matrices = np.stack([self.get_gripper_matrix_from_action(a[-1])
@@ -571,9 +568,10 @@ class RLBenchEnv:
                     rgbs = torch.cat([rgbs, rgb.unsqueeze(1)], dim=1)
                     pcds = torch.cat([pcds, pcd.unsqueeze(1)], dim=1)
                     grippers = torch.cat([grippers, gripper.unsqueeze(1)], dim=1)
+                    print("[t.shape for t in trajectory_masks]", [t.shape for t in trajectory_masks])
                     output = actioner.predict(step_id, rgbs[:, -1:], pcds[:, -1:], grippers[:, -1:],
                                               gt_action=torch.stack(gt_keyframe_actions[:step_id + 1]).float().to(device),
-                                              trajectory_mask=trajectory_mask[:step_id + 1].to(device))
+                                              trajectory_mask=trajectory_masks[step_id].to(device))
 
                     if offline:
                         # Follow demo
