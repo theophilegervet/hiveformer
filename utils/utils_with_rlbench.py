@@ -573,6 +573,9 @@ class RLBenchEnv:
                                               gt_action=torch.stack(gt_keyframe_actions[:step_id + 1]).float().to(device),
                                               trajectory_mask=trajectory_masks[step_id].to(device))
 
+                    print(output["trajectory"].shape)
+                    raise NotImplementedError
+
                     if offline:
                         # Follow demo
                         action = gt_keyframe_actions[step_id]
@@ -606,9 +609,6 @@ class RLBenchEnv:
                             top_coarse_rgb_heatmap=output.get("top_coarse_rgb"),
                             top_fine_rgb_heatmap=output.get("top_fine_rgb"),
                         )
-
-                    if action is None:
-                        break
 
                     # Update the observation based on the predicted action
                     try:

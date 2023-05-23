@@ -4,6 +4,7 @@ from torch import nn
 from torch.nn import functional as F
 
 from .diffusion_head_simple import DiffusionHead
+from model.utils.utils import normalise_quat
 
 
 class DiffusionPlanner(nn.Module):
@@ -82,6 +83,9 @@ class DiffusionPlanner(nn.Module):
                 out, t, trajectory
             ).prev_sample
             trajectory[condition_mask] = condition_data[condition_mask]    
+
+        # Normalize quaternion
+        trajectory[:, 3:7] = normalise_quat(trajectory[:, 3:7])
 
         return trajectory
     
@@ -196,9 +200,6 @@ class DiffusionPlanner(nn.Module):
             raise ValueError(f"Unsupported prediction type {pred_type}")
 
         # Compute loss
-        # TODO Shouldn't we normalize the rotation and gripper opening before predicting
-        #  the MSE loss on them? Like this:
-        #  https://github.com/theophilegervet/hiveformer/blob/main/model/non_analogical_baseline/prediction_head.py#L608-L613
         loss = F.mse_loss(pred, target, reduction='none')  # (B, L, 8)
         loss_mask = ~cond_mask
         loss = loss * loss_mask.type(loss.dtype)
