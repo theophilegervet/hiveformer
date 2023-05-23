@@ -86,6 +86,14 @@ def training(
                 if val_loaders is not None:
                     val_metrics = validation_step(
                         step_id,
+                        [train_loader],
+                        model,
+                        args,
+                        writer,
+                        split='train'
+                    )
+                    val_metrics = validation_step(
+                        step_id,
                         val_loaders,
                         model,
                         args,
@@ -104,7 +112,8 @@ def validation_step(
     model,
     args,
     writer=None,
-    val_iters=10
+    val_iters=10,
+    split='val'
 ):
     values = {}
     device = next(model.parameters()).device
@@ -124,28 +133,53 @@ def validation_step(
                 sample["action"].to(device)
             )
 
-            losses = {"mse": F.mse_loss(action, sample["trajectory"].to(device))}
+            losses = compute_metrics(
+                action,
+                sample["trajectory"].to(device),
+                sample["trajectory_mask"].to(device)
+            )
 
             for n, l in losses.items():
-                key = f"val-loss-{val_id}/{n}"
-                if args.logger == "tensorboard":
-                    writer.add_scalar(key, l, step_id + i)
-                elif args.logger == "wandb":
-                    wandb.log({key: l}, step=step_id + i)
+                key = f"{split}-loss-{val_id}/{n}"
                 if key not in values:
                     values[key] = torch.Tensor([]).to(device)
                 values[key] = torch.cat([values[key], l.unsqueeze(0)])
 
+        for key, val in values.items():
             if args.logger == "tensorboard":
-                writer.add_scalar(f"lr/", args.lr, step_id + i)
+                writer.add_scalar(key, val.mean(), step_id)
             elif args.logger == "wandb":
-                wandb.log({"lr": args.lr}, step=step_id + i)
+                wandb.log({key: val.mean()}, step=step_id)
+
+        if args.logger == "tensorboard":
+            writer.add_scalar(f"lr/", args.lr, step_id)
+        elif args.logger == "wandb":
+            wandb.log({"lr": args.lr}, step=step_id)
 
         print(f"Step {step_id}:")
         for key, value in values.items():
             print(f"{key}: {value.mean():.03f}")
 
     return values
+
+
+def compute_metrics(pred, gt, mask):
+    # pred/gt are (B, L, 7), mask (B, L)
+    mask = mask.float()
+    pos_l2 = ((pred[..., :3] - gt[..., :3]) ** 2).sqrt().sum(-1) * (1 - mask)
+    quat_l1 = (pred[..., 3:7] - gt[..., 3:7]).abs().sum(-1) * (1 - mask)
+    div_ = (1 - mask).sum()
+    return {
+        'mse': (
+            F.mse_loss(pred, gt, reduction='none')
+            * (1 - mask)[..., None]
+        ).mean(-1).sum() / div_,
+        'pos_mse': pos_l2.sum() / div_,
+        'pos_acc_001': ((pos_l2 < 0.01).float()  * (1 - mask)).sum() / div_,
+        'rot_l1': quat_l1.sum() / div_,
+        'rot_l1_005': ((quat_l1 < 0.05).float()  * (1 - mask)).sum() / div_,
+        'rot_l1_0025': ((quat_l1 < 0.025).float()  * (1 - mask)).sum() / div_
+    }
 
 
 def collate_fn(batch):
@@ -220,7 +254,8 @@ def get_train_loader(args, gripper_loc_bounds):
         image_rescale=tuple(float(x) for x in args.image_rescale.split(",")),
         point_cloud_rotate_yaw_range=args.point_cloud_rotate_yaw_range,
         gripper_loc_bounds=gripper_loc_bounds,
-        return_low_lvl_trajectory=True
+        return_low_lvl_trajectory=True,
+        action_dim=7
     )
 
     loader = DataLoader(
@@ -271,7 +306,8 @@ def get_val_loaders(args, gripper_loc_bounds):
             image_rescale=tuple(float(x) for x in args.image_rescale.split(",")),
             point_cloud_rotate_yaw_range=args.point_cloud_rotate_yaw_range,
             gripper_loc_bounds=gripper_loc_bounds,
-            return_low_lvl_trajectory=True
+            return_low_lvl_trajectory=True,
+            action_dim=7
         )
         loader = DataLoader(
             dataset=dataset,

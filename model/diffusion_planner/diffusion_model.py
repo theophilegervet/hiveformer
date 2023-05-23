@@ -13,6 +13,7 @@ class DiffusionPlanner(nn.Module):
                  backbone="clip",
                  image_size=(256, 256),
                  embedding_dim=60,
+                 output_dim=7,
                  num_vis_ins_attn_layers=2,
                  ins_pos_emb=False,
                  num_sampling_level=3,
@@ -23,6 +24,7 @@ class DiffusionPlanner(nn.Module):
             backbone=backbone,
             image_size=image_size,
             embedding_dim=embedding_dim,
+            output_dim=output_dim,
             num_vis_ins_attn_layers=num_vis_ins_attn_layers,
             ins_pos_emb=ins_pos_emb,
             num_sampling_level=num_sampling_level,
@@ -83,7 +85,7 @@ class DiffusionPlanner(nn.Module):
             trajectory = self.noise_scheduler.step(
                 out, t, trajectory
             ).prev_sample
-            trajectory[condition_mask] = condition_data[condition_mask]    
+            trajectory[condition_mask] = condition_data[condition_mask]
 
         # Normalize quaternion
         trajectory[:, :, 3:7] = normalise_quat(trajectory[:, :, 3:7])
@@ -201,8 +203,8 @@ class DiffusionPlanner(nn.Module):
             raise ValueError(f"Unsupported prediction type {pred_type}")
 
         # Compute loss
-        loss = F.mse_loss(pred, target, reduction='none')  # (B, L, 8)
+        loss = F.mse_loss(pred, target, reduction='none')  # (B, L, 7+)
         loss_mask = ~cond_mask
         loss = loss * loss_mask.type(loss.dtype)
-        loss = loss.mean()
+        loss = loss.sum() / loss_mask.sum()
         return loss

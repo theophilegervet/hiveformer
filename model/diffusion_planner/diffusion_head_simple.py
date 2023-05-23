@@ -40,11 +40,13 @@ class DiffusionHead(nn.Module):
                  backbone="clip",
                  image_size=(256, 256),
                  embedding_dim=60,
+                 output_dim=7,
                  num_attn_heads=4,
                  num_vis_ins_attn_layers=8,
                  ins_pos_emb=False,
                  num_sampling_level=3,
                  use_instruction=False,
+                 use_goal=False,
                  positional_features="none"):
         super().__init__()
         assert backbone in ["resnet", "clip"]
@@ -59,9 +61,10 @@ class DiffusionHead(nn.Module):
         self.positional_features = positional_features
         self.ins_pos_emb = ins_pos_emb
         self.use_instruction = use_instruction
+        self.use_goal = use_goal
 
         # Trajectory encoder
-        self.traj_encoder = nn.Linear(8, embedding_dim)
+        self.traj_encoder = nn.Linear(output_dim, embedding_dim)
 
         # Frozen backbone
         if backbone == "resnet":
@@ -134,7 +137,7 @@ class DiffusionHead(nn.Module):
             ))
 
         # Noise regression
-        self.noise_regressor = nn.Linear(embedding_dim, 8)
+        self.noise_regressor = nn.Linear(embedding_dim, output_dim)
 
         # Instruction encoder
         if self.use_instruction:
@@ -151,7 +154,7 @@ class DiffusionHead(nn.Module):
                 instruction):
         """
         Arguments:
-            trajectory: (batch, trajectory_length, 8)
+            trajectory: (batch, trajectory_length, output_dim)
             trajectory_mask: (batch, trajectory_length)
             timestep: (B, 1)
             visible_rgb: (batch x history, num_cameras, 3, height, width) in [0, 1]
@@ -184,48 +187,52 @@ class DiffusionHead(nn.Module):
 
         # Compute current gripper position features and positional embeddings
         curr_gripper_pos = self.relative_pe_layer(curr_gripper.unsqueeze(1))
-        curr_gripper_features = self.curr_gripper_embed.weight.repeat(
+        curr_gripper_feats = self.curr_gripper_embed.weight.repeat(
             total_timesteps, 1
         ).unsqueeze(1)
 
         # Compute goal gripper position features and positional embeddings
-        goal_gripper_pos = self.relative_pe_layer(goal_gripper.unsqueeze(1))
-        goal_gripper_features = self.goal_gripper_embed.weight.repeat(
-            total_timesteps, 1
-        ).unsqueeze(1)
+        if self.use_goal:
+            goal_gripper_pos = self.relative_pe_layer(goal_gripper[:, None])
+            goal_gripper_feats = self.goal_gripper_embed.weight.repeat(
+                total_timesteps, 1
+            ).unsqueeze(1)
 
         # Attention layers
         # Visual context
-        context_feats_i = einops.rearrange(
+        context_feats = einops.rearrange(
             rgb_feats_pyramid[0],
             "b ncam c h w -> b (ncam h w) c"
         )
-        context_pos_i = rgb_pos_pyramid[0]
+        context_pos = rgb_pos_pyramid[0]
 
         # Language context
         if self.use_instruction:
-            context_feats_i = self.vis_ins_attn_pyramid[0](
-                query=context_feats_i.transpose(0, 1),
+            context_feats = self.vis_ins_attn_pyramid[0](
+                query=context_feats.transpose(0, 1),
                 value=instr_feats.transpose(0, 1),
                 query_pos=None, value_pos=None
             )[-1].transpose(0, 1)
             
-            context_feats_i = torch.cat([context_feats_i, instr_feats], dim=1)
-            context_pos_i = torch.cat([context_pos_i, instr_dummy_pos], dim=1)
+            context_feats = torch.cat([context_feats, instr_feats], dim=1)
+            context_pos = torch.cat([context_pos, instr_dummy_pos], dim=1)
 
         # Concatenate rest of context (grippers, time)
-        context_feats_i = torch.cat([
-            context_feats_i,
-            curr_gripper_features,
-            goal_gripper_features,
+        context_feats = torch.cat([
+            context_feats,
+            curr_gripper_feats,
             time_feats
         ], dim=1)
-        context_pos_i = torch.cat([
-            context_pos_i,
+        context_pos = torch.cat([
+            context_pos,
             curr_gripper_pos,
-            goal_gripper_pos,
             time_pos
         ], dim=1)
+
+        # Concatenate goal gripper if used
+        if self.use_goal:
+            context_feats = torch.cat([context_feats, goal_gripper_feats], 1)
+            context_pos = torch.cat([context_pos, goal_gripper_pos], 1)
 
         # Trajectory features cross-attend to context features
         traj_time_pos = self.time_emb(
@@ -234,13 +241,13 @@ class DiffusionHead(nn.Module):
         for layer in self.traj_attention:
             traj_feats, _ = layer(
                 seq1=traj_feats, seq1_key_padding_mask=trajectory_mask,
-                seq2=context_feats_i, seq2_key_padding_mask=None,
-                seq1_pos=traj_pos, seq2_pos=context_pos_i,
+                seq2=context_feats, seq2_key_padding_mask=None,
+                seq1_pos=traj_pos, seq2_pos=context_pos,
                 seq1_sem_pos=traj_time_pos, seq2_sem_pos=None
             )
 
         # Regress noise
-        noise = self.noise_regressor(traj_feats)  # (B, L, 8)
+        noise = self.noise_regressor(traj_feats)  # (B, L, output_dim)
 
         return noise
 
