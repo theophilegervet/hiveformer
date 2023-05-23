@@ -612,8 +612,8 @@ class RLBenchEnv:
                         # Execute predicted trajectory step by step
                         if "trajectory" in output:
                             if verbose:
-                                print("keypoint", action.shape)
-                                print("trajectory", trajectory_np.shape)
+                                print("keypoint", action.shape, action)
+                                print("trajectory", output["trajectory"].shape, output["trajectory"])
                                 raise NotImplementedError
 
                             trajectory_np = output["trajectory"][-1].detach().cpu().numpy()
