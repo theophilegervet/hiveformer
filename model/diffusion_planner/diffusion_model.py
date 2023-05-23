@@ -85,7 +85,7 @@ class DiffusionPlanner(nn.Module):
             trajectory[condition_mask] = condition_data[condition_mask]    
 
         # Normalize quaternion
-        # trajectory[:, :, 3:7] = normalise_quat(trajectory[:, :, 3:7])
+        trajectory[:, :, 3:7] = normalise_quat(trajectory[:, :, 3:7])
 
         return trajectory
     
