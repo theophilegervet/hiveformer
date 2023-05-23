@@ -573,9 +573,6 @@ class RLBenchEnv:
                                               gt_action=torch.stack(gt_keyframe_actions[:step_id + 1]).float().to(device),
                                               trajectory_mask=trajectory_masks[step_id].to(device))
 
-                    print(output["trajectory"].shape)
-                    raise NotImplementedError
-
                     if offline:
                         # Follow demo
                         action = gt_keyframe_actions[step_id]
@@ -614,8 +611,12 @@ class RLBenchEnv:
                     try:
                         # Execute predicted trajectory step by step
                         if "trajectory" in output:
+                            if verbose:
+                                print("keypoint", action.shape)
+                                print("trajectory", trajectory_np.shape)
+                                raise NotImplementedError
+
                             trajectory_np = output["trajectory"][-1].detach().cpu().numpy()
-                            print(trajectory_np.shape)
                             for action_np in trajectory_np:
                                 obs, reward, terminate, step_images = move(action_np)
 
