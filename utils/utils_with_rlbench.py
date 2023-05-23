@@ -559,7 +559,6 @@ class RLBenchEnv:
                 move = Mover(task, max_tries=max_tries)
                 reward = None
                 gt_keyframe_actions, trajectories, trajectory_masks = actioner.get_action_from_demo(demo)
-                breakpoint()
                 if offline:
                     max_steps = len(gt_keyframe_actions)
                 gt_keyframe_gripper_matrices = np.stack([self.get_gripper_matrix_from_action(a[-1])
@@ -622,13 +621,17 @@ class RLBenchEnv:
                             trajectory_np = output["trajectory"][-1].detach().cpu().numpy()
 
                             if verbose:
-                                print("gripper xyz")
+                                print("current gripper xyz")
                                 print(grippers[-1, step_id, :3])
-                                print("trajectory xyz")
+                                print("predicted trajectory xyz")
                                 print(trajectory_np[:5, :3])
                                 print("...")
                                 print(trajectory_np[-5:, :3])
-                                print("keypoint xyz")
+                                print("ground-truth trajectory xyz")
+                                print(trajectories[step_id][:5, :3])
+                                print("...")
+                                print(trajectories[step_id][-5:, :3])
+                                print("target gripper xyz")
                                 print(action[-1:, :3])
                                 print()
 
