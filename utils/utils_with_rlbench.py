@@ -638,7 +638,7 @@ class RLBenchEnv:
                                 print(action[-1, :3].cpu().numpy())
                                 print()
                                 print("Metrics:")
-                                pos_l2 = np.sqrt(((trajectory_np[:, 3] - trajectories[step_id][:, :3]) ** 2).sum(1))
+                                pos_l2 = np.sqrt(((trajectory_np[:, :3] - trajectories[step_id][:, :3]) ** 2).sum(1))
                                 rot_l1 = np.abs(trajectory_np[:, 3:7] - trajectories[step_id][:, 3:7]).sum(1)
                                 print(rot_l1.shape)
                                 print("Mean pos L2", pos_l2.mean())
