@@ -612,17 +612,17 @@ class RLBenchEnv:
                         # Execute predicted trajectory step by step
                         if "trajectory" in output:
                             trajectory_np = output["trajectory"][-1].detach().cpu().numpy()
+                            if verbose:
+                                print("gripper xyz")
+                                print(grippers[-1, step_id, :3])
+                                print("trajectory xyz")
+                                print(trajectory_np[:5, :3])
+                                print("...")
+                                print(trajectory_np[-5:, :3])
+                                print("keypoint xyz")
+                                print(action_np[:3])
+                                print()
                             for action_np in trajectory_np:
-                                if verbose:
-                                    print("gripper xyz")
-                                    print(grippers[-1, step_id, :3])
-                                    print("trajectory xyz")
-                                    print(trajectory_np[:5, :3])
-                                    print("...")
-                                    print(trajectory_np[-5:, :3])
-                                    print("keypoint xyz")
-                                    print(action_np[:3])
-                                    print()
                                 obs, reward, terminate, step_images = move(action_np)
 
                         # Or plan to reach next predicted keypoint
