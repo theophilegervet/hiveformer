@@ -224,7 +224,6 @@ class Actioner:
             #     output["top_fine_rgb"] = (pred["fine_visible_rgb_mask"][-1] >= top_value).cpu().numpy()
 
         elif type(self._model) == DiffusionPlanner:
-            breakpoint()
             output["trajectory"] = self._model.compute_trajectory(
                 trajectory_mask,
                 rgbs[:, -1],
@@ -571,7 +570,7 @@ class RLBenchEnv:
                     pcds = torch.cat([pcds, pcd.unsqueeze(1)], dim=1)
                     grippers = torch.cat([grippers, gripper.unsqueeze(1)], dim=1)
                     output = actioner.predict(step_id, rgbs[:, -1:], pcds[:, -1:], grippers[:, -1:],
-                                              gt_action=gt_keyframe_actions[step_id].float().to(device),
+                                              gt_action=gt_keyframe_actions[step_id].unsqueeze(0).float().to(device),
                                               trajectory_mask=trajectory_masks[step_id].to(device))
 
                     if offline:
