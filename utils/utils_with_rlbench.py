@@ -181,7 +181,7 @@ class Actioner:
 
             trajectory_np = []
             for j in range(key_frame[i - 1] if i > 0 else 0, key_frame[i]):
-                obs = demo[key_frame[j]]
+                obs = demo[j]
                 trajectory_np.append(np.concatenate([obs.gripper_pose, [obs.gripper_open]]))
             trajectory_ls.append(np.stack(trajectory_np))
 
