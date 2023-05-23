@@ -219,7 +219,6 @@ class Actioner:
                 gripper[:, step_id],
                 gt_action[:, step_id],  # TODO Replace this with predicted keypoint
             )
-            breakpoint()
         elif type(self._model) == AnalogicalNetwork:
             # TODO Implement evaluation with analogical network
             raise NotImplementedError
@@ -613,7 +612,8 @@ class RLBenchEnv:
                     try:
                         # Execute predicted trajectory step by step
                         if "trajectory" in output:
-                            trajectory_np = action[-1].detach().cpu().numpy()
+                            trajectory_np = output["trajectory"][-1].detach().cpu().numpy()
+                            print(trajectory_np.shape)
                             for action_np in trajectory_np:
                                 obs, reward, terminate, step_images = move(action_np)
 

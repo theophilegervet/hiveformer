@@ -127,6 +127,10 @@ class DiffusionPlanner(nn.Module):
             cond_mask,
             fixed_inputs
         )
+
+        # TODO We should normalize the quaternion at inference time but it should have
+        #  been normalized at training time as well
+
         return actions
 
     def forward(
@@ -192,6 +196,9 @@ class DiffusionPlanner(nn.Module):
             raise ValueError(f"Unsupported prediction type {pred_type}")
 
         # Compute loss
+        # TODO Shouldn't we normalize the rotation and gripper opening before predicting
+        #  the MSE loss on them? Like this:
+        #  https://github.com/theophilegervet/hiveformer/blob/main/model/non_analogical_baseline/prediction_head.py#L608-L613
         loss = F.mse_loss(pred, target, reduction='none')  # (B, L, 8)
         loss_mask = ~cond_mask
         loss = loss * loss_mask.type(loss.dtype)
