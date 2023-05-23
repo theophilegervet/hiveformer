@@ -201,7 +201,6 @@ class Actioner:
         self._task_id = self._task_id.to(rgbs.device)
 
         if type(self._model) in [Hiveformer, Baseline]:
-            breakpoint()
             pred = self._model(
                 rgbs,
                 pcds,
@@ -225,6 +224,7 @@ class Actioner:
             #     output["top_fine_rgb"] = (pred["fine_visible_rgb_mask"][-1] >= top_value).cpu().numpy()
 
         elif type(self._model) == DiffusionPlanner:
+            breakpoint()
             output["trajectory"] = self._model.compute_trajectory(
                 trajectory_mask,
                 rgbs[:, -1],
