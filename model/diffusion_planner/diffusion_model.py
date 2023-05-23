@@ -31,7 +31,8 @@ class DiffusionPlanner(nn.Module):
         )
         self.noise_scheduler = DDPMScheduler(
             num_train_timesteps=100,
-            beta_schedule="squaredcos_cap_v2"
+            clip_sample=False,
+            beta_schedule="squaredcos_cap_v2",
         )
         self.n_steps = self.noise_scheduler.config.num_train_timesteps
 
