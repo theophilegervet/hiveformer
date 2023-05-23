@@ -178,7 +178,7 @@ class Actioner:
             action = torch.from_numpy(action_np)
             action_ls.append(action.unsqueeze(0))
 
-        trajectory_mask_ls = [torch.ones(1, key_frame[i] - (key_frame[i - 1] if i > 0 else 0)).bool()
+        trajectory_mask_ls = [torch.zeros(1, key_frame[i] - (key_frame[i - 1] if i > 0 else 0)).bool()
                               for i in range(len(key_frame))]
 
         return action_ls, trajectory_mask_ls
@@ -568,7 +568,6 @@ class RLBenchEnv:
                     rgbs = torch.cat([rgbs, rgb.unsqueeze(1)], dim=1)
                     pcds = torch.cat([pcds, pcd.unsqueeze(1)], dim=1)
                     grippers = torch.cat([grippers, gripper.unsqueeze(1)], dim=1)
-                    print("[t.shape for t in trajectory_masks]", [t.shape for t in trajectory_masks])
                     output = actioner.predict(step_id, rgbs[:, -1:], pcds[:, -1:], grippers[:, -1:],
                                               gt_action=torch.stack(gt_keyframe_actions[:step_id + 1]).float().to(device),
                                               trajectory_mask=trajectory_masks[step_id].to(device))
