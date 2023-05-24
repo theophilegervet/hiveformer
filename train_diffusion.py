@@ -1,6 +1,10 @@
+import io
 import random
 import os
 from collections import defaultdict
+
+import cv2
+from matplotlib import pyplot as plt
 import torch
 from torch.nn import functional as F
 import torch.optim as optim
@@ -144,6 +148,17 @@ def validation_step(
                     values[key] = torch.Tensor([]).to(device)
                 values[key] = torch.cat([values[key], l.unsqueeze(0)])
 
+            # Generate visualizations
+            if i == 0:
+                viz_key = f'{split}-viz-{val_id}/viz'
+                viz = generate_visualizations(
+                    action,
+                    sample["trajectory"].to(device),
+                    sample["trajectory_mask"].to(device)
+                )
+                if args.logger == 'tensorboard':
+                    writer.add_image(viz_key, viz, step_id)
+
         for key, val in values.items():
             if args.logger == "tensorboard":
                 writer.add_scalar(key, val.mean(), step_id)
@@ -165,7 +180,7 @@ def validation_step(
 def compute_metrics(pred, gt, mask):
     # pred/gt are (B, L, 7), mask (B, L)
     mask = mask.float()
-    pos_l2 = ((pred[..., :3] - gt[..., :3]) ** 2).sqrt().sum(-1) * (1 - mask)
+    pos_l2 = ((pred[..., :3] - gt[..., :3]) ** 2).sum(-1).sqrt() * (1 - mask)
     quat_l1 = (pred[..., 3:7] - gt[..., 3:7]).abs().sum(-1) * (1 - mask)
     div_ = (1 - mask).sum()
     return {
@@ -178,6 +193,47 @@ def compute_metrics(pred, gt, mask):
         'rot_l1_005': ((quat_l1 < 0.05).float()  * (1 - mask)).sum() / div_,
         'rot_l1_0025': ((quat_l1 < 0.025).float()  * (1 - mask)).sum() / div_
     }
+
+
+def generate_visualizations(pred, gt, mask, box_size=0.3):
+    batch_idx = 0
+    pred = pred[batch_idx].detach().cpu().numpy()
+    gt = gt[batch_idx].detach().cpu().numpy()
+    mask = mask[batch_idx].detach().cpu().numpy()
+
+    fig = plt.figure(figsize=(10, 10))
+    ax = plt.axes(projection='3d')
+    ax.scatter3D(pred[~mask][:,0], pred[~mask][:,1], pred[~mask][:,2], 
+        color='red', label='pred'
+    )
+    ax.scatter3D(gt[~mask][:,0], gt[~mask][:,1], gt[~mask][:,2], 
+        color='blue', label='gt'
+    )
+
+    center = gt[~mask].mean(0)
+    ax.set_xlim(center[0]-box_size,center[0]+box_size)
+    ax.set_ylim(center[1]-box_size,center[1]+box_size)
+    ax.set_zlim(center[2]-box_size,center[2]+box_size)
+    ax.set_xticklabels([])
+    ax.set_yticklabels([])
+    ax.set_zticklabels([])
+    plt.legend()
+    fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
+    
+    img = fig_to_numpy(fig, dpi=120)
+    # cv2.imwrite('/zfsauton2/home/brianyan/hiveformer/test.png', img)
+    return img.transpose(2,0,1)
+
+
+def fig_to_numpy(fig, dpi=60):
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=dpi)
+    buf.seek(0)
+    img_arr = np.frombuffer(buf.getvalue(), dtype=np.uint8)
+    buf.close()
+    img = cv2.imdecode(img_arr, 1)
+    # img = img[:,:,::-1]
+    return img
 
 
 def collate_fn(batch):
