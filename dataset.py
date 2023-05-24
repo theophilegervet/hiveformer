@@ -300,7 +300,8 @@ class RLBenchDataset(Dataset):
         image_rescale=(1.0, 1.0),
         point_cloud_rotate_yaw_range=0.0,
         return_low_lvl_trajectory=False,
-        action_dim=8
+        action_dim=8,
+        trim_to_fixed_len=None
     ):
         self._cache = Cache(cache_size, loader)
         self._cameras = cameras
@@ -312,6 +313,7 @@ class RLBenchDataset(Dataset):
         self._taskvar = taskvar
         self._return_low_lvl_trajectory = return_low_lvl_trajectory
         self._action_dim = action_dim
+        self._trim_to_fixed_len = trim_to_fixed_len
         if isinstance(root, (Path, str)):
             root = [Path(root)]
         self._root: List[Path] = [Path(r).expanduser() for r in root]
@@ -462,11 +464,19 @@ class RLBenchDataset(Dataset):
         # Low-level trajectory
         traj, traj_lens = None, 0
         if self._return_low_lvl_trajectory:
-            max_l = max(len(item) for item in episode[5])
-            traj = torch.zeros(len(episode[5]), max_l, 8)
-            traj_lens = torch.as_tensor([len(item) for item in episode[5]])
-            for i, item in enumerate(episode[5]):
+            traj_items = [episode[5][i] for i in frame_ids]
+            max_l = max(len(item) for item in traj_items)
+            traj = torch.zeros(len(traj_items) + pad_len, max_l, 8)
+            traj_lens = torch.as_tensor(
+                [len(item) for item in traj_items]
+                + [0] * pad_len
+            )
+            for i, item in enumerate(traj_items):
                 traj[i, :len(item)] = item
+            # Trim to fixed length
+            if self._trim_to_fixed_len is not None:
+                traj = traj[:, :self._trim_to_fixed_len]  # (n_frames, T, 8)
+                traj_lens = traj_lens * 0 + self._trim_to_fixed_len
 
         # Augmentations
         if self._training:

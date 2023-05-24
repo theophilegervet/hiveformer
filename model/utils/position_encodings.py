@@ -1,12 +1,27 @@
 import math
-import einops
+
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+
+
+class SinusoidalPosEmb(nn.Module):
+
+    def __init__(self, dim):
+        super().__init__()
+        self.dim = dim
+
+    def forward(self, x):
+        device = x.device
+        half_dim = self.dim // 2
+        emb = math.log(10000) / (half_dim - 1)
+        emb = torch.exp(torch.arange(half_dim, device=device) * -emb)
+        emb = x[:, None] * emb[None, :]
+        emb = torch.cat((emb.sin(), emb.cos()), dim=-1)
+        return emb
 
 
 class RotaryPositionEncoding(nn.Module):
-    def __init__(self, feature_dim, pe_type):
+    def __init__(self, feature_dim, pe_type='Rotary1D'):
         super().__init__()
 
         self.feature_dim = feature_dim
@@ -19,7 +34,25 @@ class RotaryPositionEncoding(nn.Module):
         return x
 
     def forward(self, x_position):
-        raise NotImplementedError
+        bsize, npoint = x_position.shape
+        div_term = torch.exp(
+            torch.arange(0, self.feature_dim, 2, dtype=torch.float, device=x_position.device)
+            * (-math.log(10000.0) / (self.feature_dim)))
+        div_term = div_term.view(1, 1, -1) # [1, 1, d]
+
+        sinx = torch.sin(x_position * div_term)  # [B, N, d]
+        cosx = torch.cos(x_position * div_term)
+
+        sin_pos, cos_pos = map(
+            lambda feat: torch.stack([feat, feat], dim=-1).view(bsize, npoint, -1),
+            [sinx, cosx]
+        )
+        position_code = torch.stack([cos_pos, sin_pos] , dim=-1)
+
+        if position_code.requires_grad:
+            position_code = position_code.detach()
+
+        return position_code
 
 
 class RotaryPositionEncoding3D(RotaryPositionEncoding):

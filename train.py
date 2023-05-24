@@ -62,6 +62,7 @@ class Arguments(tap.Tap):
     lr: float = 1e-4
     train_iters: int = 200_000
     max_episode_length: int = 5  # -1 for no limit
+    trim_to_fixed_len: Optional[int] = None
 
     # Toggle to switch between original HiveFormer and our models
     model: str = "baseline"  # one of "original", "baseline", "analogical"
@@ -89,6 +90,7 @@ class Arguments(tap.Tap):
     gripper_loc_bounds_file: str = "tasks/74_hiveformer_tasks_location_bounds.json"
     single_task_gripper_loc_bounds: int = 0
     gripper_bounds_buffer: float = 0.04
+    diffusion_head: str = "simple"
 
     # Loss
     position_prediction_only: int = 0

@@ -3,7 +3,6 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from .diffusion_head_simple import DiffusionHead
 from model.utils.utils import normalise_quat
 
 
@@ -19,24 +18,41 @@ class DiffusionPlanner(nn.Module):
                  num_sampling_level=3,
                  use_instruction=False,
                  use_goal=False,
-                 positional_features="none"):
+                 positional_features="none",
+                 diffusion_head="simple"):
         super().__init__()
-        self.prediction_head = DiffusionHead(
-            backbone=backbone,
-            image_size=image_size,
-            embedding_dim=embedding_dim,
-            output_dim=output_dim,
-            num_vis_ins_attn_layers=num_vis_ins_attn_layers,
-            ins_pos_emb=ins_pos_emb,
-            num_sampling_level=num_sampling_level,
-            use_instruction=use_instruction,
-            positional_features=positional_features,
-            use_goal=use_goal
-        )
+        if diffusion_head == "simple":
+            from .diffusion_head_simple import DiffusionHead
+            self.prediction_head = DiffusionHead(
+                backbone=backbone,
+                image_size=image_size,
+                embedding_dim=embedding_dim,
+                output_dim=output_dim,
+                num_vis_ins_attn_layers=num_vis_ins_attn_layers,
+                ins_pos_emb=ins_pos_emb,
+                num_sampling_level=num_sampling_level,
+                use_instruction=use_instruction,
+                positional_features=positional_features,
+                use_goal=use_goal
+            )
+        elif diffusion_head == "unconditional":
+            from .diffusion_head_unconditional import DiffusionHead
+            self.prediction_head = DiffusionHead(
+                backbone=backbone,
+                image_size=image_size,
+                embedding_dim=embedding_dim,
+                output_dim=output_dim,
+                num_vis_ins_attn_layers=num_vis_ins_attn_layers,
+                ins_pos_emb=ins_pos_emb,
+                num_sampling_level=num_sampling_level,
+                use_instruction=use_instruction,
+                positional_features=positional_features,
+                use_goal=use_goal
+            )
         self.noise_scheduler = DDPMScheduler(
             num_train_timesteps=100,
             clip_sample=False,
-            beta_schedule="squaredcos_cap_v2",
+            beta_schedule="squaredcos_cap_v2"
         )
         self.n_steps = self.noise_scheduler.config.num_train_timesteps
 

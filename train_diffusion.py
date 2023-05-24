@@ -244,6 +244,8 @@ def collate_fn(batch):
         traj = torch.zeros(h, max_len, c)
         traj[:, :n] = item['trajectory']
         item['trajectory'] = traj
+    # from ipdb import set_trace
+    # set_trace()
 
     # Use default collate to batch, then fill missing keys
     ret_dict = {
@@ -309,7 +311,8 @@ def get_train_loader(args, gripper_loc_bounds):
         point_cloud_rotate_yaw_range=args.point_cloud_rotate_yaw_range,
         gripper_loc_bounds=gripper_loc_bounds,
         return_low_lvl_trajectory=True,
-        action_dim=7
+        action_dim=7,
+        trim_to_fixed_len=args.trim_to_fixed_len
     )
 
     loader = DataLoader(
@@ -361,14 +364,15 @@ def get_val_loaders(args, gripper_loc_bounds):
             point_cloud_rotate_yaw_range=args.point_cloud_rotate_yaw_range,
             gripper_loc_bounds=gripper_loc_bounds,
             return_low_lvl_trajectory=True,
-            action_dim=7
+            action_dim=7,
+            trim_to_fixed_len=args.trim_to_fixed_len
         )
         loader = DataLoader(
             dataset=dataset,
             batch_size=args.batch_size_val,
             shuffle=True,
             num_workers=0,
-            collate_fn=collate_fn,
+            collate_fn=collate_fn
         )
         loaders.append(loader)
 
@@ -384,7 +388,8 @@ def get_model(args):
         num_sampling_level=args.num_sampling_level,
         use_instruction=bool(args.use_instruction),
         use_goal=bool(args.use_goal),
-        positional_features=args.positional_features
+        positional_features=args.positional_features,
+        diffusion_head=args.diffusion_head
     )
 
     devices = [torch.device(d) for d in args.devices]
