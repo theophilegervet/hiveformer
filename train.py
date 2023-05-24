@@ -212,10 +212,10 @@ def training(
             checkpoint_freq=args.checkpoint_freq,
         )
 
-    iter_loader = iter(train_loader)
+        aggregated_losses = defaultdict(list)
+        aggregated_metrics = defaultdict(list)
 
-    aggregated_losses = defaultdict(list)
-    aggregated_metrics = defaultdict(list)
+    iter_loader = iter(train_loader)
 
     with trange(args.train_iters) as tbar:
         for step_id in tbar:
@@ -268,17 +268,17 @@ def training(
             train_losses["total"] = sum(list(train_losses.values()))  # type: ignore
             train_losses["total"].backward()  # type: ignore
 
-            metrics = loss_and_metrics.compute_metrics(pred, sample)
-
-            for n, l in train_losses.items():
-                aggregated_losses[n].append(l)
-            for n, l in metrics.items():
-                aggregated_metrics[n].append(l)
-
             if step_id % args.accumulate_grad_batches == args.accumulate_grad_batches - 1:
                 optimizer.step()
 
             if rank == 0:
+                metrics = loss_and_metrics.compute_metrics(pred, sample)
+
+                for n, l in train_losses.items():
+                    aggregated_losses[n].append(l)
+                for n, l in metrics.items():
+                    aggregated_metrics[n].append(l)
+
                 if args.logger == "wandb":
                     wandb.log(
                         {
