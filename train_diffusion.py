@@ -57,7 +57,7 @@ def training(
             )
 
             loss.backward()
-            aggregated_losses["mse"].append(loss.item())
+            aggregated_losses["noise_mse"].append(loss.item())
 
             if step_id % args.accumulate_grad_batches == args.accumulate_grad_batches - 1:
                 optimizer.step()
@@ -124,7 +124,7 @@ def validation_step(
             if i == val_iters:
                 break
 
-            action = model.module.predict_action(
+            action = model.module.compute_trajectory(
                 sample["trajectory_mask"].to(device),
                 sample["rgbs"].to(device),
                 sample["pcds"].to(device),
@@ -132,7 +132,6 @@ def validation_step(
                 sample["curr_gripper"].to(device),
                 sample["action"].to(device)
             )
-
             losses = compute_metrics(
                 action,
                 sample["trajectory"].to(device),
@@ -170,11 +169,10 @@ def compute_metrics(pred, gt, mask):
     quat_l1 = (pred[..., 3:7] - gt[..., 3:7]).abs().sum(-1) * (1 - mask)
     div_ = (1 - mask).sum()
     return {
-        'mse': (
-            F.mse_loss(pred, gt, reduction='none')
-            * (1 - mask)[..., None]
+        'action_mse': (
+            F.mse_loss(pred, gt, reduction='none')* (1 - mask)[..., None]
         ).mean(-1).sum() / div_,
-        'pos_mse': pos_l2.sum() / div_,
+        'pos_l2': pos_l2.sum() / div_,
         'pos_acc_001': ((pos_l2 < 0.01).float()  * (1 - mask)).sum() / div_,
         'rot_l1': quat_l1.sum() / div_,
         'rot_l1_005': ((quat_l1 < 0.05).float()  * (1 - mask)).sum() / div_,
@@ -329,6 +327,7 @@ def get_model(args):
         num_vis_ins_attn_layers=args.num_vis_ins_attn_layers,
         num_sampling_level=args.num_sampling_level,
         use_instruction=bool(args.use_instruction),
+        use_goal=bool(args.use_goal),
         positional_features=args.positional_features
     )
 

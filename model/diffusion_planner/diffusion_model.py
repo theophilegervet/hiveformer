@@ -18,6 +18,7 @@ class DiffusionPlanner(nn.Module):
                  ins_pos_emb=False,
                  num_sampling_level=3,
                  use_instruction=False,
+                 use_goal=False,
                  positional_features="none"):
         super().__init__()
         self.prediction_head = DiffusionHead(
@@ -29,7 +30,8 @@ class DiffusionPlanner(nn.Module):
             ins_pos_emb=ins_pos_emb,
             num_sampling_level=num_sampling_level,
             use_instruction=use_instruction,
-            positional_features=positional_features
+            positional_features=positional_features,
+            use_goal=use_goal
         )
         self.noise_scheduler = DDPMScheduler(
             num_train_timesteps=100,

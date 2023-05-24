@@ -4,7 +4,7 @@ import torch
 
 
 def normalise_quat(x: torch.Tensor):
-    return x / x.square().sum(dim=-1).sqrt().unsqueeze(-1)
+    return x / torch.clamp(x.square().sum(dim=-1).sqrt().unsqueeze(-1), min=1e-10)
 
 
 def norm_tensor(tensor: torch.Tensor) -> torch.Tensor:
