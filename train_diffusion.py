@@ -388,8 +388,10 @@ def get_model(args):
         num_sampling_level=args.num_sampling_level,
         use_instruction=bool(args.use_instruction),
         use_goal=bool(args.use_goal),
+        use_rgb=bool(args.use_rgb),
         positional_features=args.positional_features,
-        diffusion_head=args.diffusion_head
+        diffusion_head=args.diffusion_head,
+        relative_to_start=args.relative_to_start
     )
 
     devices = [torch.device(d) for d in args.devices]

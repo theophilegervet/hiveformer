@@ -125,6 +125,8 @@ class Arguments(tap.Tap):
     rotation_parametrization: str = "quat_from_query"
     use_instruction: int = 0
     use_goal: int = 0
+    use_rgb: int = 1
+    relative_to_start: int = 1
     task_specific_biases: int = 0
 
     # Positional features

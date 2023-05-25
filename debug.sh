@@ -14,11 +14,13 @@ python train_diffusion.py --tasks unplug_charger close_door open_box open_drawer
     --valset /projects/katefgroup/datasets/rlbench/diffusion_trajectories_val/ \
     --instructions /home/tgervet/hiveformer/instructions.pkl \
     --use_instruction 0 \
-    --diffusion_head unconditional \
-    --exp_log_dir unconditional \
+    --use_goal 0 \
+    --diffusion_head simple --use_rgb 0 \
+    --exp_log_dir test \
     --trim_to_fixed_len 16 \
-    --batch_size 128 --batch_size_val 42 --lr 3e-4 \
-    --num_workers 4
+    --batch_size 32 --batch_size_val 42 --lr 1e-4 \
+    --num_workers 4 \
+    --checkpoint /home/ngkanats/hiveformer/train_logs/test/run_version173809/best.pth
 
 
 # /projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_train
