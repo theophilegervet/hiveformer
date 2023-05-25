@@ -90,6 +90,7 @@ def training(
                         model,
                         args,
                         writer,
+                        val_iters=1,
                         split='train'
                     )
                     val_metrics = validation_step(
@@ -97,7 +98,8 @@ def training(
                         val_loaders,
                         model,
                         args,
-                        writer
+                        writer,
+                        val_iters=2,
                     )
                     model.train()
                 else:
@@ -319,7 +321,7 @@ def get_val_loaders(args, gripper_loc_bounds):
     return loaders
 
 
-def get_model(args):
+def get_model(args, gripper_loc_bounds):
     _model = DiffusionPlanner(
         backbone=args.backbone,
         image_size=tuple(int(x) for x in args.image_size.split(",")),
@@ -328,6 +330,7 @@ def get_model(args):
         num_sampling_level=args.num_sampling_level,
         use_instruction=bool(args.use_instruction),
         use_goal=bool(args.use_goal),
+        gripper_loc_bounds=gripper_loc_bounds,
         positional_features=args.positional_features
     )
 
@@ -422,7 +425,7 @@ if __name__ == "__main__":
         task=task, buffer=args.gripper_bounds_buffer
     )
 
-    optimizer, model = get_model(args)
+    optimizer, model = get_model(args, gripper_loc_bounds)
 
     print()
     print("-" * 100)

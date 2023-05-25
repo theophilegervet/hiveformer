@@ -19,6 +19,7 @@ class DiffusionPlanner(nn.Module):
                  num_sampling_level=3,
                  use_instruction=False,
                  use_goal=False,
+                 gripper_loc_bounds=None,
                  positional_features="none"):
         super().__init__()
         self.prediction_head = DiffusionHead(
@@ -35,10 +36,11 @@ class DiffusionPlanner(nn.Module):
         )
         self.noise_scheduler = DDPMScheduler(
             num_train_timesteps=100,
-            clip_sample=False,
+            # clip_sample=False,
             beta_schedule="squaredcos_cap_v2",
         )
         self.n_steps = self.noise_scheduler.config.num_train_timesteps
+        self.gripper_loc_bounds = torch.tensor(gripper_loc_bounds)
 
     def policy_forward_pass(self, trajectory, timestep, fixed_inputs):
         # Parse inputs
@@ -89,9 +91,6 @@ class DiffusionPlanner(nn.Module):
             ).prev_sample
             trajectory[condition_mask] = condition_data[condition_mask]
 
-        # Normalize quaternion
-        trajectory[:, :, 3:7] = normalise_quat(trajectory[:, :, 3:7])
-
         return trajectory
     
     def compute_trajectory(
@@ -103,6 +102,11 @@ class DiffusionPlanner(nn.Module):
         curr_gripper,
         goal_gripper
     ):
+        # normalize all pos
+        pcd_obs = torch.permute(self.normalize_pos(torch.permute(pcd_obs, [0, 1, 3, 4, 2])), [0, 1, 4, 2, 3])
+        curr_gripper[:, :3] = self.normalize_pos(curr_gripper[:, :3])
+        goal_gripper[:, :3] = self.normalize_pos(goal_gripper[:, :3])
+
         # Prepare inputs
         fixed_inputs = (
             trajectory_mask,
@@ -131,16 +135,28 @@ class DiffusionPlanner(nn.Module):
         cond_mask = cond_mask.bool()
 
         # Sample
-        actions = self.conditional_sample(
-            cond_data, 
+        trajectory = self.conditional_sample(
+            cond_data,
             cond_mask,
             fixed_inputs
         )
 
-        # TODO We should normalize the quaternion at inference time but it should have
-        #  been normalized at training time as well
+        # Normalize quaternion
+        trajectory[:, :, 3:7] = normalise_quat(trajectory[:, :, 3:7])
+        # unnormalize position
+        trajectory[:, :, :3] = self.unnormalize_pos(trajectory[:, :, :3])
 
-        return actions
+        return trajectory
+
+    def normalize_pos(self, pos):
+        pos_min = self.gripper_loc_bounds[0].float().to(pos.device)
+        pos_max = self.gripper_loc_bounds[1].float().to(pos.device)
+        return (pos - pos_min) / (pos_max - pos_min) * 2.0 - 1.0
+
+    def unnormalize_pos(self, pos):
+        pos_min = self.gripper_loc_bounds[0].float().to(pos.device)
+        pos_max = self.gripper_loc_bounds[1].float().to(pos.device)
+        return (pos + 1.0) / 2.0 * (pos_max - pos_min) + pos_min
 
     def forward(
         self,
@@ -152,6 +168,12 @@ class DiffusionPlanner(nn.Module):
         curr_gripper,
         goal_gripper
     ):
+        # normalize all pos
+        gt_trajectory[:, :, :3] = self.normalize_pos(gt_trajectory[:, :, :3])
+        pcd_obs = torch.permute(self.normalize_pos(torch.permute(pcd_obs, [0, 1, 3, 4, 2])), [0, 1, 4, 2, 3])
+        curr_gripper[:, :3] = self.normalize_pos(curr_gripper[:, :3])
+        goal_gripper[:, :3] = self.normalize_pos(goal_gripper[:, :3])
+
         # Prepare inputs
         fixed_inputs = (
             trajectory_mask,

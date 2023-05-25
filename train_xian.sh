@@ -2,9 +2,13 @@ python train_diffusion.py --tasks close_door \
     --dataset /home/zhouxian/git/datasets/packaged/diffusion_trajectories_train/ \
     --valset /home/zhouxian/git/datasets/packaged/diffusion_trajectories_val/ \
     --instructions instructions_new.pkl \
+    --gripper_loc_bounds_file diffusion_location_bounds.json\
     --use_instruction 0 \
     --use_goal 1 \
-    --exp_log_dir diffuse_05_23 \
+    --val_freq 2500 \
+    --checkpoint_freq 2 \
+    --gripper_bounds_buffer 0.02\
+    --exp_log_dir diffuse_05_24 \
     --run_log_dir close_door \
     --batch_size 24 --batch_size_val 12 --lr 1e-4
 

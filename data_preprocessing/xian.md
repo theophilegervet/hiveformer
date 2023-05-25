@@ -144,3 +144,10 @@ python -m data_preprocessing.compute_workspace_bounds \
     --variations {0..199} \
     --tasks $(cat $task_file | tr '\n' ' ')
 ```
+
+
+python -m data_preprocessing.compute_workspace_bounds \
+    --dataset /home/zhouxian/git/datasets/packaged/diffusion_trajectories_train \
+    --out_file diffusion_location_bounds.json \
+    --instructions instructions_new.pkl \
+    --tasks close_door
