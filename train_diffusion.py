@@ -10,7 +10,6 @@ from torch.nn import functional as F
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
-from torch.utils.data._utils.collate import default_collate
 import numpy as np
 from tqdm import trange
 import wandb
@@ -244,31 +243,13 @@ def collate_fn(batch):
         traj = torch.zeros(h, max_len, c)
         traj[:, :n] = item['trajectory']
         item['trajectory'] = traj
-    # from ipdb import set_trace
-    # set_trace()
-
-    # Use default collate to batch, then fill missing keys
-    ret_dict = {
-        key: default_collate([item[key] for item in batch])
-        if batch[0][key] is not None
-        else None
-        for key in batch[0].keys()
-    }
 
     # Unfold multi-step demos to form a longer batch
     keys = [
-        "trajectory", "trajectory_len", "rgbs", "pcds",
-        "curr_gripper", "action"
+        "trajectory", "trajectory_len",
+        "rgbs", "pcds", "curr_gripper", "action", "instr"
     ]
-    _mask = ret_dict["padding_mask"]
-    ret_dict["instr"] = ret_dict["instr"][:, None].repeat(
-        1, ret_dict["rgbs"].size(1), 1, 1
-    )[_mask]
-    ret_dict["task_id"] = ret_dict["task_id"][:, None].repeat(
-        1, ret_dict["rgbs"].size(1)
-    )[_mask]
-    for key in keys:
-        ret_dict[key] = ret_dict[key][_mask]
+    ret_dict = {key: torch.cat([item[key] for item in batch]) for key in keys}
 
     # Trajectory mask
     trajectory_mask = torch.zeros(ret_dict['trajectory'].shape[:-1])

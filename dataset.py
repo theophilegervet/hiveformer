@@ -1,3 +1,4 @@
+import json
 import itertools
 import random
 import blosc
@@ -20,6 +21,7 @@ import math
 import torch
 from torch.utils.data import Dataset
 from torch.nn import functional as F
+from torchvision.io import read_image
 import torchvision.transforms as transforms
 import torchvision.transforms.functional as transforms_f
 from torch.utils.data._utils.collate import default_collate
@@ -398,20 +400,15 @@ class RLBenchDataset(Dataset):
 
         # Get frame ids for this chunk
         frame_ids = episode[0][chunk * self._max_episode_length: (chunk + 1) * self._max_episode_length]
-        num_ind = len(frame_ids)
-        if num_ind == 0:
+        if len(frame_ids) == 0:
             # Episode ID is not valid, sample another one
             episode_id = random.randint(0, self._num_episodes - 1)
             return self.__getitem__(episode_id)
-        pad_len = max(0, self._max_episode_length - num_ind)
 
         # Get the image tensors for the frame ids we got
-        states: torch.Tensor = torch.stack([torch.from_numpy(episode[1][i]) for i in frame_ids])
+        states = torch.stack([torch.from_numpy(episode[1][i]) for i in frame_ids])
         if states.shape[-1] != self._image_size[1] or states.shape[-2] != self._image_size[0]:
             raise ValueError(f"{states.shape} {self._episodes[episode_id]}")
-        pad_vec = [0] * (2 * states.dim())
-        pad_vec[-1] = pad_len
-        states = F.pad(states, pad_vec)
 
         # Camera ids
         cameras = list(episode[3][0].keys())
@@ -425,51 +422,24 @@ class RLBenchDataset(Dataset):
         rgbs = states[:, :, 0]
         pcds = states[:, :, 1]
 
-        # Concatenate to RGB a tensor of one-hot camera position in pixel space
-        attns = torch.Tensor([])
-        for i in frame_ids:
-            attn_cams = torch.Tensor([])
-            for cam in self._cameras:
-                u, v = episode[3][i][cam]
-                attn = torch.zeros((1, 1, self._image_size[0], self._image_size[1]))
-                if not (u < 0 or u > self._image_size[1] - 1 or v < 0 or v > self._image_size[0] - 1):
-                    attn[0, 0, v, u] = 1
-                attn_cams = torch.cat([attn_cams, attn])
-            attns = torch.cat([attns, attn_cams.unsqueeze(0)])
-        pad_vec = [0] * (2 * attns.dim())
-        pad_vec[-1] = pad_len
-        attns = F.pad(attns, pad_vec)
-        rgbs = torch.cat([rgbs, attns], 2)
-
         # Get action tensors for respective frame ids
         action = torch.cat([episode[2][i] for i in frame_ids])
-        shape = [0, 0] * action.dim()
-        shape[-1] = pad_len
-        action = F.pad(action, tuple(shape), value=0)
-
-        mask = torch.tensor([True] * num_ind + [False] * pad_len)
 
         # Sample one instruction feature
-        instr: torch.Tensor = random.choice(self._instructions[task][variation])
+        instr = random.choice(self._instructions[task][variation])
+        instr = instr[None].repeat(len(rgbs), 1, 1)
 
         # Get gripper tensors for respective frame ids
         gripper = torch.cat([episode[4][i] for i in frame_ids])
-        shape = [0, 0] * gripper.dim()
-        shape[-1] = pad_len
-        gripper = F.pad(gripper, tuple(shape), value=0)
-
-        tframe_ids = torch.tensor(frame_ids)
-        tframe_ids = F.pad(tframe_ids, (0, pad_len), value=-1)
 
         # Low-level trajectory
         traj, traj_lens = None, 0
         if self._return_low_lvl_trajectory:
             traj_items = [episode[5][i] for i in frame_ids]
             max_l = max(len(item) for item in traj_items)
-            traj = torch.zeros(len(traj_items) + pad_len, max_l, 8)
+            traj = torch.zeros(len(traj_items), max_l, 8)
             traj_lens = torch.as_tensor(
                 [len(item) for item in traj_items]
-                + [0] * pad_len
             )
             for i, item in enumerate(traj_items):
                 traj[i, :len(item)] = item
@@ -480,7 +450,7 @@ class RLBenchDataset(Dataset):
 
         # Augmentations
         if self._training:
-            pcds, gripper, action, traj = self._rotate(pcds, gripper, action, mask, traj)
+            pcds, gripper, action, traj = self._rotate(pcds, gripper, action, None, traj)
             if traj is not None:
                 for t, tlen in enumerate(traj_lens):
                     traj[t, tlen:] = 0
@@ -489,15 +459,10 @@ class RLBenchDataset(Dataset):
             pcds = modals["pcds"]
 
         return {
-            "frame_id": tframe_ids,  # e.g. tensor([0, 1])
-            "task_id": TASK_TO_ID[task],  # e.g. 52
-            "task": task,  # e.g. 'reach_target'
-            "variation": variation,  # e.g. 0
             "rgbs": rgbs,  # e.g. tensor (n_frames, n_cam, 3+1, H, W)
             "pcds": pcds,  # e.g. tensor (n_frames, n_cam, 3, H, W)
             "action": action[..., :self._action_dim],  # e.g. tensor (n_frames, 8), target pose
-            "padding_mask": mask,  # e.g. tensor([True])
-            "instr": instr,  # a (53, 512) tensor
+            "instr": instr,  # a (n_frames, 53, 512) tensor
             "curr_gripper": gripper[..., :self._action_dim],  # e.g. tensor (n_frames, 8), current pose
             "trajectory": traj[..., :self._action_dim],  # e.g. tensor (n_frames, 67, 8)
             "trajectory_len": traj_lens  # e.g. tensor (n_frames,)
