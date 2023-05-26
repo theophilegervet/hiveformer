@@ -82,17 +82,17 @@ class DiffusionPlanner(nn.Module):
         trajectory[condition_mask] = condition_data[condition_mask]
 
         # Iterative denoising
-        # self.noise_scheduler.set_timesteps(self.n_steps)
-        # for t in self.noise_scheduler.timesteps:
-        #     out = self.policy_forward_pass(
-        #         trajectory,
-        #         t * torch.ones(len(trajectory)).to(trajectory.device).long(),
-        #         fixed_inputs
-        #     )
-        #     trajectory = self.noise_scheduler.step(
-        #         out, t, trajectory
-        #     ).prev_sample
-        #     trajectory[condition_mask] = condition_data[condition_mask]
+        self.noise_scheduler.set_timesteps(self.n_steps)
+        for t in self.noise_scheduler.timesteps:
+            out = self.policy_forward_pass(
+                trajectory,
+                t * torch.ones(len(trajectory)).to(trajectory.device).long(),
+                fixed_inputs
+            )
+            trajectory = self.noise_scheduler.step(
+                out, t, trajectory
+            ).prev_sample
+            trajectory[condition_mask] = condition_data[condition_mask]
 
         return trajectory
                 

@@ -11,9 +11,9 @@ main_dir=diffuse_05_25
 
 
 task=close_door
-lr=1e-4
-dense_interpolation=1
-interpolation_length=50
+lr=2e-4
+dense_interpolation=0
+interpolation_length=100
 B=24
 
 python train_diffusion.py --tasks $task \

@@ -12,7 +12,7 @@ python eval.py\
      --gripper_loc_bounds_file diffusion_location_bounds.json\
      --use_goal $use_goal \
      --model diffusion \
-     --offline 1\
+     --offline 0\
      --num_episodes 100\
      --use_instruction $use_instruction\
      --gripper_bounds_buffer $gripper_bounds_buffer\
