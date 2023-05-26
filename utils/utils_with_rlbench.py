@@ -1,3 +1,4 @@
+from scipy.interpolate import CubicSpline, interp1d
 import os
 from scipy.signal import savgol_filter
 import random
@@ -494,9 +495,34 @@ class RLBenchEnv:
 
         # normalize quat
         if quat:
-            trajectory[:, 3:7] /= np.linalg.norm(trajectory[:, 3:7], axis=1, keepdims=True)
+            trajectory[:, 3:7] = self.normalise_quat(trajectory[:, 3:7])
 
         return trajectory
+
+    def normalise_quat(self, traj):
+        return traj/np.linalg.norm(traj, axis=1, keepdims=True)
+
+    def resample_trajectory(self, trajectory, n_steps):
+        trajectory = np.array(trajectory)
+        # Calculate the current number of steps
+        old_num_steps = len(trajectory)
+
+        # Create a 1D array for the old and new steps
+        old_steps = np.linspace(0, 1, old_num_steps)
+        new_steps = np.linspace(0, 1, n_steps)
+
+        # Interpolate each dimension separately
+        resampled_trajectory = np.empty((n_steps, trajectory.shape[1]))
+        for i in range(trajectory.shape[1]):
+            if i == 7: # gripper opening
+                interpolator = interp1d(old_steps, trajectory[:, i])
+            else:
+                interpolator = CubicSpline(old_steps, trajectory[:, i])
+
+            resampled_trajectory[:, i] = interpolator(new_steps)
+
+        resampled_trajectory[:, 3:7] = self.normalise_quat(resampled_trajectory[:, 3:7])
+        return resampled_trajectory
 
     def _evaluate_task_on_one_variation(
         self,
@@ -692,6 +718,7 @@ class RLBenchEnv:
                             trajectory_np_full = np.concatenate([trajectory_np, np.tile(grippers[-1, -1:, -1:].numpy(), [trajectory_np.shape[0], 1])], axis=-1)
                             trajectory_np_full = np.concatenate([trajectory_np_full, gt_keyframe_actions[step_id].numpy()], axis=0)
                             trajectory_np_full_gt = np.concatenate([trajectories[step_id][1:], gt_keyframe_actions[step_id].numpy()], axis=0)
+                            # trajectory_np_full_gt = self.resample_trajectory(trajectory_np_full_gt, 100)
                             if offline:
                                 for action_np in trajectory_np_full_gt:  # To execute ground-truth trajectory
                                     obs, reward, terminate, step_images = move(action_np)

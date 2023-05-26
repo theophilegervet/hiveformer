@@ -10,6 +10,7 @@ from torch.utils.data._utils.collate import default_collate
 import numpy as np
 from tqdm import trange
 import wandb
+import tap
 
 from utils.utils_without_rlbench import (
     load_instructions,
@@ -19,7 +20,120 @@ from utils.utils_without_rlbench import (
 )
 from dataset import RLBenchDataset
 from model.diffusion_planner.diffusion_model import DiffusionPlanner
-from train import Arguments, get_log_dir, CheckpointCallback
+from train import get_log_dir, CheckpointCallback
+from typing import List, Tuple, Dict, Optional, Any
+from pathlib import Path
+
+class Arguments(tap.Tap):
+    cameras: Tuple[str, ...] = ("wrist", "left_shoulder", "right_shoulder")
+    image_size: str = "256,256"
+    max_tries: int = 10
+    max_episodes_per_task: int = 100
+    instructions: Optional[Path] = "instructions.pkl"
+    seed: int = 0
+    tasks: Tuple[str, ...]
+    variations: Tuple[int, ...] = (0,)
+    checkpoint: Optional[Path] = None
+    accumulate_grad_batches: int = 1
+    val_freq: int = 500
+    checkpoint_freq: int = 10
+
+    # Training and validation datasets
+    dataset: List[Path]
+    valset: Optional[Tuple[Path, ...]] = None
+
+    # Logging to base_log_dir/exp_log_dir/run_log_dir
+    logger: Optional[str] = "tensorboard"  # One of "wandb", "tensorboard", None
+    base_log_dir: Path = Path(__file__).parent / "train_logs"
+    exp_log_dir: str = "exp"
+    run_log_dir: str = "run"
+
+    # Main training parameters
+    devices: List[str] = ["cuda:0"]  # ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
+    num_workers: int = 1
+    batch_size: int = 16
+    batch_size_val: int = 4
+    cache_size: int = 100
+    cache_size_val: int = 100
+    lr: float = 1e-4
+    train_iters: int = 200_000
+    max_episode_length: int = 5  # -1 for no limit
+
+    # Toggle to switch between original HiveFormer and our models
+    model: str = "baseline"  # one of "original", "baseline", "analogical"
+
+    # ---------------------------------------------------------------
+    # Original HiveFormer parameters
+    # ---------------------------------------------------------------
+
+    depth: int = 4
+    dim_feedforward: int = 64
+    hidden_dim: int = 64
+    instr_size: int = 512
+    mask_obs_prob: float = 0.0
+    num_layers: int = 1
+    dense_interpolation: int = 0
+    interpolation_length: int = 100
+
+    # ---------------------------------------------------------------
+    # Our non-analogical baseline parameters
+    # ---------------------------------------------------------------
+
+    # Data augmentations
+    image_rescale: str = "0.75,1.25"  # (min, max), "1.0,1.0" for no rescaling
+    point_cloud_rotate_yaw_range: float = 0.0  # in degrees, 0.0 for no rotation
+
+    visualize_rgb_attn: int = 0  # deactivate by default during training as this has memory overhead
+    gripper_loc_bounds_file: str = "tasks/74_hiveformer_tasks_location_bounds.json"
+    single_task_gripper_loc_bounds: int = 0
+    gripper_bounds_buffer: float = 0.04
+
+    # Loss
+    position_prediction_only: int = 0
+    position_loss: str = "ce"  # one of "ce" (our model), "mse" (original HiveFormer)
+    ground_truth_gaussian_spread: float = 0.01
+    compute_loss_at_all_layers: int = 0
+    position_loss_coeff: float = 1.0
+    position_offset_loss_coeff: float = 10000.0
+    rotation_loss_coeff: float = 10.0
+    symmetric_rotation_loss: int = 0
+    gripper_loss_coeff: float = 1.0
+    label_smoothing: float = 0.0
+    regress_position_offset: int = 0
+
+    # Ghost points
+    num_sampling_level: int = 3
+    fine_sampling_ball_diameter: float = 0.16
+    weight_tying: int = 1
+    gp_emb_tying: int = 1
+    num_ghost_points: int = 1000
+    num_ghost_points_val: int = 10000
+    use_ground_truth_position_for_sampling_train: int = 1  # considerably speeds up training
+    use_ground_truth_position_for_sampling_val: int = 0    # for debugging
+
+    # Model
+    backbone: str = "clip"  # one of "resnet", "clip"
+    embedding_dim: int = 60
+    num_ghost_point_cross_attn_layers: int = 2
+    num_query_cross_attn_layers: int = 2
+    num_vis_ins_attn_layers: int = 2
+    # one of "quat_from_top_ghost", "quat_from_query", "6D_from_top_ghost", "6D_from_query"
+    rotation_parametrization: str = "quat_from_query"
+    use_instruction: int = 0
+    use_goal: int = 0
+    task_specific_biases: int = 0
+
+    # Positional features
+    positional_features: Optional[str] = "none"  # one of "xyz_concat", "z_concat", "xyz_add", "z_add", "none"
+
+    # ---------------------------------------------------------------
+    # Our analogical network additional parameters
+    # ---------------------------------------------------------------
+
+    support_set: str = "others"  # one of "self" (for debugging), "others"
+    support_set_size: int = 1
+    global_correspondence: int = 0
+    num_matching_cross_attn_layers: int = 2
 
 
 def training(
@@ -254,6 +368,8 @@ def get_train_loader(args, gripper_loc_bounds):
         image_rescale=tuple(float(x) for x in args.image_rescale.split(",")),
         point_cloud_rotate_yaw_range=args.point_cloud_rotate_yaw_range,
         gripper_loc_bounds=gripper_loc_bounds,
+        interpolation_length=args.interpolation_length,
+        dense_interpolation=bool(args.dense_interpolation),
         return_low_lvl_trajectory=True,
         action_dim=7
     )
@@ -307,6 +423,8 @@ def get_val_loaders(args, gripper_loc_bounds):
             point_cloud_rotate_yaw_range=args.point_cloud_rotate_yaw_range,
             gripper_loc_bounds=gripper_loc_bounds,
             return_low_lvl_trajectory=True,
+            dense_interpolation=bool(args.dense_interpolation),
+            interpolation_length=args.interpolation_length,
             action_dim=7
         )
         loader = DataLoader(
@@ -331,6 +449,7 @@ def get_model(args, gripper_loc_bounds):
         use_instruction=bool(args.use_instruction),
         use_goal=bool(args.use_goal),
         gripper_loc_bounds=gripper_loc_bounds,
+        dense_interpolation=bool(args.dense_interpolation),
         positional_features=args.positional_features
     )
 

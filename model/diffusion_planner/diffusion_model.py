@@ -5,6 +5,7 @@ from torch.nn import functional as F
 
 from .diffusion_head_simple import DiffusionHead
 from model.utils.utils import normalise_quat
+from scipy.interpolate import CubicSpline
 
 
 class DiffusionPlanner(nn.Module):
@@ -20,6 +21,7 @@ class DiffusionPlanner(nn.Module):
                  use_instruction=False,
                  use_goal=False,
                  gripper_loc_bounds=None,
+                 dense_interpolation=False,
                  positional_features="none"):
         super().__init__()
         self.prediction_head = DiffusionHead(
@@ -41,6 +43,7 @@ class DiffusionPlanner(nn.Module):
         )
         self.n_steps = self.noise_scheduler.config.num_train_timesteps
         self.gripper_loc_bounds = torch.tensor(gripper_loc_bounds)
+        self.dense_interpolation = dense_interpolation
 
     def policy_forward_pass(self, trajectory, timestep, fixed_inputs):
         # Parse inputs
@@ -79,20 +82,20 @@ class DiffusionPlanner(nn.Module):
         trajectory[condition_mask] = condition_data[condition_mask]
 
         # Iterative denoising
-        self.noise_scheduler.set_timesteps(self.n_steps)
-        for t in self.noise_scheduler.timesteps:
-            out = self.policy_forward_pass(
-                trajectory,
-                t * torch.ones(len(trajectory)).to(trajectory.device).long(),
-                fixed_inputs
-            )
-            trajectory = self.noise_scheduler.step(
-                out, t, trajectory
-            ).prev_sample
-            trajectory[condition_mask] = condition_data[condition_mask]
+        # self.noise_scheduler.set_timesteps(self.n_steps)
+        # for t in self.noise_scheduler.timesteps:
+        #     out = self.policy_forward_pass(
+        #         trajectory,
+        #         t * torch.ones(len(trajectory)).to(trajectory.device).long(),
+        #         fixed_inputs
+        #     )
+        #     trajectory = self.noise_scheduler.step(
+        #         out, t, trajectory
+        #     ).prev_sample
+        #     trajectory[condition_mask] = condition_data[condition_mask]
 
         return trajectory
-    
+                
     def compute_trajectory(
         self,
         trajectory_mask,

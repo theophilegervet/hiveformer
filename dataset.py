@@ -1,3 +1,5 @@
+from model.utils.utils import normalise_quat
+from scipy.interpolate import CubicSpline, interp1d
 import itertools
 import random
 import blosc
@@ -300,6 +302,8 @@ class RLBenchDataset(Dataset):
         image_rescale=(1.0, 1.0),
         point_cloud_rotate_yaw_range=0.0,
         return_low_lvl_trajectory=False,
+        dense_interpolation=False,
+        interpolation_length=100,
         action_dim=8
     ):
         self._cache = Cache(cache_size, loader)
@@ -315,6 +319,9 @@ class RLBenchDataset(Dataset):
         if isinstance(root, (Path, str)):
             root = [Path(root)]
         self._root: List[Path] = [Path(r).expanduser() for r in root]
+        self._dense_interpolation = dense_interpolation
+        self._interpolation_length = interpolation_length
+
         max_episode_length_dict = load_episodes()["max_episode_length"]
 
         # We keep only useful instructions to save mem
@@ -373,6 +380,29 @@ class RLBenchDataset(Dataset):
 
         print(f"Created dataset from {root} with {self._num_episodes} episodes (after chunking "
               f"them by max episode length)")
+
+    def resample_trajectory(self, trajectory):
+        trajectory = trajectory.numpy()
+        # Calculate the current number of steps
+        old_num_steps = len(trajectory)
+
+        # Create a 1D array for the old and new steps
+        old_steps = np.linspace(0, 1, old_num_steps)
+        new_steps = np.linspace(0, 1, self._interpolation_length)
+
+        # Interpolate each dimension separately
+        resampled_trajectory = np.empty((self._interpolation_length, trajectory.shape[1]))
+        for i in range(trajectory.shape[1]):
+            if i == 7: # gripper opening
+                interpolator = interp1d(old_steps, trajectory[:, i])
+            else:
+                interpolator = CubicSpline(old_steps, trajectory[:, i])
+
+            resampled_trajectory[:, i] = interpolator(new_steps)
+
+        resampled_trajectory = torch.tensor(resampled_trajectory)
+        resampled_trajectory[:, 3:7] = normalise_quat(resampled_trajectory[:, 3:7])
+        return resampled_trajectory
 
     def __getitem__(self, episode_id):
         """
@@ -458,6 +488,10 @@ class RLBenchDataset(Dataset):
 
         tframe_ids = torch.tensor(frame_ids)
         tframe_ids = F.pad(tframe_ids, (0, pad_len), value=-1)
+
+        if self._dense_interpolation:
+            for i in range(len(episode[5])):
+                episode[5][i] = self.resample_trajectory(episode[5][i])
 
         # Low-level trajectory
         traj, traj_lens = None, 0
