@@ -21,7 +21,6 @@ class DiffusionPlanner(nn.Module):
                  use_instruction=False,
                  use_goal=False,
                  gripper_loc_bounds=None,
-                 dense_interpolation=False,
                  positional_features="none"):
         super().__init__()
         self.prediction_head = DiffusionHead(
@@ -43,7 +42,6 @@ class DiffusionPlanner(nn.Module):
         )
         self.n_steps = self.noise_scheduler.config.num_train_timesteps
         self.gripper_loc_bounds = torch.tensor(gripper_loc_bounds)
-        self.dense_interpolation = dense_interpolation
 
     def policy_forward_pass(self, trajectory, timestep, fixed_inputs):
         # Parse inputs

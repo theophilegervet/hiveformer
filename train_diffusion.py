@@ -449,7 +449,6 @@ def get_model(args, gripper_loc_bounds):
         use_instruction=bool(args.use_instruction),
         use_goal=bool(args.use_goal),
         gripper_loc_bounds=gripper_loc_bounds,
-        dense_interpolation=bool(args.dense_interpolation),
         positional_features=args.positional_features
     )
 

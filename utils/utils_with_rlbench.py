@@ -435,6 +435,8 @@ class RLBenchEnv:
         offline: bool = True,
         position_prediction_only: bool = False,
         verbose: bool = False,
+        dense_interpolation=False,
+        interpolation_length=100,
     ):
         self.env.launch()
         task_type = task_file_to_task_class(task_str)
@@ -464,6 +466,8 @@ class RLBenchEnv:
                 offline=offline,
                 position_prediction_only=position_prediction_only,
                 verbose=verbose,
+                dense_interpolation=dense_interpolation,
+                interpolation_length=interpolation_length,
             )
             if valid:
                 var_success_rates[variation] = success_rate
@@ -541,6 +545,8 @@ class RLBenchEnv:
         offline: bool = True,
         position_prediction_only: bool = False,
         verbose: bool = False,
+        dense_interpolation=False,
+        interpolation_length=100,
     ):
         if record_videos:
             cam_placeholder = Dummy('cam_cinematic_placeholder')
@@ -620,6 +626,7 @@ class RLBenchEnv:
                 move = Mover(task, max_tries=max_tries)
                 reward = None
                 gt_keyframe_actions, trajectories, trajectory_masks = actioner.get_action_from_demo(demo)
+                import IPython;IPython.embed()
                 if offline:
                     max_steps = len(gt_keyframe_actions)
                 gt_keyframe_gripper_matrices = np.stack([self.get_gripper_matrix_from_action(a[-1])

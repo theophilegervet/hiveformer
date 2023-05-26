@@ -65,6 +65,8 @@ class Arguments(tap.Tap):
     max_steps: int = 50
     collision_checking: int = 0
     use_goal: int = 0
+    dense_interpolation: int = 0
+    interpolation_length: int = 100
 
     # ---------------------------------------------------------------
     # Original HiveFormer parameters
@@ -337,6 +339,8 @@ if __name__ == "__main__":
             log_dir=log_dir / task_str if args.save_img else None,
             max_tries=args.max_tries,
             save_attn=False,
+            dense_interpolation=bool(args.dense_interpolation),
+            interpolation_length=args.interpolation_length,
             record_videos=bool(args.record_videos),
             position_prediction_only=bool(args.position_prediction_only),
             offline=bool(args.offline),
