@@ -64,7 +64,6 @@ class Arguments(tap.Tap):
     record_videos: int = 0
     max_steps: int = 50
     collision_checking: int = 0
-    use_goal: int = 0
 
     # ---------------------------------------------------------------
     # Original HiveFormer parameters
@@ -222,8 +221,6 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
             num_vis_ins_attn_layers=args.num_vis_ins_attn_layers,
             num_sampling_level=args.num_sampling_level,
             use_instruction=bool(args.use_instruction),
-            use_goal=bool(args.use_goal),
-            gripper_loc_bounds=gripper_loc_bounds,
             positional_features=args.positional_features
         )
     elif args.model == "analogical":
@@ -307,7 +304,6 @@ if __name__ == "__main__":
 
     # load RLBench environment
     env = RLBenchEnv(
-        traj_cmd=args.model == "diffusion",
         data_path=args.data_dir,
         image_size=[int(x) for x in args.image_size.split(",")],
         apply_rgb=True,

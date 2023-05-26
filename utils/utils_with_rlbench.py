@@ -1,4 +1,5 @@
 import os
+from scipy.signal import savgol_filter
 import random
 from typing import List, Dict, Optional, Tuple, Literal, TypedDict, Union, Any, Sequence
 from pathlib import Path
@@ -17,7 +18,7 @@ from rlbench.backend.observation import Observation
 from rlbench.task_environment import TaskEnvironment
 from rlbench.action_modes.action_mode import MoveArmThenGripper
 from rlbench.action_modes.gripper_action_modes import Discrete
-from rlbench.action_modes.arm_action_modes import EndEffectorPoseViaPlanning
+from rlbench.action_modes.arm_action_modes import EndEffectorPoseViaPlanning, EndEffectorPoseViaIK
 from rlbench.backend.exceptions import InvalidActionError
 from rlbench.demo import Demo
 from pyrep.errors import IKError, ConfigurationPathError
@@ -236,8 +237,8 @@ class Actioner:
                 rgbs[:, -1],
                 pcds[:, -1],
                 self._instr,
-                gripper[:, -1],
-                gt_action[:, -1],  # TODO Replace this with predicted keypoint
+                gripper[:, -1, :7],
+                gt_action[:, -1, :7],  # TODO Replace this with predicted keypoint
             )
 
         elif type(self._model) == AnalogicalNetwork:
@@ -272,6 +273,7 @@ class RLBenchEnv:
     def __init__(
         self,
         data_path,
+        traj_cmd=False,
         image_size=(128, 128),
         apply_rgb=False,
         apply_depth=False,
@@ -294,10 +296,18 @@ class RLBenchEnv:
         self.obs_config = self.create_obs_config(
             image_size, apply_rgb, apply_depth, apply_pc, apply_cameras
         )
-        self.action_mode = MoveArmThenGripper(
-            arm_action_mode=EndEffectorPoseViaPlanning(collision_checking=collision_checking),
-            gripper_action_mode=Discrete(),
-        )
+
+        if traj_cmd:
+            self.action_mode = MoveArmThenGripper(
+                arm_action_mode=EndEffectorPoseViaPlanning(collision_checking=collision_checking),
+                # arm_action_mode=EndEffectorPoseViaIK(),
+                gripper_action_mode=Discrete(),
+            )
+        else:
+            self.action_mode = MoveArmThenGripper(
+                arm_action_mode=EndEffectorPoseViaPlanning(collision_checking=collision_checking),
+                gripper_action_mode=Discrete(),
+            )
         self.env = Environment(
             self.action_mode, str(data_path), self.obs_config, headless=headless
         )
@@ -463,6 +473,31 @@ class RLBenchEnv:
 
         return var_success_rates
 
+
+    def smooth_trajectory(self, trajectory, window_length=5, polyorder=2, quat=False):
+        # Making a copy of the original trajectory
+        trajectory = np.copy(trajectory)
+        original_trajectory = np.copy(trajectory)
+
+        # Applying the filter to each dimension
+        if quat:
+            dim = 7
+        else:
+            dim = 3
+
+        for i in range(dim):
+            trajectory[:, i] = savgol_filter(trajectory[:, i], window_length, polyorder)
+
+        # Preserving the first and last step
+        trajectory[0] = original_trajectory[0]
+        trajectory[-1] = original_trajectory[-1]
+
+        # normalize quat
+        if quat:
+            trajectory[:, 3:7] /= np.linalg.norm(trajectory[:, 3:7], axis=1, keepdims=True)
+
+        return trajectory
+
     def _evaluate_task_on_one_variation(
         self,
         task_str: str,
@@ -525,7 +560,7 @@ class RLBenchEnv:
             self.env._scene._workspace_maxz - 0.01
         ]).to(device)
 
-        success_rate = 0.0
+        success_rate = 0
         missing_demos = 0
 
         with torch.no_grad():
@@ -650,9 +685,19 @@ class RLBenchEnv:
                                 print()
                                 print()
 
-                            for action_np in trajectory_np[1:]:
-                            # for action_np in trajectories[step_id][1:]:  # To execute ground-truth trajectory
-                                obs, reward, terminate, step_images = move(action_np)
+                            # smoothing
+                            # trajectory_np = self.smooth_trajectory(trajectory_np, 5, 2)
+
+                            # append gripper action and next step
+                            trajectory_np_full = np.concatenate([trajectory_np, np.tile(grippers[-1, -1:, -1:].numpy(), [trajectory_np.shape[0], 1])], axis=-1)
+                            trajectory_np_full = np.concatenate([trajectory_np_full, gt_keyframe_actions[step_id].numpy()], axis=0)
+                            trajectory_np_full_gt = np.concatenate([trajectories[step_id][1:], gt_keyframe_actions[step_id].numpy()], axis=0)
+                            if offline:
+                                for action_np in trajectory_np_full_gt:  # To execute ground-truth trajectory
+                                    obs, reward, terminate, step_images = move(action_np)
+                            else:
+                                for action_np in trajectory_np_full[1:]:
+                                    obs, reward, terminate, step_images = move(action_np)
 
                         # Or plan to reach next predicted keypoint
                         else:
@@ -663,7 +708,7 @@ class RLBenchEnv:
                         images += step_images
 
                         if reward == 1:
-                            success_rate += 1 / num_demos
+                            success_rate += 1
                             break
 
                         if terminate:
@@ -692,7 +737,7 @@ class RLBenchEnv:
                     demo_id,
                     "Reward",
                     reward,
-                    "SR: %.2f" % (success_rate * 100),
+                    f"SR: {success_rate}/{demo_id+1}",
                     "Missing", missing_demos,
                 )
 

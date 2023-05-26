@@ -5,8 +5,8 @@ python train_diffusion.py --tasks close_door \
     --gripper_loc_bounds_file diffusion_location_bounds.json\
     --use_instruction 0 \
     --use_goal 1 \
-    --val_freq 2500 \
-    --checkpoint_freq 2 \
+    --val_freq 1000 \
+    --checkpoint_freq 5 \
     --gripper_bounds_buffer 0.02\
     --exp_log_dir diffuse_05_24 \
     --run_log_dir close_door \

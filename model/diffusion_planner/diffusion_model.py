@@ -103,6 +103,9 @@ class DiffusionPlanner(nn.Module):
         goal_gripper
     ):
         # normalize all pos
+        pcd_obs = pcd_obs.clone()
+        curr_gripper = curr_gripper.clone()
+        goal_gripper = goal_gripper.clone()
         pcd_obs = torch.permute(self.normalize_pos(torch.permute(pcd_obs, [0, 1, 3, 4, 2])), [0, 1, 4, 2, 3])
         curr_gripper[:, :3] = self.normalize_pos(curr_gripper[:, :3])
         goal_gripper[:, :3] = self.normalize_pos(goal_gripper[:, :3])
