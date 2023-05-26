@@ -72,7 +72,6 @@
 main_dir=hiveformer_10_episodes
 use_instruction=0
 train_iters=400_000
-cameras=left_shoulder,right_shoulder,wrist
 task_file=tasks/hiveformer_74_tasks.csv
 gripper_loc_bounds_file=tasks/74_hiveformer_tasks_location_bounds.json
 dataset=/private/home/theop123/datasets/rlbench/packaged/74_hiveformer_tasks_train
@@ -84,7 +83,6 @@ max_episodes_per_task=10
 for task in $(cat $task_file | tr '\n' ' '); do
   sbatch train_1gpu_32gb_fair.sh \
    --tasks $task \
-   --cameras $cameras \
    --dataset $dataset \
    --valset $valset \
    --batch_size $batch_size \
