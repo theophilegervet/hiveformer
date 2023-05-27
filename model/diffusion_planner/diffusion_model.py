@@ -3,9 +3,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from .diffusion_head_simple import DiffusionHead
 from model.utils.utils import normalise_quat
-from scipy.interpolate import CubicSpline
 
 
 class DiffusionPlanner(nn.Module):
@@ -20,21 +18,42 @@ class DiffusionPlanner(nn.Module):
                  num_sampling_level=3,
                  use_instruction=False,
                  use_goal=False,
+                 use_rgb=True,
                  gripper_loc_bounds=None,
-                 positional_features="none"):
+                 positional_features="none",
+                 diffusion_head="simple",
+                 relative_to_start=True):
         super().__init__()
-        self.prediction_head = DiffusionHead(
-            backbone=backbone,
-            image_size=image_size,
-            embedding_dim=embedding_dim,
-            output_dim=output_dim,
-            num_vis_ins_attn_layers=num_vis_ins_attn_layers,
-            ins_pos_emb=ins_pos_emb,
-            num_sampling_level=num_sampling_level,
-            use_instruction=use_instruction,
-            positional_features=positional_features,
-            use_goal=use_goal
-        )
+        self._relative_to_start = relative_to_start
+        if diffusion_head == "simple":
+            from .diffusion_head_simple import DiffusionHead
+            self.prediction_head = DiffusionHead(
+                backbone=backbone,
+                image_size=image_size,
+                embedding_dim=embedding_dim,
+                output_dim=output_dim,
+                num_vis_ins_attn_layers=num_vis_ins_attn_layers,
+                ins_pos_emb=ins_pos_emb,
+                num_sampling_level=num_sampling_level,
+                use_instruction=use_instruction,
+                positional_features=positional_features,
+                use_goal=use_goal,
+                use_rgb=use_rgb
+            )
+        elif diffusion_head == "unconditional":
+            from .diffusion_head_unconditional import DiffusionHead
+            self.prediction_head = DiffusionHead(
+                backbone=backbone,
+                image_size=image_size,
+                embedding_dim=embedding_dim,
+                output_dim=output_dim,
+                num_vis_ins_attn_layers=num_vis_ins_attn_layers,
+                ins_pos_emb=ins_pos_emb,
+                num_sampling_level=num_sampling_level,
+                use_instruction=use_instruction,
+                positional_features=positional_features,
+                use_goal=use_goal
+            )
         self.noise_scheduler = DDPMScheduler(
             num_train_timesteps=100,
             # clip_sample=False,
@@ -57,6 +76,14 @@ class DiffusionPlanner(nn.Module):
         # Undo pre-processing to feed RGB to pre-trained backbone (from [-1, 1] to [0, 1])
         rgb_obs = (rgb_obs / 2 + 0.5)
         rgb_obs = rgb_obs[:, :, :3, :, :]
+
+        # Center to current gripper location
+        if self._relative_to_start:
+            abs_gripper = curr_gripper
+            trajectory[..., :3] = trajectory[..., :3] - abs_gripper[:, None]
+            pcd_obs = pcd_obs - abs_gripper[:, None, :, None, None]
+            curr_gripper = curr_gripper - abs_gripper
+            goal_gripper = goal_gripper - abs_gripper
 
         noise = self.prediction_head(
             trajectory,

@@ -1,12 +1,15 @@
+import io
 import random
 import os
 from collections import defaultdict
+
+import cv2
+from matplotlib import pyplot as plt
 import torch
 from torch.nn import functional as F
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
-from torch.utils.data._utils.collate import default_collate
 import numpy as np
 from tqdm import trange
 import wandb
@@ -21,8 +24,9 @@ from utils.utils_without_rlbench import (
 from dataset import RLBenchDataset
 from model.diffusion_planner.diffusion_model import DiffusionPlanner
 from train import get_log_dir, CheckpointCallback
-from typing import List, Tuple, Dict, Optional, Any
+from typing import List, Tuple, Optional
 from pathlib import Path
+
 
 class Arguments(tap.Tap):
     cameras: Tuple[str, ...] = ("wrist", "left_shoulder", "right_shoulder")
@@ -41,6 +45,9 @@ class Arguments(tap.Tap):
     # Training and validation datasets
     dataset: List[Path]
     valset: Optional[Tuple[Path, ...]] = None
+    dense_interpolation: int = 0
+    interpolation_length: int = 100
+    trim_to_fixed_len: Optional[int] = None
 
     # Logging to base_log_dir/exp_log_dir/run_log_dir
     logger: Optional[str] = "tensorboard"  # One of "wandb", "tensorboard", None
@@ -72,8 +79,6 @@ class Arguments(tap.Tap):
     instr_size: int = 512
     mask_obs_prob: float = 0.0
     num_layers: int = 1
-    dense_interpolation: int = 0
-    interpolation_length: int = 100
 
     # ---------------------------------------------------------------
     # Our non-analogical baseline parameters
@@ -112,6 +117,7 @@ class Arguments(tap.Tap):
     use_ground_truth_position_for_sampling_val: int = 0    # for debugging
 
     # Model
+    action_dim: str = 7
     backbone: str = "clip"  # one of "resnet", "clip"
     embedding_dim: int = 60
     num_ghost_point_cross_attn_layers: int = 2
@@ -121,7 +127,10 @@ class Arguments(tap.Tap):
     rotation_parametrization: str = "quat_from_query"
     use_instruction: int = 0
     use_goal: int = 0
+    use_rgb: int = 1
+    relative_to_start: int = 1
     task_specific_biases: int = 0
+    diffusion_head: str = "simple"
 
     # Positional features
     positional_features: Optional[str] = "none"  # one of "xyz_concat", "z_concat", "xyz_add", "z_add", "none"
@@ -213,7 +222,7 @@ def training(
                         model,
                         args,
                         writer,
-                        val_iters=2,
+                        val_iters=2
                     )
                     model.train()
                 else:
@@ -260,6 +269,17 @@ def validation_step(
                     values[key] = torch.Tensor([]).to(device)
                 values[key] = torch.cat([values[key], l.unsqueeze(0)])
 
+            # Generate visualizations
+            if i == 0:
+                viz_key = f'{split}-viz-{val_id}/viz'
+                viz = generate_visualizations(
+                    action,
+                    sample["trajectory"].to(device),
+                    sample["trajectory_mask"].to(device)
+                )
+                if args.logger == 'tensorboard':
+                    writer.add_image(viz_key, viz, step_id)
+
         for key, val in values.items():
             if args.logger == "tensorboard":
                 writer.add_scalar(key, val.mean(), step_id)
@@ -281,7 +301,7 @@ def validation_step(
 def compute_metrics(pred, gt, mask):
     # pred/gt are (B, L, 7), mask (B, L)
     mask = mask.float()
-    pos_l2 = ((pred[..., :3] - gt[..., :3]) ** 2).sqrt().sum(-1) * (1 - mask)
+    pos_l2 = ((pred[..., :3] - gt[..., :3]) ** 2).sum(-1).sqrt() * (1 - mask)
     quat_l1 = (pred[..., 3:7] - gt[..., 3:7]).abs().sum(-1) * (1 - mask)
     div_ = (1 - mask).sum()
     return {
@@ -296,6 +316,47 @@ def compute_metrics(pred, gt, mask):
     }
 
 
+def generate_visualizations(pred, gt, mask, box_size=0.3):
+    batch_idx = 0
+    pred = pred[batch_idx].detach().cpu().numpy()
+    gt = gt[batch_idx].detach().cpu().numpy()
+    mask = mask[batch_idx].detach().cpu().numpy()
+
+    fig = plt.figure(figsize=(10, 10))
+    ax = plt.axes(projection='3d')
+    ax.scatter3D(
+        pred[~mask][:, 0], pred[~mask][:, 1], pred[~mask][:, 2], 
+        color='red', label='pred'
+    )
+    ax.scatter3D(
+        gt[~mask][:, 0], gt[~mask][:, 1], gt[~mask][:, 2], 
+        color='blue', label='gt'
+    )
+
+    center = gt[~mask].mean(0)
+    ax.set_xlim(center[0] - box_size, center[0] + box_size)
+    ax.set_ylim(center[1] - box_size, center[1] + box_size)
+    ax.set_zlim(center[2] - box_size, center[2] + box_size)
+    ax.set_xticklabels([])
+    ax.set_yticklabels([])
+    ax.set_zticklabels([])
+    plt.legend()
+    fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
+    
+    img = fig_to_numpy(fig, dpi=120)
+    return img.transpose(2, 0, 1)
+
+
+def fig_to_numpy(fig, dpi=60):
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=dpi)
+    buf.seek(0)
+    img_arr = np.frombuffer(buf.getvalue(), dtype=np.uint8)
+    buf.close()
+    img = cv2.imdecode(img_arr, 1)
+    return img
+
+
 def collate_fn(batch):
     # Dynamic padding for trajectory
     max_len = max(batch[b]['trajectory_len'].max() for b in range(len(batch)))
@@ -305,28 +366,12 @@ def collate_fn(batch):
         traj[:, :n] = item['trajectory']
         item['trajectory'] = traj
 
-    # Use default collate to batch, then fill missing keys
-    ret_dict = {
-        key: default_collate([item[key] for item in batch])
-        if batch[0][key] is not None
-        else None
-        for key in batch[0].keys()
-    }
-
     # Unfold multi-step demos to form a longer batch
     keys = [
-        "trajectory", "trajectory_len", "rgbs", "pcds",
-        "curr_gripper", "action"
+        "trajectory", "trajectory_len",
+        "rgbs", "pcds", "curr_gripper", "action", "instr"
     ]
-    _mask = ret_dict["padding_mask"]
-    ret_dict["instr"] = ret_dict["instr"][:, None].repeat(
-        1, ret_dict["rgbs"].size(1), 1, 1
-    )[_mask]
-    ret_dict["task_id"] = ret_dict["task_id"][:, None].repeat(
-        1, ret_dict["rgbs"].size(1)
-    )[_mask]
-    for key in keys:
-        ret_dict[key] = ret_dict[key][_mask]
+    ret_dict = {key: torch.cat([item[key] for item in batch]) for key in keys}
 
     # Trajectory mask
     trajectory_mask = torch.zeros(ret_dict['trajectory'].shape[:-1])
@@ -371,7 +416,8 @@ def get_train_loader(args, gripper_loc_bounds):
         interpolation_length=args.interpolation_length,
         dense_interpolation=bool(args.dense_interpolation),
         return_low_lvl_trajectory=True,
-        action_dim=7
+        action_dim=args.action_dim,
+        trim_to_fixed_len=args.trim_to_fixed_len
     )
 
     loader = DataLoader(
@@ -425,7 +471,8 @@ def get_val_loaders(args, gripper_loc_bounds):
             return_low_lvl_trajectory=True,
             dense_interpolation=bool(args.dense_interpolation),
             interpolation_length=args.interpolation_length,
-            action_dim=7
+            action_dim=args.action_dim,
+            trim_to_fixed_len=args.trim_to_fixed_len
         )
         loader = DataLoader(
             dataset=dataset,
@@ -448,8 +495,11 @@ def get_model(args, gripper_loc_bounds):
         num_sampling_level=args.num_sampling_level,
         use_instruction=bool(args.use_instruction),
         use_goal=bool(args.use_goal),
+        use_rgb=bool(args.use_rgb),
         gripper_loc_bounds=gripper_loc_bounds,
-        positional_features=args.positional_features
+        positional_features=args.positional_features,
+        diffusion_head=args.diffusion_head,
+        relative_to_start=args.relative_to_start
     )
 
     devices = [torch.device(d) for d in args.devices]

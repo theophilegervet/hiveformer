@@ -1,5 +1,3 @@
-import math
-
 import einops
 import torch
 import torch.nn as nn
@@ -8,7 +6,8 @@ from torchvision.ops import FeaturePyramidNetwork
 
 from model.utils.position_encodings import (
     RotaryPositionEncoding3D,
-    LearnedAbsolutePositionEncoding3D
+    LearnedAbsolutePositionEncoding3D,
+    SinusoidalPosEmb
 )
 from model.utils.layers import (
     RelativeCrossAttentionModule,
@@ -16,22 +15,6 @@ from model.utils.layers import (
 )
 from model.utils.resnet import load_resnet50
 from model.utils.clip import load_clip
-
-
-class SinusoidalPosEmb(nn.Module):
-
-    def __init__(self, dim):
-        super().__init__()
-        self.dim = dim
-
-    def forward(self, x):
-        device = x.device
-        half_dim = self.dim // 2
-        emb = math.log(10000) / (half_dim - 1)
-        emb = torch.exp(torch.arange(half_dim, device=device) * -emb)
-        emb = x[:, None] * emb[None, :]
-        emb = torch.cat((emb.sin(), emb.cos()), dim=-1)
-        return emb
 
 
 class DiffusionHead(nn.Module):
@@ -47,7 +30,8 @@ class DiffusionHead(nn.Module):
                  num_sampling_level=3,
                  use_instruction=False,
                  use_goal=False,
-                 positional_features="none"):
+                 positional_features="none",
+                 use_rgb=True):
         super().__init__()
         assert backbone in ["resnet", "clip"]
         assert image_size in [(128, 128), (256, 256)]
@@ -62,6 +46,7 @@ class DiffusionHead(nn.Module):
         self.ins_pos_emb = ins_pos_emb
         self.use_instruction = use_instruction
         self.use_goal = use_goal
+        self.use_rgb = use_rgb
 
         # Trajectory encoder
         self.traj_encoder = nn.Linear(output_dim, embedding_dim)
@@ -94,6 +79,10 @@ class DiffusionHead(nn.Module):
             self.feature_map_pyramid = ['res3', 'res1', 'res1', 'res1']
             self.downscaling_factor_pyramid = [8, 2, 2, 2]
 
+        # If not use_rgb, then use an occupancy embedding
+        if not use_rgb:
+            self.occ_encoder = nn.Linear(3, embedding_dim)
+
         # 3D relative positional embeddings
         self.relative_pe_layer = RotaryPositionEncoding3D(embedding_dim)
 
@@ -113,7 +102,7 @@ class DiffusionHead(nn.Module):
         # Current gripper learnable features
         self.curr_gripper_embed = nn.Embedding(1, embedding_dim)
 
-        # Gaol gripper learnable features
+        # Goal gripper learnable features
         self.goal_gripper_embed = nn.Embedding(1, embedding_dim)
 
         # Query learnable features
@@ -175,7 +164,7 @@ class DiffusionHead(nn.Module):
         time_pos = self.relative_pe_layer(time_pos)
 
         # Compute visual features/positional embeddings at different scales
-        rgb_feats_pyramid, rgb_pos_pyramid, _ = self._compute_visual_features(
+        rgb_feats_pyramid, rgb_pos_pyramid, pcd_pyramid = self._compute_visual_features(
             visible_rgb, visible_pcd, num_cameras
         )
         # rgb_feats_pyramid: [(B, n_cameras, F, H_i, W_i)]
@@ -200,10 +189,13 @@ class DiffusionHead(nn.Module):
 
         # Attention layers
         # Visual context
-        context_feats = einops.rearrange(
-            rgb_feats_pyramid[0],
-            "b ncam c h w -> b (ncam h w) c"
-        )
+        if self.use_rgb:
+            context_feats = einops.rearrange(
+                rgb_feats_pyramid[0],
+                "b ncam c h w -> b (ncam h w) c"
+            )
+        else:
+            context_feats = self.occ_encoder(pcd_pyramid[0])
         context_pos = rgb_pos_pyramid[0]
 
         # Language context
