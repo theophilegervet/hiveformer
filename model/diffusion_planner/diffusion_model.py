@@ -23,6 +23,7 @@ class DiffusionPlanner(nn.Module):
                  positional_features="none",
                  diffusion_head="simple"):
         super().__init__()
+        self._use_goal = use_goal
         if diffusion_head == "simple":
             from .diffusion_head_simple import DiffusionHead
             self.prediction_head = DiffusionHead(
@@ -212,10 +213,11 @@ class DiffusionPlanner(nn.Module):
         cond_data[:, 0] = curr_gripper
         cond_mask[:, 0] = 1
         # end pose
-        for d in range(len(cond_data)):
-            neg_len_ = -trajectory_mask[d].sum().long()
-            cond_data[d][neg_len_ - 1] = goal_gripper[d]
-            cond_mask[d][neg_len_ - 1:] = 1
+        if self._use_goal:
+            for d in range(len(cond_data)):
+                neg_len_ = -trajectory_mask[d].sum().long()
+                cond_data[d][neg_len_ - 1] = goal_gripper[d]
+                cond_mask[d][neg_len_ - 1:] = 1
         cond_mask = cond_mask.bool()
 
         # Sample noise

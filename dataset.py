@@ -1,3 +1,5 @@
+import multiprocessing as mp
+from time import time
 from model.utils.utils import normalise_quat
 from scipy.interpolate import CubicSpline, interp1d
 import itertools
@@ -45,7 +47,7 @@ class Cache(Generic[T, U]):
         self._size = size
         self._loader = loader
         self._keys: List[T] = []
-        self._cache: Dict[T, U] = {}
+        self._cache = {}  # mp.Manager().dict()
 
     def __call__(self, args: T) -> U:
         if self._size == 0:
@@ -305,10 +307,10 @@ class RLBenchDataset(Dataset):
         dense_interpolation=False,
         interpolation_length=100,
         action_dim=8,
-        trim_to_fixed_len=None,
-        train_diffusion_on_whole=False
+        trim_to_fixed_len=None
     ):
-        self._cache = Cache(cache_size, loader)
+        self._cache = mp.Manager().dict()
+        self._cache_size = cache_size
         self._cameras = cameras
         self._image_size = image_size
         self._max_episode_length = max_episode_length
@@ -324,7 +326,6 @@ class RLBenchDataset(Dataset):
         self._root: List[Path] = [Path(r).expanduser() for r in root]
         self._dense_interpolation = dense_interpolation
         self._interpolation_length = interpolation_length
-        self._train_diffusion_on_whole = train_diffusion_on_whole
 
         max_episode_length_dict = load_episodes()["max_episode_length"]
 
@@ -385,6 +386,24 @@ class RLBenchDataset(Dataset):
         print(f"Created dataset from {root} with {self._num_episodes} episodes (after chunking "
               f"them by max episode length)")
 
+    def read_from_cache(self, args):
+        if self._cache_size == 0:
+            return loader(args)
+
+        if args in self._cache:
+            return self._cache[args]
+
+        value = loader(args)
+
+        if len(self._cache) == self._cache_size:
+            key = list(self._cache.keys())[int(time()) % self._cache_size]
+            del self._cache[key]
+
+        if len(self._cache) < self._cache_size:
+            self._cache[args] = value
+
+        return value
+
     def resample_trajectory(self, trajectory):
         trajectory = trajectory.numpy()
         # Calculate the current number of steps
@@ -420,14 +439,11 @@ class RLBenchDataset(Dataset):
             [trajectories],  # wrt frame_ids, (N_i, 8)
         ]
         """
-        if self._train_diffusion_on_whole:
-            return self._getitem_whole(episode_id)
-
         episode_id %= self._num_episodes
         task, variation, file, chunk = self._episodes[episode_id]
 
         # Load episode
-        episode = self._cache(file)
+        episode = self.read_from_cache(file)
         if episode is None:
             return None
 
@@ -510,7 +526,132 @@ class RLBenchDataset(Dataset):
             return self._num_iters
         return self._num_episodes
 
-    def _getitem_whole(self, episode_id):
+
+class RLBenchDatasetWhole(Dataset):
+    """RLBench dataset, loads whole episodes."""
+
+    def __init__(
+        self,
+        root: Union[Path, str, List[Path], List[str]],
+        image_size: Tuple[int, int],
+        taskvar: List[Tuple[str, int]],
+        instructions: Instructions,
+        max_episode_length: int,
+        cache_size: int,
+        max_episodes_per_task: int,
+        gripper_loc_bounds=None,
+        num_iters: Optional[int] = None,
+        cameras: Tuple[Camera, ...] = ("wrist", "left_shoulder", "right_shoulder"),
+        training: bool = True,
+        image_rescale=(1.0, 1.0),
+        point_cloud_rotate_yaw_range=0.0,
+        return_low_lvl_trajectory=False,
+        dense_interpolation=False,
+        interpolation_length=100,
+        action_dim=8,
+        trim_to_fixed_len=None
+    ):
+        self._cache = Cache(cache_size, loader)
+        self._cameras = cameras
+        self._image_size = image_size
+        self._max_episode_length = max_episode_length
+        self._max_episodes_per_task = max_episodes_per_task
+        self._num_iters = num_iters
+        self._training = training
+        self._taskvar = taskvar
+        self._return_low_lvl_trajectory = return_low_lvl_trajectory
+        self._action_dim = action_dim
+        self._trim_to_fixed_len = trim_to_fixed_len
+        if isinstance(root, (Path, str)):
+            root = [Path(root)]
+        self._root: List[Path] = [Path(r).expanduser() for r in root]
+        self._dense_interpolation = dense_interpolation
+        self._interpolation_length = interpolation_length
+
+        # We keep only useful instructions to save mem
+        self._instructions: Instructions = defaultdict(dict)
+        self._num_vars = Counter()  # variations of the same task
+        for root, (task, var) in itertools.product(self._root, taskvar):
+            data_dir = root / f"{task}+{var}"
+            if data_dir.is_dir():
+                self._instructions[task][var] = instructions[task][var]
+                self._num_vars[task] += 1
+            else:
+                print(f"Can't find dataset folder {data_dir}")
+
+        # If training, initialize augmentation classes
+        if self._training:
+            self._resize = Resize(scales=image_rescale)
+            self._rotate = Rotate(
+                gripper_loc_bounds=gripper_loc_bounds,
+                yaw_range=point_cloud_rotate_yaw_range
+            )
+
+        # File-names of episodes per-task and variation
+        self._data_dirs = []
+        episodes_by_task = defaultdict(list)
+        for root, (task, var) in itertools.product(self._root, taskvar):
+            data_dir = root / f"{task}+{var}"
+            if not data_dir.is_dir():
+                print(f"Can't find dataset folder {data_dir}")
+                continue
+            npy_episodes = [(task, var, ep) for ep in data_dir.glob("*.npy")]  # Backward compatibility
+            dat_episodes = [(task, var, ep) for ep in data_dir.glob("*.dat")]
+            episodes = npy_episodes + dat_episodes
+            # Split episodes equally into task variations
+            episodes = episodes[:self._max_episodes_per_task // self._num_vars[task] + 1]
+            num_episodes = len(episodes)
+            if num_episodes == 0:
+                print(f"Can't find episodes at folder {data_dir}")
+                continue
+            self._data_dirs.append(data_dir)
+            episodes_by_task[task] += episodes
+
+        # All episodes in the dataset
+        self._episodes = []
+        self._num_episodes = 0
+        for task, eps in episodes_by_task.items():
+            if len(eps) > self._max_episodes_per_task:
+                eps = random.sample(eps, self._max_episodes_per_task)
+            history_truncated_eps = []
+            # DO NOT Chunk too long episodes
+            for (task, var, ep) in eps:
+                history_truncated_eps.append((task, var, ep, 0))
+            self._episodes += history_truncated_eps
+            self._num_episodes += len(history_truncated_eps)
+
+        print(f"Created dataset from {root} with {self._num_episodes} episodes (after chunking "
+              f"them by max episode length)")
+
+    def resample_trajectory(self, trajectory):
+        trajectory = trajectory.numpy()
+        # Calculate the current number of steps
+        old_num_steps = len(trajectory)
+
+        # Create a 1D array for the old and new steps
+        old_steps = np.linspace(0, 1, old_num_steps)
+        new_steps = np.linspace(0, 1, self._interpolation_length)
+
+        # Interpolate each dimension separately
+        resampled_trajectory = np.empty((self._interpolation_length, trajectory.shape[1]))
+        for i in range(trajectory.shape[1]):
+            if i == 7: # gripper opening
+                interpolator = interp1d(old_steps, trajectory[:, i])
+            else:
+                interpolator = CubicSpline(old_steps, trajectory[:, i])
+
+            resampled_trajectory[:, i] = interpolator(new_steps)
+
+        resampled_trajectory = torch.tensor(resampled_trajectory)
+        resampled_trajectory[:, 3:7] = normalise_quat(resampled_trajectory[:, 3:7])
+        return resampled_trajectory
+
+    def __len__(self):
+        if self._num_iters is not None:
+            return self._num_iters
+        return self._num_episodes
+
+    def __getitem__(self, episode_id):
         """
         the episode item: [
             [frame_ids],  # we use chunk and max_episode_length to index it

@@ -21,7 +21,7 @@ from utils.utils_without_rlbench import (
     get_max_episode_length,
     get_gripper_loc_bounds
 )
-from dataset import RLBenchDataset
+from dataset import RLBenchDataset, RLBenchDatasetWhole
 from typing import List, Tuple, Optional
 from pathlib import Path
 
@@ -359,8 +359,9 @@ def generate_visualizations(pred, gt, mask, box_size=0.3):
     ax.set_zticklabels([])
     plt.legend()
     fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
-    
+
     img = fig_to_numpy(fig, dpi=120)
+    plt.close()
     return img.transpose(2, 0, 1)
 
 
@@ -417,7 +418,8 @@ def get_train_loader(args, gripper_loc_bounds):
     if args.max_episode_length >= 0:
         max_episode_length = min(args.max_episode_length, max_episode_length)
 
-    dataset = RLBenchDataset(
+    DSet = RLBenchDatasetWhole if args.train_diffusion_on_whole else RLBenchDataset
+    dataset = DSet(
         root=args.dataset,
         image_size=tuple(int(x) for x in args.image_size.split(",")),
         taskvar=taskvar,
@@ -434,8 +436,7 @@ def get_train_loader(args, gripper_loc_bounds):
         dense_interpolation=bool(args.dense_interpolation),
         return_low_lvl_trajectory=True,
         action_dim=args.action_dim,
-        trim_to_fixed_len=args.trim_to_fixed_len,
-        train_diffusion_on_whole=args.train_diffusion_on_whole
+        trim_to_fixed_len=args.trim_to_fixed_len
     )
 
     loader = DataLoader(
@@ -473,7 +474,8 @@ def get_val_loaders(args, gripper_loc_bounds):
     loaders = []
 
     for valset in args.valset:
-        dataset = RLBenchDataset(
+        DSet = RLBenchDatasetWhole if args.train_diffusion_on_whole else RLBenchDataset
+        dataset = DSet(
             root=valset,
             image_size=tuple(int(x) for x in args.image_size.split(",")),
             taskvar=taskvar,
@@ -490,8 +492,7 @@ def get_val_loaders(args, gripper_loc_bounds):
             dense_interpolation=bool(args.dense_interpolation),
             interpolation_length=args.interpolation_length,
             action_dim=args.action_dim,
-            trim_to_fixed_len=args.trim_to_fixed_len,
-            train_diffusion_on_whole=args.train_diffusion_on_whole
+            trim_to_fixed_len=args.trim_to_fixed_len
         )
         loader = DataLoader(
             dataset=dataset,
