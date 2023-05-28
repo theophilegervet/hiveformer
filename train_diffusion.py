@@ -116,7 +116,7 @@ class Arguments(tap.Tap):
     use_ground_truth_position_for_sampling_val: int = 0    # for debugging
 
     # Model
-    action_dim: str = 7
+    action_dim: int = 7
     backbone: str = "clip"  # one of "resnet", "clip"
     embedding_dim: int = 60
     num_ghost_point_cross_attn_layers: int = 2
@@ -512,6 +512,7 @@ def get_model(args, gripper_loc_bounds):
             backbone=args.backbone,
             image_size=tuple(int(x) for x in args.image_size.split(",")),
             embedding_dim=args.embedding_dim,
+            output_dim=args.action_dim,
             num_vis_ins_attn_layers=args.num_vis_ins_attn_layers,
             num_sampling_level=args.num_sampling_level,
             use_instruction=bool(args.use_instruction),
@@ -527,6 +528,7 @@ def get_model(args, gripper_loc_bounds):
             backbone=args.backbone,
             image_size=tuple(int(x) for x in args.image_size.split(",")),
             embedding_dim=args.embedding_dim,
+            output_dim=args.action_dim,
             num_vis_ins_attn_layers=args.num_vis_ins_attn_layers,
             num_sampling_level=args.num_sampling_level,
             use_instruction=bool(args.use_instruction),
