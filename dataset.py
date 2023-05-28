@@ -305,7 +305,8 @@ class RLBenchDataset(Dataset):
         dense_interpolation=False,
         interpolation_length=100,
         action_dim=8,
-        trim_to_fixed_len=None
+        trim_to_fixed_len=None,
+        train_diffusion_on_whole=False
     ):
         self._cache = Cache(cache_size, loader)
         self._cameras = cameras
@@ -323,6 +324,7 @@ class RLBenchDataset(Dataset):
         self._root: List[Path] = [Path(r).expanduser() for r in root]
         self._dense_interpolation = dense_interpolation
         self._interpolation_length = interpolation_length
+        self._train_diffusion_on_whole = train_diffusion_on_whole
 
         max_episode_length_dict = load_episodes()["max_episode_length"]
 
@@ -418,6 +420,9 @@ class RLBenchDataset(Dataset):
             [trajectories],  # wrt frame_ids, (N_i, 8)
         ]
         """
+        if self._train_diffusion_on_whole:
+            return self._getitem_whole(episode_id)
+
         episode_id %= self._num_episodes
         task, variation, file, chunk = self._episodes[episode_id]
 
@@ -504,6 +509,91 @@ class RLBenchDataset(Dataset):
         if self._num_iters is not None:
             return self._num_iters
         return self._num_episodes
+
+    def _getitem_whole(self, episode_id):
+        """
+        the episode item: [
+            [frame_ids],  # we use chunk and max_episode_length to index it
+            [obs_tensors],  # wrt frame_ids, (n_cam, 2, 3, 256, 256)
+                obs_tensors[i][:, 0] is RGB, obs_tensors[i][:, 1] is XYZ
+            [action_tensors],  # wrt frame_ids, (1, 8)
+            [camera_dicts],
+            [gripper_tensors]  # wrt frame_ids, (1, 8)
+            [trajectories],  # wrt frame_ids, (N_i, 8)
+        ]
+        """
+        episode_id %= self._num_episodes
+        task, variation, file, chunk = self._episodes[episode_id]
+
+        # Load episode
+        episode = self._cache(file)
+        if episode is None:
+            return None
+
+        # CHeck for valid episode
+        frame_ids = episode[0][chunk * self._max_episode_length: (chunk + 1) * self._max_episode_length]
+        if len(frame_ids) == 0:
+            # Episode ID is not valid, sample another one
+            episode_id = random.randint(0, self._num_episodes - 1)
+            return self.__getitem__(episode_id)
+
+        # Get the image tensors for the frame ids we got
+        states = torch.from_numpy(episode[1][0])[None]
+
+        # Camera ids
+        cameras = list(episode[3][0].keys())
+        assert all(c in cameras for c in self._cameras)
+        index = torch.tensor([cameras.index(c) for c in self._cameras])
+
+        # Re-map states based on camera ids
+        states = states[:, index]
+
+        # Split RGB and XYZ
+        rgbs = states[:, :, 0]  # (1, n_cam, 3, 256, 256)
+        pcds = states[:, :, 1]  # (1, n_cam, 3, 256, 256)
+
+        # Get action tensors for respective frame ids
+        action = episode[2][-1]
+
+        # Sample one instruction feature
+        instr = random.choice(self._instructions[task][variation])
+        instr = instr[None].repeat(len(rgbs), 1, 1)
+
+        # Get gripper tensors for respective frame ids
+        gripper = episode[4][0]
+
+        # Low-level trajectory
+        traj, traj_lens = None, 0
+        if self._return_low_lvl_trajectory:
+            traj = torch.cat(episode[5])
+            if self._dense_interpolation:
+                traj = self.resample_trajectory(traj)
+            traj = traj[None]
+            traj_lens = torch.as_tensor([traj.size(1)])
+            # Trim to fixed length
+            if self._trim_to_fixed_len is not None:
+                traj = traj[:, :self._trim_to_fixed_len]  # (n_frames, T, 8)
+                traj_lens = traj_lens * 0 + self._trim_to_fixed_len
+
+        # Augmentations
+        if self._training:
+            pcds, gripper, action, traj = self._rotate(pcds, gripper, action, None, traj)
+            if traj is not None:
+                for t, tlen in enumerate(traj_lens):
+                    traj[t, tlen:] = 0
+            modals = self._resize(rgbs=rgbs, pcds=pcds)
+            rgbs = modals["rgbs"]
+            pcds = modals["pcds"]
+
+        return {
+            "rgbs": rgbs,  # e.g. tensor (n_frames, n_cam, 3+1, H, W)
+            "pcds": pcds,  # e.g. tensor (n_frames, n_cam, 3, H, W)
+            "action": action[..., :self._action_dim],  # e.g. tensor (n_frames, 8), target pose
+            "instr": instr,  # a (n_frames, 53, 512) tensor
+            "curr_gripper": gripper[..., :self._action_dim],  # e.g. tensor (n_frames, 8), current pose
+            "trajectory": traj[..., :self._action_dim],  # e.g. tensor (n_frames, 67, 8)
+            "trajectory_len": traj_lens  # e.g. tensor (n_frames,)
+        }
 
 
 class RLBenchAnalogicalDataset(Dataset):

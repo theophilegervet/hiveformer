@@ -22,8 +22,6 @@ from utils.utils_without_rlbench import (
     get_gripper_loc_bounds
 )
 from dataset import RLBenchDataset
-from model.diffusion_planner.diffusion_model import DiffusionPlanner
-from train import get_log_dir, CheckpointCallback
 from typing import List, Tuple, Optional
 from pathlib import Path
 
@@ -48,6 +46,7 @@ class Arguments(tap.Tap):
     dense_interpolation: int = 0
     interpolation_length: int = 100
     trim_to_fixed_len: Optional[int] = None
+    train_diffusion_on_whole: int = 0
 
     # Logging to base_log_dir/exp_log_dir/run_log_dir
     logger: Optional[str] = "tensorboard"  # One of "wandb", "tensorboard", None
@@ -66,8 +65,8 @@ class Arguments(tap.Tap):
     train_iters: int = 200_000
     max_episode_length: int = 5  # -1 for no limit
 
-    # Toggle to switch between original HiveFormer and our models
-    model: str = "baseline"  # one of "original", "baseline", "analogical"
+    # Toggle to switch between our models
+    model: str = "diffusion"  # one of "diffusion", "regression"
 
     # ---------------------------------------------------------------
     # Original HiveFormer parameters
@@ -128,7 +127,6 @@ class Arguments(tap.Tap):
     use_instruction: int = 0
     use_goal: int = 0
     use_rgb: int = 1
-    relative_to_start: int = 1
     task_specific_biases: int = 0
     diffusion_head: str = "simple"
 
@@ -150,15 +148,16 @@ def training(
     optimizer,
     train_loader,
     val_loaders,
-    checkpointer,
     args,
-    writer=None
+    writer=None,
+    best_loss=None,
+    start_iter=0
 ):
     iter_loader = iter(train_loader)
 
     aggregated_losses = defaultdict(list)
 
-    with trange(args.train_iters) as tbar:
+    with trange(start_iter, args.train_iters) as tbar:
         for step_id in tbar:
             try:
                 sample = next(iter_loader)
@@ -207,7 +206,7 @@ def training(
                 aggregated_losses = defaultdict(list)
 
                 if val_loaders is not None:
-                    val_metrics = validation_step(
+                    validation_step(
                         step_id,
                         [train_loader],
                         model,
@@ -227,7 +226,24 @@ def training(
                     model.train()
                 else:
                     val_metrics = {}
-                checkpointer({k: v.mean() for k, v in val_metrics.items()})
+                m_ = 'val-loss-0/pos_l2'
+                if m_ not in val_metrics:
+                    print(f'{m_} is not reported, storing unconditionally')
+                new_loss = val_metrics.get(m_, None)
+                if new_loss is None or best_loss is None or new_loss <= best_loss:
+                    best_loss = new_loss
+                    torch.save({
+                        "weight": model.state_dict(),
+                        "optimizer": optimizer.state_dict(),
+                        "iter": step_id + 1,
+                        "best_loss": best_loss
+                    }, args.log_dir / "best.pth")
+                torch.save({
+                    "weight": model.state_dict(),
+                    "optimizer": optimizer.state_dict(),
+                    "iter": step_id + 1,
+                    "best_loss": best_loss
+                }, args.log_dir / "last.pth")
 
 
 @torch.no_grad()
@@ -280,11 +296,12 @@ def validation_step(
                 if args.logger == 'tensorboard':
                     writer.add_image(viz_key, viz, step_id)
 
+        values = {k: v.mean().item() for k, v in values.items()}
         for key, val in values.items():
             if args.logger == "tensorboard":
-                writer.add_scalar(key, val.mean(), step_id)
+                writer.add_scalar(key, val, step_id)
             elif args.logger == "wandb":
-                wandb.log({key: val.mean()}, step=step_id)
+                wandb.log({key: val}, step=step_id)
 
         if args.logger == "tensorboard":
             writer.add_scalar(f"lr/", args.lr, step_id)
@@ -293,7 +310,7 @@ def validation_step(
 
         print(f"Step {step_id}:")
         for key, value in values.items():
-            print(f"{key}: {value.mean():.03f}")
+            print(f"{key}: {value:.03f}")
 
     return values
 
@@ -417,7 +434,8 @@ def get_train_loader(args, gripper_loc_bounds):
         dense_interpolation=bool(args.dense_interpolation),
         return_low_lvl_trajectory=True,
         action_dim=args.action_dim,
-        trim_to_fixed_len=args.trim_to_fixed_len
+        trim_to_fixed_len=args.trim_to_fixed_len,
+        train_diffusion_on_whole=args.train_diffusion_on_whole
     )
 
     loader = DataLoader(
@@ -472,14 +490,15 @@ def get_val_loaders(args, gripper_loc_bounds):
             dense_interpolation=bool(args.dense_interpolation),
             interpolation_length=args.interpolation_length,
             action_dim=args.action_dim,
-            trim_to_fixed_len=args.trim_to_fixed_len
+            trim_to_fixed_len=args.trim_to_fixed_len,
+            train_diffusion_on_whole=args.train_diffusion_on_whole
         )
         loader = DataLoader(
             dataset=dataset,
             batch_size=args.batch_size_val,
             shuffle=True,
             num_workers=0,
-            collate_fn=collate_fn,
+            collate_fn=collate_fn
         )
         loaders.append(loader)
 
@@ -487,20 +506,35 @@ def get_val_loaders(args, gripper_loc_bounds):
 
 
 def get_model(args, gripper_loc_bounds):
-    _model = DiffusionPlanner(
-        backbone=args.backbone,
-        image_size=tuple(int(x) for x in args.image_size.split(",")),
-        embedding_dim=args.embedding_dim,
-        num_vis_ins_attn_layers=args.num_vis_ins_attn_layers,
-        num_sampling_level=args.num_sampling_level,
-        use_instruction=bool(args.use_instruction),
-        use_goal=bool(args.use_goal),
-        use_rgb=bool(args.use_rgb),
-        gripper_loc_bounds=gripper_loc_bounds,
-        positional_features=args.positional_features,
-        diffusion_head=args.diffusion_head,
-        relative_to_start=args.relative_to_start
-    )
+    if args.model == "diffusion":
+        from model.diffusion_planner.diffusion_model import DiffusionPlanner
+        _model = DiffusionPlanner(
+            backbone=args.backbone,
+            image_size=tuple(int(x) for x in args.image_size.split(",")),
+            embedding_dim=args.embedding_dim,
+            num_vis_ins_attn_layers=args.num_vis_ins_attn_layers,
+            num_sampling_level=args.num_sampling_level,
+            use_instruction=bool(args.use_instruction),
+            use_goal=bool(args.use_goal),
+            use_rgb=bool(args.use_rgb),
+            gripper_loc_bounds=gripper_loc_bounds,
+            positional_features=args.positional_features,
+            diffusion_head=args.diffusion_head
+        )
+    elif args.model == "regression":
+        from model.trajectory_regressor.trajectory_model import TrajectoryRegressor
+        _model = TrajectoryRegressor(
+            backbone=args.backbone,
+            image_size=tuple(int(x) for x in args.image_size.split(",")),
+            embedding_dim=args.embedding_dim,
+            num_vis_ins_attn_layers=args.num_vis_ins_attn_layers,
+            num_sampling_level=args.num_sampling_level,
+            use_instruction=bool(args.use_instruction),
+            use_goal=bool(args.use_goal),
+            use_rgb=bool(args.use_rgb),
+            gripper_loc_bounds=gripper_loc_bounds,
+            positional_features=args.positional_features
+        )
 
     devices = [torch.device(d) for d in args.devices]
     model = _model.to(devices[0])
@@ -519,6 +553,8 @@ def get_model(args, gripper_loc_bounds):
         else:
             optimizer_grouped_parameters[1]["params"].append(param)
     optimizer = optim.AdamW(optimizer_grouped_parameters)
+    start_iter = 0
+    best_loss = None
 
     if args.checkpoint is not None:
         model_dict = torch.load(args.checkpoint, map_location="cpu")
@@ -528,11 +564,17 @@ def get_model(args, gripper_loc_bounds):
             model_dict_weight[_key] = model_dict["weight"][key]
         _model.load_state_dict(model_dict_weight)
         optimizer.load_state_dict(model_dict["optimizer"])
+        start_iter = model_dict.get("iter", 0)
+        best_loss = model_dict.get("best_loss", None)
 
     model_params = count_parameters(_model)
     print("Model parameters:", model_params)
 
-    return optimizer, model
+    return optimizer, model, start_iter, best_loss
+
+
+def get_log_dir(args):
+    return args.base_log_dir / args.exp_log_dir / args.run_log_dir
 
 
 if __name__ == "__main__":
@@ -558,6 +600,7 @@ if __name__ == "__main__":
     print()
 
     log_dir = get_log_dir(args)
+    args.log_dir = log_dir
     log_dir.mkdir(exist_ok=True, parents=True)
     args.save(str(log_dir / "hparams.json"))
 
@@ -593,24 +636,12 @@ if __name__ == "__main__":
         task=task, buffer=args.gripper_bounds_buffer
     )
 
-    optimizer, model = get_model(args, gripper_loc_bounds)
+    optimizer, model, start_iter, best_loss = get_model(args, gripper_loc_bounds)
 
     print()
     print("-" * 100)
     print()
 
-    model_dict = {
-        "weight": model.state_dict(),
-        "optimizer": optimizer.state_dict(),
-    }
-    checkpointer = CheckpointCallback(
-        "val-loss-0/mse",
-        log_dir,
-        model_dict,
-        val_freq=args.val_freq,
-        minimizing=True,
-        checkpoint_freq=args.checkpoint_freq,
-    )
     model.train()
 
     val_loaders = get_val_loaders(args, gripper_loc_bounds)
@@ -622,9 +653,10 @@ if __name__ == "__main__":
             optimizer,
             train_loader,
             val_loaders,
-            checkpointer,
             args,
-            writer
+            writer,
+            best_loss=best_loss,
+            start_iter=start_iter
         )
 
     if val_loaders is not None:
@@ -636,7 +668,3 @@ if __name__ == "__main__":
             writer,
             val_iters=-1
         )
-
-    # Last checkpoint
-    checkpoint = log_dir / f"mtl_{args.seed}_{args.lr}.pth"
-    torch.save(model_dict, checkpoint)

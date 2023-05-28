@@ -21,10 +21,8 @@ class DiffusionPlanner(nn.Module):
                  use_rgb=True,
                  gripper_loc_bounds=None,
                  positional_features="none",
-                 diffusion_head="simple",
-                 relative_to_start=True):
+                 diffusion_head="simple"):
         super().__init__()
-        self._relative_to_start = relative_to_start
         if diffusion_head == "simple":
             from .diffusion_head_simple import DiffusionHead
             self.prediction_head = DiffusionHead(
@@ -76,14 +74,6 @@ class DiffusionPlanner(nn.Module):
         # Undo pre-processing to feed RGB to pre-trained backbone (from [-1, 1] to [0, 1])
         rgb_obs = (rgb_obs / 2 + 0.5)
         rgb_obs = rgb_obs[:, :, :3, :, :]
-
-        # Center to current gripper location
-        if self._relative_to_start:
-            abs_gripper = curr_gripper
-            trajectory[..., :3] = trajectory[..., :3] - abs_gripper[:, None]
-            pcd_obs = pcd_obs - abs_gripper[:, None, :, None, None]
-            curr_gripper = curr_gripper - abs_gripper
-            goal_gripper = goal_gripper - abs_gripper
 
         noise = self.prediction_head(
             trajectory,
