@@ -19,7 +19,7 @@ B=24
 python train_diffusion.py --tasks $task \
     --dataset  $dataset\
     --valset $valset \
-    --instructions instructions_new.pkl \
+    --instructions instructions_old/instructions_local.pkl \
     --gripper_loc_bounds_file diffusion_location_bounds.json\
     --use_instruction 0 \
     --num_workers 2\
