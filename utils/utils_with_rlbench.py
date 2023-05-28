@@ -625,8 +625,7 @@ class RLBenchEnv:
                 )
                 move = Mover(task, max_tries=max_tries)
                 reward = None
-                gt_keyframe_actions, trajectories, trajectory_masks = actioner.get_action_from_demo(demo)
-                import IPython;IPython.embed()
+                gt_keyframe_actions, trajectories, gt_trajectory_masks = actioner.get_action_from_demo(demo)
                 if offline:
                     max_steps = len(gt_keyframe_actions)
                 gt_keyframe_gripper_matrices = np.stack([self.get_gripper_matrix_from_action(a[-1])
@@ -644,9 +643,14 @@ class RLBenchEnv:
                     rgbs = torch.cat([rgbs, rgb.unsqueeze(1)], dim=1)
                     pcds = torch.cat([pcds, pcd.unsqueeze(1)], dim=1)
                     grippers = torch.cat([grippers, gripper.unsqueeze(1)], dim=1)
+                    if dense_interpolation:
+                        trajectory_mask = torch.full([1, interpolation_length], False).to(device)
+                    else:
+                        trajectory_mask = gt_trajectory_masks[step_id].to(device)
+
                     output = actioner.predict(step_id, rgbs[:, -1:], pcds[:, -1:], grippers[:, -1:],
                                               gt_action=gt_keyframe_actions[step_id].unsqueeze(0).float().to(device),
-                                              trajectory_mask=trajectory_masks[step_id].to(device))
+                                              trajectory_mask=trajectory_mask)
 
                     if offline:
                         # Follow demo
@@ -722,7 +726,7 @@ class RLBenchEnv:
                             # trajectory_np = self.smooth_trajectory(trajectory_np, 5, 2)
 
                             # append gripper action and next step
-                            trajectory_np_full = np.concatenate([trajectory_np, np.tile(grippers[-1, -1:, -1:].numpy(), [trajectory_np.shape[0], 1])], axis=-1)
+                            trajectory_np_full = np.concatenate([trajectory_np, np.tile(grippers[-1, -1:, -1:].cpu().numpy(), [trajectory_np.shape[0], 1])], axis=-1)
                             trajectory_np_full = np.concatenate([trajectory_np_full, gt_keyframe_actions[step_id].numpy()], axis=0)
                             trajectory_np_full_gt = np.concatenate([trajectories[step_id][1:], gt_keyframe_actions[step_id].numpy()], axis=0)
                             # trajectory_np_full_gt = self.resample_trajectory(trajectory_np_full_gt, 100)

@@ -4,14 +4,19 @@ use_goal=1
 use_instruction=0
 gripper_bounds_buffer=0.02
 
-dense_interpolation=0
+dense_interpolation=1
 interpolation_length=100
+ckpt=/home/zhouxian/git/hiveformer/train_logs/diffuse_05_25/close_door-B24-lr1e-4-DI1-100_version174698/model.step=380000-value=0.00000.pth
+
+dense_interpolation=1
+interpolation_length=50
+ckpt=/home/zhouxian/git/hiveformer/train_logs/diffuse_05_25/close_door-B24-lr1e-4-DI1-50_version174697/model.step=380000-value=0.00000.pth
 
 python eval.py\
      --tasks $task\
-     --checkpoint /home/zhouxian/git/hiveformer/train_logs/diffuse_05_25/close_door-B24-lr1e-4-DI1-50_version174697/model.step=100000-value=0.00000.pth \
+     --checkpoint $ckpt\
      --data_dir $valset\
-     --instructions instructions_new.pkl \
+     --instructions instructions_old/instructions_local.pkl \
      --gripper_loc_bounds_file diffusion_location_bounds.json\
      --use_goal $use_goal \
      --model diffusion \

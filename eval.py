@@ -227,7 +227,7 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
             use_goal=bool(args.use_goal),
             gripper_loc_bounds=gripper_loc_bounds,
             positional_features=args.positional_features
-        )
+        ).to(device)
     elif args.model == "analogical":
         raise NotImplementedError
         model = AnalogicalNetwork(
