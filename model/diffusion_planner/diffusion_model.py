@@ -21,6 +21,7 @@ class DiffusionPlanner(nn.Module):
                  use_rgb=True,
                  gripper_loc_bounds=None,
                  positional_features="none",
+                 predict_length=False,
                  diffusion_head="simple"):
         super().__init__()
         if diffusion_head == "simple":
@@ -36,6 +37,7 @@ class DiffusionPlanner(nn.Module):
                 use_instruction=use_instruction,
                 positional_features=positional_features,
                 use_goal=use_goal,
+                predict_length=predict_length,
                 use_rgb=use_rgb
             )
         elif diffusion_head == "unconditional":
@@ -75,7 +77,7 @@ class DiffusionPlanner(nn.Module):
         rgb_obs = (rgb_obs / 2 + 0.5)
         rgb_obs = rgb_obs[:, :, :3, :, :]
 
-        noise = self.prediction_head(
+        noise, length = self.prediction_head(
             trajectory,
             trajectory_mask,
             timestep,
@@ -85,7 +87,7 @@ class DiffusionPlanner(nn.Module):
             goal_gripper=goal_gripper,
             instruction=instruction
         )
-        return noise
+        return noise, length
 
     def conditional_sample(self, condition_data, condition_mask, fixed_inputs):
         # Random trajectory, conditioned on start-end
@@ -99,17 +101,17 @@ class DiffusionPlanner(nn.Module):
         # Iterative denoising
         self.noise_scheduler.set_timesteps(self.n_steps)
         for t in self.noise_scheduler.timesteps:
-            out = self.policy_forward_pass(
+            noise, length = self.policy_forward_pass(
                 trajectory,
                 t * torch.ones(len(trajectory)).to(trajectory.device).long(),
                 fixed_inputs
             )
             trajectory = self.noise_scheduler.step(
-                out, t, trajectory
+                noise, t, trajectory
             ).prev_sample
             trajectory[condition_mask] = condition_data[condition_mask]
 
-        return trajectory
+        return trajectory, length
                 
     def compute_trajectory(
         self,
@@ -156,7 +158,7 @@ class DiffusionPlanner(nn.Module):
         cond_mask = cond_mask.bool()
 
         # Sample
-        trajectory = self.conditional_sample(
+        trajectory, length = self.conditional_sample(
             cond_data,
             cond_mask,
             fixed_inputs
@@ -167,7 +169,7 @@ class DiffusionPlanner(nn.Module):
         # unnormalize position
         trajectory[:, :, :3] = self.unnormalize_pos(trajectory[:, :, :3])
 
-        return trajectory
+        return trajectory, length
 
     def normalize_pos(self, pos):
         pos_min = self.gripper_loc_bounds[0].float().to(pos.device)
@@ -234,7 +236,7 @@ class DiffusionPlanner(nn.Module):
         noisy_trajectory[cond_mask] = cond_data[cond_mask]  # condition
         
         # Predict the noise residual
-        pred = self.policy_forward_pass(
+        pred, length = self.policy_forward_pass(
             noisy_trajectory, timesteps, 
             fixed_inputs
         )
@@ -248,8 +250,18 @@ class DiffusionPlanner(nn.Module):
             raise ValueError(f"Unsupported prediction type {pred_type}")
 
         # Compute loss
-        loss = F.mse_loss(pred, target, reduction='none')  # (B, L, 7+)
+        loss_dict = dict()
+        loss_dict['noise_mse'] = F.mse_loss(pred, target, reduction='none')  # (B, L, 7+)
         loss_mask = ~cond_mask
-        loss = loss * loss_mask.type(loss.dtype)
-        loss = loss.sum() / loss_mask.sum()
-        return loss
+        loss_dict['noise_mse'] = loss_dict['noise_mse'] * loss_mask.type(loss_dict['noise_mse'].dtype)
+        loss_dict['noise_mse'] = loss_dict['noise_mse'].sum() / loss_mask.sum()
+
+        if self.prediction_head.predict_length:
+            length_target = (1 - trajectory_mask.to(torch.float)).sum(-1) / 100
+            loss_dict['length'] = F.mse_loss(length, length_target) * 2
+
+        loss = 0.0
+        for key in loss_dict:
+            loss += loss_dict[key]
+
+        return loss, loss_dict

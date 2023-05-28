@@ -47,6 +47,7 @@ class Arguments(tap.Tap):
     interpolation_length: int = 100
     trim_to_fixed_len: Optional[int] = None
     train_diffusion_on_whole: int = 0
+    predict_length: int = 0
 
     # Logging to base_log_dir/exp_log_dir/run_log_dir
     logger: Optional[str] = "tensorboard"  # One of "wandb", "tensorboard", None
@@ -168,7 +169,7 @@ def training(
             if step_id % args.accumulate_grad_batches == 0:
                 optimizer.zero_grad()
 
-            loss = model(
+            loss, train_losses = model(
                 sample["trajectory"],
                 sample["trajectory_mask"],
                 sample["rgbs"],
@@ -177,9 +178,11 @@ def training(
                 sample["curr_gripper"],
                 sample["action"]
             )
-
+            loss = loss.mean()
             loss.backward()
-            aggregated_losses["noise_mse"].append(loss.item())
+
+            for n, l in train_losses.items():
+                aggregated_losses[n].append(l)
 
             if step_id % args.accumulate_grad_batches == args.accumulate_grad_batches - 1:
                 optimizer.step()
@@ -265,7 +268,7 @@ def validation_step(
             if i == val_iters:
                 break
 
-            action = model.module.compute_trajectory(
+            action, length = model.module.compute_trajectory(
                 sample["trajectory_mask"].to(device),
                 sample["rgbs"].to(device),
                 sample["pcds"].to(device),
@@ -276,7 +279,8 @@ def validation_step(
             losses = compute_metrics(
                 action,
                 sample["trajectory"].to(device),
-                sample["trajectory_mask"].to(device)
+                sample["trajectory_mask"].to(device),
+                length
             )
 
             for n, l in losses.items():
@@ -315,13 +319,15 @@ def validation_step(
     return values
 
 
-def compute_metrics(pred, gt, mask):
+def compute_metrics(pred, gt, mask, length=None):
     # pred/gt are (B, L, 7), mask (B, L)
     mask = mask.float()
     pos_l2 = ((pred[..., :3] - gt[..., :3]) ** 2).sum(-1).sqrt() * (1 - mask)
     quat_l1 = (pred[..., 3:7] - gt[..., 3:7]).abs().sum(-1) * (1 - mask)
     div_ = (1 - mask).sum()
-    return {
+    length_target = (1 - mask.to(torch.float)).sum(-1) / 100
+
+    metrics = {
         'action_mse': (
             F.mse_loss(pred, gt, reduction='none')* (1 - mask)[..., None]
         ).mean(-1).sum() / div_,
@@ -329,9 +335,13 @@ def compute_metrics(pred, gt, mask):
         'pos_acc_001': ((pos_l2 < 0.01).float()  * (1 - mask)).sum() / div_,
         'rot_l1': quat_l1.sum() / div_,
         'rot_l1_005': ((quat_l1 < 0.05).float()  * (1 - mask)).sum() / div_,
-        'rot_l1_0025': ((quat_l1 < 0.025).float()  * (1 - mask)).sum() / div_
+        'rot_l1_0025': ((quat_l1 < 0.025).float()  * (1 - mask)).sum() / div_,
     }
 
+    if length is not None:
+        metrics['length'] = F.mse_loss(length, length_target)*2
+
+    return metrics
 
 def generate_visualizations(pred, gt, mask, box_size=0.3):
     batch_idx = 0
@@ -520,6 +530,7 @@ def get_model(args, gripper_loc_bounds):
             use_rgb=bool(args.use_rgb),
             gripper_loc_bounds=gripper_loc_bounds,
             positional_features=args.positional_features,
+            predict_length=bool(args.predict_length),
             diffusion_head=args.diffusion_head
         )
     elif args.model == "regression":

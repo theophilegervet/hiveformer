@@ -7,16 +7,20 @@ valset=/projects/katefgroup/datasets/rlbench/diffusion_trajectories_val/
 
 main_dir=diffuse_05_24
 main_dir=diffuse_05_25
+main_dir=diffuse_05_28
+
 # main_dir=debug
 
-
 task=close_door
+task=wipe_desk
 lr=2e-4
-dense_interpolation=0
+dense_interpolation=1
 interpolation_length=100
+predict_length=0
 B=24
 
-python train_diffusion.py --tasks $task \
+python train_diffusion.py \
+    --tasks $task \
     --dataset  $dataset\
     --valset $valset \
     --instructions instructions_old/instructions_local.pkl \
@@ -29,9 +33,10 @@ python train_diffusion.py --tasks $task \
     --checkpoint_freq 5 \
     --dense_interpolation $dense_interpolation \
     --interpolation_length $interpolation_length \
+    --predict_length $predict_length \
     --gripper_bounds_buffer 0.02\
     --exp_log_dir $main_dir \
     --batch_size $B \
     --batch_size_val 12 \
     --lr $lr\
-    --run_log_dir $task-B$B-lr$lr-DI$dense_interpolation-$interpolation_length\
+    --run_log_dir $task-B$B-lr$lr-DI$dense_interpolation-$interpolation_length-PL$predict_length\

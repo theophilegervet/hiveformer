@@ -31,6 +31,7 @@ class DiffusionHead(nn.Module):
                  use_instruction=False,
                  use_goal=False,
                  positional_features="none",
+                 predict_length=False,
                  use_rgb=True):
         super().__init__()
         assert backbone in ["resnet", "clip"]
@@ -47,6 +48,7 @@ class DiffusionHead(nn.Module):
         self.use_instruction = use_instruction
         self.use_goal = use_goal
         self.use_rgb = use_rgb
+        self.predict_length = predict_length
 
         # Trajectory encoder
         self.traj_encoder = nn.Linear(output_dim, embedding_dim)
@@ -105,9 +107,6 @@ class DiffusionHead(nn.Module):
         # Goal gripper learnable features
         self.goal_gripper_embed = nn.Embedding(1, embedding_dim)
 
-        # Query learnable features
-        self.query_embed = nn.Embedding(1, embedding_dim)
-
         # Visual tokens cross-attention to language instructions
         if self.use_instruction:
             self.vis_ins_attn_pyramid = nn.ModuleList()
@@ -124,6 +123,17 @@ class DiffusionHead(nn.Module):
                 self_attention2=False, cross_attention2=False,
                 rotary_pe=True
             ))
+
+        if self.predict_length:
+            self.length_predictor_attn = nn.ModuleList()
+            for _ in range(num_vis_ins_attn_layers):
+                self.length_predictor_attn.append(ParallelAttentionLayer(
+                    d_model=embedding_dim, n_heads=num_attn_heads,
+                    self_attention2=False, cross_attention2=False,
+                    rotary_pe=True
+                ))
+            self.length_query_embed = nn.Embedding(1, embedding_dim)
+            self.length_regressor = nn.Linear(embedding_dim, 1)
 
         # Noise regression
         self.noise_regressor = nn.Linear(embedding_dim, output_dim)
@@ -238,10 +248,25 @@ class DiffusionHead(nn.Module):
                 seq1_sem_pos=traj_time_pos, seq2_sem_pos=None
             )
 
+        # Length prediction
+        if self.predict_length:
+            query_feats = self.length_query_embed.weight.unsqueeze(0).repeat(traj_feats.shape[0], 1, 1)
+            query_dummy_pos = self.relative_pe_layer(torch.zeros([query_feats.shape[0], query_feats.shape[1], 3], device=instruction.device))
+            for layer in self.length_predictor_attn:
+                query_feats, _ = layer(
+                    seq1=query_feats, seq1_key_padding_mask=None,
+                    seq2=context_feats, seq2_key_padding_mask=None,
+                    seq1_pos=query_dummy_pos, seq2_pos=context_pos,
+                    seq1_sem_pos=None, seq2_sem_pos=None
+                )
+            length = self.length_regressor(query_feats).squeeze()
+        else:
+            length = None
+
         # Regress noise
         noise = self.noise_regressor(traj_feats)  # (B, L, output_dim)
 
-        return noise
+        return noise, length
 
     def _compute_visual_features(self, visible_rgb, visible_pcd, num_cameras):
         """Compute visual features/pos embeddings at different scales."""

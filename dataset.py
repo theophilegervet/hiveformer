@@ -496,6 +496,7 @@ class RLBenchDataset(Dataset):
             pcds = modals["pcds"]
 
         return {
+            "task": task,  # e.g. 'reach_target'
             "rgbs": rgbs,  # e.g. tensor (n_frames, n_cam, 3+1, H, W)
             "pcds": pcds,  # e.g. tensor (n_frames, n_cam, 3, H, W)
             "action": action[..., :self._action_dim],  # e.g. tensor (n_frames, 8), target pose
