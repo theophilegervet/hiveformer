@@ -18,7 +18,7 @@ for batch_size in 12 24; do
         --devices cuda:0 cuda:1 cuda:2 cuda:3 cuda:4 cuda:5 cuda:6 cuda:7 \
         --dataset  $dataset\
         --valset $valset \
-        --gripper_loc_bounds_file diffusion_location_bounds.json \
+        --gripper_loc_bounds_file multitask_diffusion_location_bounds.json \
         --num_workers $num_workers \
         --train_iters $train_iters \
         --use_instruction 1 \
