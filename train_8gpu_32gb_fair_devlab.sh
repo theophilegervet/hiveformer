@@ -10,4 +10,4 @@
 #SBATCH --mem=512gb
 #SBATCH --constraint=volta32gb
 
-python train.py "$@"
+python train_diffusion.py "$@"
