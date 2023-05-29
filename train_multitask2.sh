@@ -1,8 +1,7 @@
 dataset=/private/home/theop123/datasets/rlbench/packaged/diffusion_trajectories_train/
 valset=/private/home/theop123/datasets/rlbench/packaged/diffusion_trajectories_val/
 
-main_dir=multitask_nolang
-
+main_dir=multitask_withlang
 
 # task=unplug_charger close_door open_box open_drawer open_fridge open_door put_umbrella_in_umbrella_stand take_frame_off_hanger open_oven put_books_on_bookshelf slide_cabinet_open_and_place_cups put_knife_on_chopping_board wipe_desk reach_target pick_up_cup stack_cups stack_blocks open_grill open_microwave toilet_seat_up
 lr=2e-4
@@ -11,8 +10,8 @@ interpolation_length=100
 batch_size_val=3
 train_iters=4_000_000
 
-for batch_size in 12 24; do
-  for num_workers in 1 4; do
+for batch_size in 12; do
+  for num_workers in 1; do
     sbatch train_8gpu_32gb_fair.sh \
         --tasks unplug_charger close_door open_box open_drawer open_fridge open_door put_umbrella_in_umbrella_stand take_frame_off_hanger open_oven put_books_on_bookshelf slide_cabinet_open_and_place_cups put_knife_on_chopping_board wipe_desk reach_target pick_up_cup stack_cups stack_blocks open_grill open_microwave toilet_seat_up \
         --devices cuda:0 cuda:1 cuda:2 cuda:3 cuda:4 cuda:5 cuda:6 cuda:7 \
