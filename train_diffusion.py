@@ -228,12 +228,13 @@ def training(
             )
 
             loss.backward()
-            aggregated_losses["noise_mse"].append(loss.item())
 
             if step_id % args.accumulate_grad_batches == args.accumulate_grad_batches - 1:
                 optimizer.step()
 
             if rank == 0:
+                aggregated_losses["noise_mse"].append(loss.item())
+
                 if args.logger == "wandb":
                     wandb.log(
                         {
