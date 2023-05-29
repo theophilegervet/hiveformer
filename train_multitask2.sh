@@ -33,6 +33,7 @@ for batch_size in 12 24; do
         --batch_size $batch_size \
         --batch_size_val $batch_size_val \
         --lr $lr\
-        --run_log_dir multitask-B$B-lr$lr-DI$dense_interpolation-$interpolation_length
+        --logger wandb \
+        --run_log_dir DIFFUSION-multitask-B$B-lr$lr-DI$dense_interpolation-$interpolation_length
   done
 done
