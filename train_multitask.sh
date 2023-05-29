@@ -14,7 +14,7 @@ python train_diffusion.py --tasks unplug_charger close_door open_box open_drawer
     --dataset  $dataset\
     --valset $valset \
     --instructions /home/tgervet/hiveformer/instructions.pkl \
-    --gripper_loc_bounds_file diffusion_location_bounds.json \
+    --gripper_loc_bounds_file multitask_diffusion_location_bounds.json \
     --num_workers 4\
     --train_iters 500000\
     --use_instruction 0 \

@@ -309,7 +309,7 @@ class RLBenchDataset(Dataset):
         action_dim=8,
         trim_to_fixed_len=None
     ):
-        self._cache = mp.Manager().dict()
+        self._cache = {}  # mp.Manager().dict()
         self._cache_size = cache_size
         self._cameras = cameras
         self._image_size = image_size
