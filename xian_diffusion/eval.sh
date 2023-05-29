@@ -3,6 +3,7 @@ task=close_door
 use_goal=1
 use_instruction=0
 gripper_bounds_buffer=0.02
+predict_length=0
 
 dense_interpolation=1
 interpolation_length=100
@@ -11,6 +12,10 @@ ckpt=/home/zhouxian/git/hiveformer/train_logs/diffuse_05_25/close_door-B24-lr1e-
 dense_interpolation=1
 interpolation_length=50
 ckpt=/home/zhouxian/git/hiveformer/train_logs/diffuse_05_25/close_door-B24-lr1e-4-DI1-50_version174697/model.step=380000-value=0.00000.pth
+
+# predict_length=0
+# dense_interpolation=0
+# ckpt=/home/zhouxian/git/hiveformer/train_logs/diffuse_05_28/close_door-B24-lr1e-4-DI0-100-PL0/last.pth
 
 python eval.py\
      --tasks $task\
@@ -21,6 +26,7 @@ python eval.py\
      --use_goal $use_goal \
      --model diffusion \
      --dense_interpolation $dense_interpolation \
+     --predict_length $predict_length \
      --interpolation_length $interpolation_length \
      --offline 0\
      --num_episodes 100\

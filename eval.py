@@ -67,6 +67,7 @@ class Arguments(tap.Tap):
     use_goal: int = 0
     dense_interpolation: int = 0
     interpolation_length: int = 100
+    predict_length: int = 0
 
     # ---------------------------------------------------------------
     # Original HiveFormer parameters
@@ -226,6 +227,7 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
             use_instruction=bool(args.use_instruction),
             use_goal=bool(args.use_goal),
             gripper_loc_bounds=gripper_loc_bounds,
+            predict_length=bool(args.predict_length),
             positional_features=args.positional_features
         ).to(device)
     elif args.model == "analogical":

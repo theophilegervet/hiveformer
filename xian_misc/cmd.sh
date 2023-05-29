@@ -2,7 +2,8 @@ rsync -avzh  --info=progress2 --exclude-from='/home/zhouxian/git/hiveformer/xian
 rsync -avzh --info=progress2  --exclude-from='/home/zhouxian/git/hiveformer/xian_misc/rsync-exclude-pth.txt' xianz1@matrix.ml.cmu.edu:/home/xianz1/git/hiveformer/train_logs/diffuse*  /home/zhouxian/git/hiveformer/train_logs/
 rsync -avzh --info=progress2  xianz1@matrix.ml.cmu.edu:/home/xianz1/git/hiveformer/instruction*  /home/zhouxian/git/hiveformer/
 
-rsync -avzh --info=progress2 xianz1@matrix.ml.cmu.edu:/home/xianz1/git/hiveformer/train_logs/diffuse_05_25/close_door-B24-lr1e-4-DI1-50_version174697/model.step=380000-value=0.00000.pth /home/zhouxian/git/hiveformer/train_logs/diffuse_05_25/close_door-B24-lr1e-4-DI1-50_version174697/
+rsync -avzh --info=progress2 xianz1@matrix.ml.cmu.edu:/home/xianz1/git/hiveformer/train_logs/diffuse_05_28/close_door-B24-lr1e-4-DI0-100-PL1/best.pth /home/zhouxian/git/hiveformer/train_logs/diffuse_05_28/close_door-B24-lr1e-4-DI0-100-PL1/
+rsync -avzh --info=progress2 xianz1@matrix.ml.cmu.edu:/home/xianz1/git/hiveformer/train_logs/diffuse_05_25/close_door-B24-lr1e-4-DI1-100_version174698/model.step=180000-value=0.00000.pth /home/zhouxian/git/hiveformer/train_logs/diffuse_05_25/close_door-B24-lr1e-4-DI1-100_version174698/
 
 rsync -avzh --info=progress2 xianz1@matrix.ml.cmu.edu:/projects/katefgroup/datasets/rlbench/diffusion_trajectories_train/close_door+0 /home/zhouxian/git/datasets/packaged/diffusion_trajectories_train/
 

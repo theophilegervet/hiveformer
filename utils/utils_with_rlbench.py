@@ -233,7 +233,7 @@ class Actioner:
             #     output["top_fine_rgb"] = (pred["fine_visible_rgb_mask"][-1] >= top_value).cpu().numpy()
 
         elif type(self._model) == DiffusionPlanner:
-            output["trajectory"] = self._model.compute_trajectory(
+            output["trajectory"], output["length"] = self._model.compute_trajectory(
                 trajectory_mask,
                 rgbs[:, -1],
                 pcds[:, -1],

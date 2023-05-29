@@ -124,6 +124,8 @@ class DiffusionHead(nn.Module):
                 rotary_pe=True
             ))
 
+        self.query_embed = nn.Embedding(1, embedding_dim)
+        
         if self.predict_length:
             self.length_predictor_attn = nn.ModuleList()
             for _ in range(num_vis_ins_attn_layers):
