@@ -10,6 +10,10 @@ from torch.nn import functional as F
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
+import torch.distributed as dist
+import torch.multiprocessing as mp
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data.distributed import DistributedSampler
 import numpy as np
 from tqdm import trange
 import wandb
@@ -144,18 +148,63 @@ class Arguments(tap.Tap):
 
 
 def training(
+    rank,
+    world_size,
     model,
-    optimizer,
-    train_loader,
     val_loaders,
     args,
-    writer=None,
-    best_loss=None,
-    start_iter=0
+    gripper_loc_bounds
 ):
-    iter_loader = iter(train_loader)
+    setup(rank, world_size)
 
-    aggregated_losses = defaultdict(list)
+    train_loader = get_train_loader(rank, world_size, args, gripper_loc_bounds)
+
+    # Set up optimizer
+    optimizer_grouped_parameters = [
+        {"params": [], "weight_decay": 0.0, "lr": args.lr},
+        {"params": [], "weight_decay": 5e-4, "lr": args.lr},
+    ]
+    no_decay = ["bias", "LayerNorm.weight", "LayerNorm.bias"]
+    for name, param in model.named_parameters():
+        if any(nd in name for nd in no_decay):
+            optimizer_grouped_parameters[0]["params"].append(param)
+        else:
+            optimizer_grouped_parameters[1]["params"].append(param)
+    optimizer = optim.AdamW(optimizer_grouped_parameters)
+
+    # Load checkpoint
+    start_iter = 0
+    best_loss = None
+    if args.checkpoint is not None:
+        model_dict = torch.load(args.checkpoint, map_location="cpu")
+        model_dict_weight = {}
+        for key in model_dict["weight"]:
+            _key = key[7:]
+            model_dict_weight[_key] = model_dict["weight"][key]
+        model.load_state_dict(model_dict_weight)
+        optimizer.load_state_dict(model_dict["optimizer"])
+        start_iter = model_dict.get("iter", 0)
+        best_loss = model_dict.get("best_loss", None)
+
+    model = model.to(rank)
+    model = DDP(model, [rank], find_unused_parameters=True)
+    model.train()
+
+    # Set up logging and checkpointing
+    if rank == 0:
+        if args.logger == "tensorboard":
+            writer = SummaryWriter(log_dir=args.log_dir)
+        elif args.logger == "wandb":
+            wandb.init(project="analogical_manipulation")
+            wandb.run.name = str(args.log_dir).split("/")[-1]
+            wandb.config.update(args.__dict__)
+            writer = None
+        else:
+            writer = None
+
+        aggregated_losses = defaultdict(list)
+
+    iter_loader = iter(train_loader)
 
     with trange(start_iter, args.train_iters) as tbar:
         for step_id in tbar:
@@ -184,66 +233,67 @@ def training(
             if step_id % args.accumulate_grad_batches == args.accumulate_grad_batches - 1:
                 optimizer.step()
 
-            if args.logger == "wandb":
-                wandb.log(
-                    {
-                        "lr": args.lr,
-                        **{f"train-loss/{n}": torch.mean(torch.stack(l)) for n, l in aggregated_losses.items()}
-                    },
-                    step=step_id
-                )
+            if rank == 0:
+                if args.logger == "wandb":
+                    wandb.log(
+                        {
+                            "lr": args.lr,
+                            **{f"train-loss/{n}": torch.mean(torch.stack(l)) for n, l in aggregated_losses.items()}
+                        },
+                        step=step_id
+                    )
 
-            if (step_id + 1) % args.val_freq == 0:
-                if args.logger == "tensorboard":
-                    writer.add_scalar(f"lr/", args.lr, step_id)
-                    for n, l in aggregated_losses.items():
-                        writer.add_scalar(
-                            f"train-loss/{n}",
-                            torch.mean(torch.as_tensor(l)),
-                            step_id
+                if (step_id + 1) % args.val_freq == 0:
+                    if args.logger == "tensorboard":
+                        writer.add_scalar(f"lr/", args.lr, step_id)
+                        for n, l in aggregated_losses.items():
+                            writer.add_scalar(
+                                f"train-loss/{n}",
+                                torch.mean(torch.as_tensor(l)),
+                                step_id
+                            )
+
+                    aggregated_losses = defaultdict(list)
+
+                    if val_loaders is not None:
+                        validation_step(
+                            step_id,
+                            [train_loader],
+                            model,
+                            args,
+                            writer,
+                            val_iters=1,
+                            split='train'
                         )
-
-                aggregated_losses = defaultdict(list)
-
-                if val_loaders is not None:
-                    validation_step(
-                        step_id,
-                        [train_loader],
-                        model,
-                        args,
-                        writer,
-                        val_iters=1,
-                        split='train'
-                    )
-                    val_metrics = validation_step(
-                        step_id,
-                        val_loaders,
-                        model,
-                        args,
-                        writer,
-                        val_iters=2
-                    )
-                    model.train()
-                else:
-                    val_metrics = {}
-                m_ = 'val-loss-0/pos_l2'
-                if m_ not in val_metrics:
-                    print(f'{m_} is not reported, storing unconditionally')
-                new_loss = val_metrics.get(m_, None)
-                if new_loss is None or best_loss is None or new_loss <= best_loss:
-                    best_loss = new_loss
+                        val_metrics = validation_step(
+                            step_id,
+                            val_loaders,
+                            model,
+                            args,
+                            writer,
+                            val_iters=2
+                        )
+                        model.train()
+                    else:
+                        val_metrics = {}
+                    m_ = 'val-loss-0/pos_l2'
+                    if m_ not in val_metrics:
+                        print(f'{m_} is not reported, storing unconditionally')
+                    new_loss = val_metrics.get(m_, None)
+                    if new_loss is None or best_loss is None or new_loss <= best_loss:
+                        best_loss = new_loss
+                        torch.save({
+                            "weight": model.state_dict(),
+                            "optimizer": optimizer.state_dict(),
+                            "iter": step_id + 1,
+                            "best_loss": best_loss
+                        }, args.log_dir / "best.pth")
                     torch.save({
                         "weight": model.state_dict(),
                         "optimizer": optimizer.state_dict(),
                         "iter": step_id + 1,
                         "best_loss": best_loss
-                    }, args.log_dir / "best.pth")
-                torch.save({
-                    "weight": model.state_dict(),
-                    "optimizer": optimizer.state_dict(),
-                    "iter": step_id + 1,
-                    "best_loss": best_loss
-                }, args.log_dir / "last.pth")
+                    }, args.log_dir / "last.pth")
 
 
 @torch.no_grad()
@@ -400,7 +450,7 @@ def collate_fn(batch):
     return ret_dict
 
 
-def get_train_loader(args, gripper_loc_bounds):
+def get_train_loader(rank, world_size, args, gripper_loc_bounds):
     instruction = load_instructions(
         args.instructions, tasks=args.tasks, variations=args.variations
     )
@@ -439,13 +489,22 @@ def get_train_loader(args, gripper_loc_bounds):
         trim_to_fixed_len=args.trim_to_fixed_len
     )
 
+    sampler = DistributedSampler(
+        dataset,
+        num_replicas=world_size,
+        rank=rank,
+        shuffle=True,
+        drop_last=False
+    )
+
     loader = DataLoader(
         dataset=dataset,
         batch_size=args.batch_size,
-        shuffle=True,
+        shuffle=False,
         num_workers=args.num_workers,
-        pin_memory=True,
-        collate_fn=collate_fn
+        pin_memory=False,
+        collate_fn=collate_fn,
+        sampler=sampler
     )
     return loader
 
@@ -539,41 +598,16 @@ def get_model(args, gripper_loc_bounds):
             positional_features=args.positional_features
         )
 
-    devices = [torch.device(d) for d in args.devices]
-    model = _model.to(devices[0])
-    if args.devices[0] != "cpu":
-        assert all("cuda" in d for d in args.devices)
-        model = torch.nn.DataParallel(model, device_ids=devices)
-
-    optimizer_grouped_parameters = [
-        {"params": [], "weight_decay": 0.0, "lr": args.lr},
-        {"params": [], "weight_decay": 5e-4, "lr": args.lr},
-    ]
-    no_decay = ["bias", "LayerNorm.weight", "LayerNorm.bias"]
-    for name, param in _model.named_parameters():
-        if any(nd in name for nd in no_decay):
-            optimizer_grouped_parameters[0]["params"].append(param)
-        else:
-            optimizer_grouped_parameters[1]["params"].append(param)
-    optimizer = optim.AdamW(optimizer_grouped_parameters)
-    start_iter = 0
-    best_loss = None
-
-    if args.checkpoint is not None:
-        model_dict = torch.load(args.checkpoint, map_location="cpu")
-        model_dict_weight = {}
-        for key in model_dict["weight"]:
-            _key = key[7:]
-            model_dict_weight[_key] = model_dict["weight"][key]
-        _model.load_state_dict(model_dict_weight)
-        optimizer.load_state_dict(model_dict["optimizer"])
-        start_iter = model_dict.get("iter", 0)
-        best_loss = model_dict.get("best_loss", None)
-
     model_params = count_parameters(_model)
     print("Model parameters:", model_params)
 
-    return optimizer, model, start_iter, best_loss
+    return _model
+
+
+def setup(rank, world_size):
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = '12355'
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)
 
 
 def get_log_dir(args):
@@ -582,17 +616,6 @@ def get_log_dir(args):
 
 if __name__ == "__main__":
     args = Arguments().parse_args()
-
-    # Force original HiveFormer parameters
-    if args.model == "original":
-        assert args.image_size == "128,128"
-        args.position_loss = "mse"
-        args.position_loss_coeff = 3.0
-        args.rotation_loss_coeff = 4.0
-        args.batch_size = 32
-        args.train_iters = 100_000
-
-    assert args.batch_size % len(args.devices) == 0
 
     print()
     print("Arguments:")
@@ -606,16 +629,6 @@ if __name__ == "__main__":
     args.log_dir = log_dir
     log_dir.mkdir(exist_ok=True, parents=True)
     args.save(str(log_dir / "hparams.json"))
-
-    if args.logger == "tensorboard":
-        writer = SummaryWriter(log_dir=log_dir)
-    elif args.logger == "wandb":
-        wandb.init(project="analogical_manipulation")
-        wandb.run.name = str(log_dir).split("/")[-1]
-        wandb.config.update(args.__dict__)
-        writer = None
-    else:
-        writer = None
 
     print("Logging:", log_dir)
     print("Args devices:", args.devices)
@@ -639,35 +652,22 @@ if __name__ == "__main__":
         task=task, buffer=args.gripper_bounds_buffer
     )
 
-    optimizer, model, start_iter, best_loss = get_model(args, gripper_loc_bounds)
+    model = get_model(args, gripper_loc_bounds)
 
     print()
     print("-" * 100)
     print()
 
-    model.train()
-
     val_loaders = get_val_loaders(args, gripper_loc_bounds)
 
     if args.train_iters > 0:
-        train_loader = get_train_loader(args, gripper_loc_bounds)
-        training(
+        # DDP training
+        world_size = len(args.devices)
+        training_args = (
+            world_size,
             model,
-            optimizer,
-            train_loader,
             val_loaders,
             args,
-            writer,
-            best_loss=best_loss,
-            start_iter=start_iter
+            gripper_loc_bounds
         )
-
-    if val_loaders is not None:
-        val_metrics = validation_step(
-            args.train_iters,
-            val_loaders,
-            model,
-            args,
-            writer,
-            val_iters=-1
-        )
+        mp.spawn(training, args=training_args, nprocs=world_size, join=True)
