@@ -233,7 +233,7 @@ def training(
                 optimizer.step()
 
             if rank == 0:
-                aggregated_losses["noise_mse"].append(loss.item())
+                aggregated_losses["noise_mse"].append(loss)
 
                 if args.logger == "wandb":
                     wandb.log(
