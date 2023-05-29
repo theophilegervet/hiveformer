@@ -20,7 +20,7 @@
 
 source_prefix=private/home/theop123/hiveformer/train_logs
 #target_prefix=home/zhouxian/git/hiveformer_theo
-target_prefix=home/sirdome/katefgroup/hiveformer
+target_prefix=home/sirdome/katefgroup/hiveformer2
 exp_src=hiveformer_10_episodes
 exp_tgt=hiveformer_10_episodes
 ckpt=best.pth
