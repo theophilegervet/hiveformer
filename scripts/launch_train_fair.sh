@@ -123,7 +123,7 @@ embedding_dim=60
 num_workers=1
 max_episodes_per_task=10
 checkpoint=/private/home/theop123/hiveformer2/train_logs/peract_10_episodes/PERACT-MULTI-TASK-10-episodes_version8806896/model.step=240000-value=0.00000.pth
-for point_cloud_rotate_yaw_range in 0.0 45.0; do
+for point_cloud_rotate_yaw_range in 0.0; do
   sbatch train_8gpu_32gb_fair_devlab.sh \
      --devices cuda:0 cuda:1 cuda:2 cuda:3 cuda:4 cuda:5 cuda:6 cuda:7 \
      --tasks $(cat $task_file | tr '\n' ' ') \
