@@ -428,7 +428,7 @@ class PredictionHead(nn.Module):
             }
 
         else:
-            visible_rgb_features = self.backbone(visible_rgb, "b c h w -> b h w c")
+            visible_rgb_features = self.backbone(visible_rgb)
             visible_rgb_features = self.feature_pyramid(visible_rgb_features)
 
         print(self.backbone_type)
