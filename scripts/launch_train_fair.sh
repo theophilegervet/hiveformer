@@ -119,7 +119,7 @@ valset=/private/home/theop123/datasets/rlbench/packaged/18_peract_tasks_val_new
 batch_size=6
 batch_size_val=1
 layers=2
-embedding_dim=60
+embedding_dim=120
 num_workers=1
 max_episodes_per_task=10
 checkpoint=/private/home/theop123/hiveformer2/train_logs/peract_10_episodes/PERACT-MULTI-TASK-10-episodes_version8806896/model.step=240000-value=0.00000.pth
