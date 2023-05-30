@@ -33,6 +33,7 @@ from model.non_analogical_baseline.baseline import Baseline
 from model.analogical_network.analogical_network import AnalogicalNetwork
 from .utils_without_rlbench import TASK_TO_ID
 from model.diffusion_planner.diffusion_model import DiffusionPlanner
+from model.trajectory_regressor.trajectory_model import TrajectoryRegressor
 
 
 def task_file_to_task_class(task_file):
@@ -232,7 +233,7 @@ class Actioner:
             #     top_value = pred["fine_visible_rgb_mask"][-1].flatten().topk(k=5000).values[-1]
             #     output["top_fine_rgb"] = (pred["fine_visible_rgb_mask"][-1] >= top_value).cpu().numpy()
 
-        elif type(self._model) == DiffusionPlanner:
+        elif type(self._model) in [DiffusionPlanner, TrajectoryRegressor]:
             output["trajectory"] = self._model.compute_trajectory(
                 trajectory_mask,
                 rgbs[:, -1],
@@ -600,11 +601,11 @@ class RLBenchEnv:
                 if verbose:
                     print()
                     print(f"Starting demo {demo_id}")
-                try:
-                    demo = self.get_demo(task_str, variation, episode_index=demo_id)[0]
-                except:
-                    missing_demos += 1
-                    continue
+                # try:
+                demo = self.get_demo(task_str, variation, episode_index=demo_id)[0]
+                # except:
+                #     missing_demos += 1
+                #     continue
                 if record_videos and demo_id < num_videos:
                     task_recorder._cam_motion.save_pose()
 
