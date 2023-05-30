@@ -411,8 +411,11 @@ class PredictionHead(nn.Module):
         visible_rgb_features = self.backbone(visible_rgb)
 
         # Pass visual features through feature pyramid network
+        print("visible_rgb", visible_rgb.shape)
         visible_rgb_features = self.feature_pyramid(visible_rgb_features)
-        breakpoint()
+        for k, v in visible_rgb_features.items():
+            print(k, v.shape)
+        print()
 
         visible_pcd = einops.rearrange(visible_pcd, "bt ncam c h w -> (bt ncam) c h w")
 
