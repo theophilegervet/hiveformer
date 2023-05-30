@@ -64,6 +64,7 @@ class Arguments(tap.Tap):
     record_videos: int = 0
     max_steps: int = 50
     collision_checking: int = 0
+    use_rgb: int = 1
     use_goal: int = 0
     dense_interpolation: int = 0
     interpolation_length: int = 100
@@ -100,6 +101,7 @@ class Arguments(tap.Tap):
     num_ghost_points_val: int = 10000
 
     # Model
+    action_dim: int = 7
     backbone: str = "clip"  # one of "resnet", "clip"
     embedding_dim: int = 60
     num_ghost_point_cross_attn_layers: int = 2
@@ -228,6 +230,22 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
             gripper_loc_bounds=gripper_loc_bounds,
             positional_features=args.positional_features
         ).to(device)
+    elif args.model == "regression":
+        from model.trajectory_regressor.trajectory_model import TrajectoryRegressor
+        model = TrajectoryRegressor(
+            backbone=args.backbone,
+            image_size=tuple(int(x) for x in args.image_size.split(",")),
+            embedding_dim=args.embedding_dim,
+            output_dim=args.action_dim,
+            num_vis_ins_attn_layers=args.num_vis_ins_attn_layers,
+            num_query_cross_attn_layers=args.num_query_cross_attn_layers,
+            num_sampling_level=args.num_sampling_level,
+            use_instruction=bool(args.use_instruction),
+            use_goal=bool(args.use_goal),
+            use_rgb=bool(args.use_rgb),
+            gripper_loc_bounds=gripper_loc_bounds,
+            positional_features=args.positional_features
+        )
     elif args.model == "analogical":
         raise NotImplementedError
         model = AnalogicalNetwork(
