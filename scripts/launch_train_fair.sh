@@ -34,79 +34,44 @@
 #done
 
 # Multi-task PerAct 100 demos
-main_dir=peract_new_data
-use_instruction=1
-train_iters=4_000_000
-cameras=left_shoulder,right_shoulder,wrist,front
-task_file=tasks/peract_18_tasks.csv
-gripper_loc_bounds_file=tasks/18_peract_tasks_location_bounds.json
-dataset=/private/home/theop123/datasets/rlbench/packaged/18_peract_tasks_train_new
-valset=/private/home/theop123/datasets/rlbench/packaged/18_peract_tasks_val_new
-batch_size=6
-batch_size_val=1
-layers=2
-embedding_dim=120
-num_workers=1
-# 120K + 120K + 150K + 235K + 230K + ??
-checkpoint=/private/home/theop123/hiveformer2/train_logs/peract_new_data/PERACT-MULTI-TASK_version8846643/model.step=230000-value=0.00000.pth
-sbatch train_8gpu_32gb_fair_devlab.sh \
-   --devices cuda:0 cuda:1 cuda:2 cuda:3 cuda:4 cuda:5 cuda:6 cuda:7 \
-   --tasks $(cat $task_file | tr '\n' ' ') \
-   --cameras $cameras \
-   --embedding_dim $embedding_dim \
-   --batch_size $batch_size \
-   --batch_size_val $batch_size_val \
-   --num_workers $num_workers \
-   --cache_size 0 \
-   --cache_size_val 0 \
-   --dataset $dataset \
-   --valset $valset \
-   --exp_log_dir $main_dir \
-   --gripper_loc_bounds_file $gripper_loc_bounds_file \
-   --use_instruction $use_instruction \
-   --logger wandb \
-   --train_iters $train_iters \
-   --variations {0..199} \
-   --num_ghost_point_cross_attn_layers $layers \
-   --num_query_cross_attn_layers $layers \
-   --num_vis_ins_attn_layers $layers \
-   --checkpoint $checkpoint \
-   --run_log_dir PERACT-MULTI-TASK
-
-main_dir=peract_debug
-use_instruction=1
-train_iters=4_000_000
-cameras=left_shoulder,right_shoulder,wrist,front
-task_file=tasks/peract_18_tasks.csv
-gripper_loc_bounds_file=tasks/18_peract_tasks_location_bounds.json
-dataset=/private/home/theop123/datasets/rlbench/packaged/18_peract_tasks_train_new
-valset=/private/home/theop123/datasets/rlbench/packaged/18_peract_tasks_val_new
-batch_size=1
-batch_size_val=1
-layers=2
-embedding_dim=60
-num_workers=1
-python train.py \
-   --tasks $(cat $task_file | tr '\n' ' ') \
-   --cameras $cameras \
-   --embedding_dim $embedding_dim \
-   --batch_size $batch_size \
-   --batch_size_val $batch_size_val \
-   --num_workers $num_workers \
-   --cache_size 0 \
-   --cache_size_val 0 \
-   --dataset $dataset \
-   --valset $valset \
-   --exp_log_dir $main_dir \
-   --gripper_loc_bounds_file $gripper_loc_bounds_file \
-   --use_instruction $use_instruction \
-   --logger wandb \
-   --train_iters $train_iters \
-   --variations {0..199} \
-   --num_ghost_point_cross_attn_layers $layers \
-   --num_query_cross_attn_layers $layers \
-   --num_vis_ins_attn_layers $layers \
-   --run_log_dir PERACT-DEBUG
+#main_dir=peract_new_data
+#use_instruction=1
+#train_iters=4_000_000
+#cameras=left_shoulder,right_shoulder,wrist,front
+#task_file=tasks/peract_18_tasks.csv
+#gripper_loc_bounds_file=tasks/18_peract_tasks_location_bounds.json
+#dataset=/private/home/theop123/datasets/rlbench/packaged/18_peract_tasks_train_new
+#valset=/private/home/theop123/datasets/rlbench/packaged/18_peract_tasks_val_new
+#batch_size=6
+#batch_size_val=1
+#layers=2
+#embedding_dim=120
+#num_workers=1
+## 120K + 120K + 150K + 235K + 230K + ??
+#checkpoint=/private/home/theop123/hiveformer2/train_logs/peract_new_data/PERACT-MULTI-TASK_version8846643/model.step=230000-value=0.00000.pth
+#sbatch train_8gpu_32gb_fair_devlab.sh \
+#   --devices cuda:0 cuda:1 cuda:2 cuda:3 cuda:4 cuda:5 cuda:6 cuda:7 \
+#   --tasks $(cat $task_file | tr '\n' ' ') \
+#   --cameras $cameras \
+#   --embedding_dim $embedding_dim \
+#   --batch_size $batch_size \
+#   --batch_size_val $batch_size_val \
+#   --num_workers $num_workers \
+#   --cache_size 0 \
+#   --cache_size_val 0 \
+#   --dataset $dataset \
+#   --valset $valset \
+#   --exp_log_dir $main_dir \
+#   --gripper_loc_bounds_file $gripper_loc_bounds_file \
+#   --use_instruction $use_instruction \
+#   --logger wandb \
+#   --train_iters $train_iters \
+#   --variations {0..199} \
+#   --num_ghost_point_cross_attn_layers $layers \
+#   --num_query_cross_attn_layers $layers \
+#   --num_vis_ins_attn_layers $layers \
+#   --checkpoint $checkpoint \
+#   --run_log_dir PERACT-MULTI-TASK
 
 # -----------------------------------------------------------------------------------------
 # Main experiments 10 demos
@@ -186,3 +151,46 @@ python train.py \
 #     --point_cloud_rotate_yaw_range $point_cloud_rotate_yaw_range \
 #     --run_log_dir PERACT-MULTI-TASK-10-episodes-$point_cloud_rotate_yaw_range
 #done
+
+# -------------------------
+# PerAct ablations
+# -------------------------
+
+main_dir=peract_new_data
+use_instruction=1
+train_iters=4_000_000
+cameras=left_shoulder,right_shoulder,wrist,front
+task_file=tasks/peract_18_tasks.csv
+gripper_loc_bounds_file=tasks/18_peract_tasks_location_bounds.json
+dataset=/private/home/theop123/datasets/rlbench/packaged/18_peract_tasks_train_new
+valset=/private/home/theop123/datasets/rlbench/packaged/18_peract_tasks_val_new
+batch_size=6
+batch_size_val=1
+layers=2
+embedding_dim=120
+num_workers=1
+for backbone in rgb resnet; do
+  sbatch train_8gpu_32gb_fair_devlab.sh \
+     --devices cuda:0 cuda:1 cuda:2 cuda:3 cuda:4 cuda:5 cuda:6 cuda:7 \
+     --tasks $(cat $task_file | tr '\n' ' ') \
+     --cameras $cameras \
+     --embedding_dim $embedding_dim \
+     --batch_size $batch_size \
+     --batch_size_val $batch_size_val \
+     --num_workers $num_workers \
+     --cache_size 0 \
+     --cache_size_val 0 \
+     --dataset $dataset \
+     --valset $valset \
+     --exp_log_dir $main_dir \
+     --gripper_loc_bounds_file $gripper_loc_bounds_file \
+     --use_instruction $use_instruction \
+     --logger wandb \
+     --train_iters $train_iters \
+     --variations {0..199} \
+     --num_ghost_point_cross_attn_layers $layers \
+     --num_query_cross_attn_layers $layers \
+     --num_vis_ins_attn_layers $layers \
+     --backbone $backbone \
+     --run_log_dir PERACT-MULTI-TASK-ABLATION-$backbone
+done
