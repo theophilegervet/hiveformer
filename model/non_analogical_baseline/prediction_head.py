@@ -48,7 +48,7 @@ class PredictionHead(nn.Module):
                  positional_features="none",
                  task_ids=[]):
         super().__init__()
-        assert backbone in ["resnet", "clip"]
+        assert backbone in ["resnet", "clip", "rgb"]
         assert image_size in [(128, 128), (256, 256)]
         assert rotation_parametrization in [
             "quat_from_top_ghost", "quat_from_query", "6D_from_top_ghost", "6D_from_query"]
@@ -76,12 +76,18 @@ class PredictionHead(nn.Module):
         self.ins_pos_emb = ins_pos_emb
 
         # Frozen backbone
+        self.backbone_type = backbone
         if backbone == "resnet":
             self.backbone, self.normalize = load_resnet50()
+            for p in self.backbone.parameters():
+                p.requires_grad = False
         elif backbone == "clip":
             self.backbone, self.normalize = load_clip()
-        for p in self.backbone.parameters():
-            p.requires_grad = False
+            for p in self.backbone.parameters():
+                p.requires_grad = False
+        elif backbone == "rgb":
+            self.backbone, self.normalize = load_clip()
+            self.backbone = nn.Linear(3, embedding_dim)
 
         # Semantic visual features at different scales
         if self.positional_features in ["xyz_concat", "z_concat"]:
@@ -408,11 +414,24 @@ class PredictionHead(nn.Module):
         # Pass each view independently through backbone
         visible_rgb = einops.rearrange(visible_rgb, "bt ncam c h w -> (bt ncam) c h w")
         visible_rgb = self.normalize(visible_rgb)
-        visible_rgb_features = self.backbone(visible_rgb)
 
-        # Pass visual features through feature pyramid network
-        print("visible_rgb", visible_rgb.shape)
-        visible_rgb_features = self.feature_pyramid(visible_rgb_features)
+        if self.backbone_type == "rgb":
+            visible_rgb = einops.rearrange(visible_rgb, "b c h w -> b h w c")
+            visible_rgb_features = self.backbone(visible_rgb)
+            visible_rgb_features = einops.rearrange(visible_rgb_features, "b h w c -> b c h w")
+            visible_rgb_features = {
+                "res1": F.interpolate(visible_rgb_features, scale_factor=1. / 2, mode='bilinear'),
+                "res2": F.interpolate(visible_rgb_features, scale_factor=1. / 4, mode='bilinear'),
+                "res3": F.interpolate(visible_rgb_features, scale_factor=1. / 8, mode='bilinear'),
+                "res4": F.interpolate(visible_rgb_features, scale_factor=1. / 16, mode='bilinear'),
+                "res5": F.interpolate(visible_rgb_features, scale_factor=1. / 32, mode='bilinear'),
+            }
+
+        else:
+            visible_rgb_features = self.backbone(visible_rgb, "b c h w -> b h w c")
+            visible_rgb_features = self.feature_pyramid(visible_rgb_features)
+
+        print(self.backbone_type)
         for k, v in visible_rgb_features.items():
             print(k, v.shape)
         print()
