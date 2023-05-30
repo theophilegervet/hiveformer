@@ -102,35 +102,90 @@
 # Ablations
 # -----------------------------------------------
 
-main_dir=ablation_offset_prediction
-use_instruction=0
-train_iters=400_000
-task_file=tasks/ablation_5_tasks.csv
-gripper_loc_bounds_file=tasks/74_hiveformer_tasks_location_bounds.json
-dataset=/private/home/theop123/datasets/rlbench/packaged/74_hiveformer_tasks_train
-valset=/private/home/theop123/datasets/rlbench/packaged/74_hiveformer_tasks_val
-batch_size=16
-batch_size_val=4
-num_workers=1
-for task in $(cat $task_file | tr '\n' ' '); do
-  sbatch train_1gpu_32gb_fair.sh \
-   --tasks $task \
-   --dataset $dataset \
-   --valset $valset \
-   --batch_size $batch_size \
-   --batch_size_val $batch_size_val \
-   --num_workers $num_workers \
-   --exp_log_dir $main_dir \
-   --gripper_loc_bounds_file $gripper_loc_bounds_file \
-   --use_instruction $use_instruction \
-   --logger wandb \
-   --train_iters $train_iters \
-   --regress_position_offset 1 \
-   --num_sampling_level 2 \
-   --run_log_dir $task-ABLATION-offset-prediction
-done
+#main_dir=ablation_offset_prediction
+#use_instruction=0
+#train_iters=400_000
+#task_file=tasks/ablation_5_tasks.csv
+#gripper_loc_bounds_file=tasks/74_hiveformer_tasks_location_bounds.json
+#dataset=/private/home/theop123/datasets/rlbench/packaged/74_hiveformer_tasks_train
+#valset=/private/home/theop123/datasets/rlbench/packaged/74_hiveformer_tasks_val
+#batch_size=16
+#batch_size_val=4
+#num_workers=1
+#for task in $(cat $task_file | tr '\n' ' '); do
+#  sbatch train_1gpu_32gb_fair_devlab.sh \
+#   --tasks $task \
+#   --dataset $dataset \
+#   --valset $valset \
+#   --batch_size $batch_size \
+#   --batch_size_val $batch_size_val \
+#   --num_workers $num_workers \
+#   --exp_log_dir $main_dir \
+#   --gripper_loc_bounds_file $gripper_loc_bounds_file \
+#   --use_instruction $use_instruction \
+#   --logger wandb \
+#   --train_iters $train_iters \
+#   --regress_position_offset 1 \
+#   --num_sampling_level 2 \
+#   --run_log_dir $task-ABLATION-offset-prediction
+#done
+#
+#main_dir=ablation_no_weight_tying
+#use_instruction=0
+#train_iters=400_000
+#task_file=tasks/ablation_5_tasks.csv
+#gripper_loc_bounds_file=tasks/74_hiveformer_tasks_location_bounds.json
+#dataset=/private/home/theop123/datasets/rlbench/packaged/74_hiveformer_tasks_train
+#valset=/private/home/theop123/datasets/rlbench/packaged/74_hiveformer_tasks_val
+#batch_size=16
+#batch_size_val=4
+#num_workers=1
+#for task in $(cat $task_file | tr '\n' ' '); do
+#  sbatch train_1gpu_32gb_fair.sh \
+#   --tasks $task \
+#   --dataset $dataset \
+#   --valset $valset \
+#   --batch_size $batch_size \
+#   --batch_size_val $batch_size_val \
+#   --num_workers $num_workers \
+#   --exp_log_dir $main_dir \
+#   --gripper_loc_bounds_file $gripper_loc_bounds_file \
+#   --use_instruction $use_instruction \
+#   --logger wandb \
+#   --train_iters $train_iters \
+#   --weight_tying 0 \
+#   --gp_emb_tying 0 \
+#   --run_log_dir $task-ABLATION-ablation_no_weight_tying
+#done
+#
+#main_dir=ablation_no_image_aug
+#use_instruction=0
+#train_iters=400_000
+#task_file=tasks/ablation_5_tasks.csv
+#gripper_loc_bounds_file=tasks/74_hiveformer_tasks_location_bounds.json
+#dataset=/private/home/theop123/datasets/rlbench/packaged/74_hiveformer_tasks_train
+#valset=/private/home/theop123/datasets/rlbench/packaged/74_hiveformer_tasks_val
+#batch_size=16
+#batch_size_val=4
+#num_workers=1
+#for task in $(cat $task_file | tr '\n' ' '); do
+#  sbatch train_1gpu_32gb_fair.sh \
+#   --tasks $task \
+#   --dataset $dataset \
+#   --valset $valset \
+#   --batch_size $batch_size \
+#   --batch_size_val $batch_size_val \
+#   --num_workers $num_workers \
+#   --exp_log_dir $main_dir \
+#   --gripper_loc_bounds_file $gripper_loc_bounds_file \
+#   --use_instruction $use_instruction \
+#   --logger wandb \
+#   --train_iters $train_iters \
+#   --image_rescale "1.0,1.0" \
+#   --run_log_dir $task-ABLATION-ablation_no_image_aug
+#done
 
-main_dir=ablation_no_weight_tying
+main_dir=ablation_with_rot_aug
 use_instruction=0
 train_iters=400_000
 task_file=tasks/ablation_5_tasks.csv
@@ -153,34 +208,6 @@ for task in $(cat $task_file | tr '\n' ' '); do
    --use_instruction $use_instruction \
    --logger wandb \
    --train_iters $train_iters \
-   --weight_tying 0 \
-   --gp_emb_tying 0 \
-   --run_log_dir $task-ABLATION-ablation_no_weight_tying
-done
-
-main_dir=ablation_no_image_aug
-use_instruction=0
-train_iters=400_000
-task_file=tasks/ablation_5_tasks.csv
-gripper_loc_bounds_file=tasks/74_hiveformer_tasks_location_bounds.json
-dataset=/private/home/theop123/datasets/rlbench/packaged/74_hiveformer_tasks_train
-valset=/private/home/theop123/datasets/rlbench/packaged/74_hiveformer_tasks_val
-batch_size=16
-batch_size_val=4
-num_workers=1
-for task in $(cat $task_file | tr '\n' ' '); do
-  sbatch train_1gpu_32gb_fair.sh \
-   --tasks $task \
-   --dataset $dataset \
-   --valset $valset \
-   --batch_size $batch_size \
-   --batch_size_val $batch_size_val \
-   --num_workers $num_workers \
-   --exp_log_dir $main_dir \
-   --gripper_loc_bounds_file $gripper_loc_bounds_file \
-   --use_instruction $use_instruction \
-   --logger wandb \
-   --train_iters $train_iters \
-   --image_rescale "1.0,1.0" \
-   --run_log_dir $task-ABLATION-ablation_no_image_aug
+   --point_cloud_rotate_yaw_range 45.0 \
+   --run_log_dir $task-ABLATION-ablation_with_rot_aug
 done
