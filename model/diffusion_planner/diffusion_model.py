@@ -14,11 +14,13 @@ class DiffusionPlanner(nn.Module):
                  embedding_dim=60,
                  output_dim=7,
                  num_vis_ins_attn_layers=2,
+                 num_query_cross_attn_layers=2,
                  ins_pos_emb=False,
                  num_sampling_level=3,
                  use_instruction=False,
                  use_goal=False,
                  use_rgb=True,
+                 denoise_steps=100,
                  gripper_loc_bounds=None,
                  positional_features="none",
                  predict_length=False,
@@ -32,6 +34,7 @@ class DiffusionPlanner(nn.Module):
                 embedding_dim=embedding_dim,
                 output_dim=output_dim,
                 num_vis_ins_attn_layers=num_vis_ins_attn_layers,
+                num_query_cross_attn_layers=num_query_cross_attn_layers,
                 ins_pos_emb=ins_pos_emb,
                 num_sampling_level=num_sampling_level,
                 use_instruction=use_instruction,
@@ -55,7 +58,7 @@ class DiffusionPlanner(nn.Module):
                 use_goal=use_goal
             )
         self.noise_scheduler = DDPMScheduler(
-            num_train_timesteps=100,
+            num_train_timesteps=denoise_steps,
             # clip_sample=False,
             beta_schedule="squaredcos_cap_v2",
         )

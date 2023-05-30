@@ -23,7 +23,8 @@ class WipeDesk(Task):
 
     def init_episode(self, index: int) -> List[str]:
         self._place_dirt()
-        self.register_success_conditions([EmptyCondition(self.dirt_spots)])
+        self.empty_condition = EmptyCondition(self.dirt_spots)
+        self.register_success_conditions([self.empty_condition])
         return ['wipe dirt off the desk',
                 'use the sponge to clean up the desk',
                 'remove the dirt from the desk',
@@ -34,6 +35,9 @@ class WipeDesk(Task):
 
     def variation_count(self) -> int:
         return 1
+
+    def reward(self):
+        return self.empty_condition.score()
 
     def step(self) -> None:
         for d in self.dirt_spots:

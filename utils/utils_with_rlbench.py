@@ -113,7 +113,7 @@ class Mover:
         # we execute the gripper action after re-tries
         action = target
         if (
-            not reward
+            not reward == 1.0
             and self._last_action is not None
             and action[7] != self._last_action[7]
         ):
@@ -594,6 +594,7 @@ class RLBenchEnv:
 
         success_rate = 0
         missing_demos = 0
+        total_reward = 0
 
         with torch.no_grad():
             for demo_id in range(num_demos):
@@ -625,9 +626,11 @@ class RLBenchEnv:
                 )
                 move = Mover(task, max_tries=max_tries)
                 reward = None
+                max_reward = 0.0
                 gt_keyframe_actions, trajectories, gt_trajectory_masks = actioner.get_action_from_demo(demo)
                 if offline:
                     max_steps = len(gt_keyframe_actions)
+                max_steps = len(gt_keyframe_actions)
                 gt_keyframe_gripper_matrices = np.stack([self.get_gripper_matrix_from_action(a[-1])
                                                          for a in gt_keyframe_actions])
                 pred_keyframe_gripper_matrices = []
@@ -745,6 +748,7 @@ class RLBenchEnv:
 
                         images += step_images
 
+                        max_reward = max(max_reward, reward)
                         if reward == 1:
                             success_rate += 1
                             break
@@ -767,6 +771,8 @@ class RLBenchEnv:
                     task_recorder.save(record_video_file, lang_goal)
                     task_recorder._cam_motion.restore_pose()
 
+                total_reward += max_reward
+
                 print(
                     task_str,
                     "Variation",
@@ -774,8 +780,11 @@ class RLBenchEnv:
                     "Demo",
                     demo_id,
                     "Reward",
-                    reward,
+                    f"{reward:.2f}",
+                    "max_reward",
+                    f"{max_reward:.2f}",
                     f"SR: {success_rate}/{demo_id+1}",
+                    f"SR: {total_reward:.2f}/{demo_id+1}",
                     "Missing", missing_demos,
                 )
 

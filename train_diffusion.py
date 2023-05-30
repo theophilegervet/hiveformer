@@ -48,6 +48,7 @@ class Arguments(tap.Tap):
     trim_to_fixed_len: Optional[int] = None
     train_diffusion_on_whole: int = 0
     predict_length: int = 0
+    denoise_steps: int = 100
 
     # Logging to base_log_dir/exp_log_dir/run_log_dir
     logger: Optional[str] = "tensorboard"  # One of "wandb", "tensorboard", None
@@ -247,6 +248,12 @@ def training(
                     "iter": step_id + 1,
                     "best_loss": best_loss
                 }, args.log_dir / "last.pth")
+                torch.save({
+                    "weight": model.state_dict(),
+                    "optimizer": optimizer.state_dict(),
+                    "iter": step_id + 1,
+                    "best_loss": best_loss
+                }, args.log_dir / f"model.step={self._step * self._val_freq}.pth")
 
 
 @torch.no_grad()
@@ -290,8 +297,8 @@ def validation_step(
                 values[key] = torch.cat([values[key], l.unsqueeze(0)])
 
             # Generate visualizations
-            if i == 0:
-                viz_key = f'{split}-viz-{val_id}/viz'
+            if i < 4:
+                viz_key = f'{split}-viz-{val_id}/{i}_viz'
                 viz = generate_visualizations(
                     action,
                     sample["trajectory"].to(device),
@@ -344,7 +351,7 @@ def compute_metrics(pred, gt, mask, length=None):
     return metrics
 
 def generate_visualizations(pred, gt, mask, box_size=0.3):
-    batch_idx = 0
+    batch_idx = 3
     pred = pred[batch_idx].detach().cpu().numpy()
     gt = gt[batch_idx].detach().cpu().numpy()
     mask = mask[batch_idx].detach().cpu().numpy()
@@ -524,10 +531,12 @@ def get_model(args, gripper_loc_bounds):
             embedding_dim=args.embedding_dim,
             output_dim=args.action_dim,
             num_vis_ins_attn_layers=args.num_vis_ins_attn_layers,
+            num_query_cross_attn_layers=args.num_query_cross_attn_layers,
             num_sampling_level=args.num_sampling_level,
             use_instruction=bool(args.use_instruction),
             use_goal=bool(args.use_goal),
             use_rgb=bool(args.use_rgb),
+            denoise_steps=args.denoise_steps,
             gripper_loc_bounds=gripper_loc_bounds,
             positional_features=args.positional_features,
             predict_length=bool(args.predict_length),

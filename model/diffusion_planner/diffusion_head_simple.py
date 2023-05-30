@@ -25,7 +25,8 @@ class DiffusionHead(nn.Module):
                  embedding_dim=60,
                  output_dim=7,
                  num_attn_heads=4,
-                 num_vis_ins_attn_layers=8,
+                 num_vis_ins_attn_layers=2,
+                 num_query_cross_attn_layers=2,
                  ins_pos_emb=False,
                  num_sampling_level=3,
                  use_instruction=False,
@@ -117,18 +118,16 @@ class DiffusionHead(nn.Module):
 
         # Trajectory cross/self-attention
         self.traj_attention = nn.ModuleList()
-        for _ in range(num_vis_ins_attn_layers):
+        for _ in range(num_query_cross_attn_layers):
             self.traj_attention.append(ParallelAttentionLayer(
                 d_model=embedding_dim, n_heads=num_attn_heads,
                 self_attention2=False, cross_attention2=False,
                 rotary_pe=True
             ))
 
-        self.query_embed = nn.Embedding(1, embedding_dim)
-        
         if self.predict_length:
             self.length_predictor_attn = nn.ModuleList()
-            for _ in range(num_vis_ins_attn_layers):
+            for _ in range(num_query_cross_attn_layers):
                 self.length_predictor_attn.append(ParallelAttentionLayer(
                     d_model=embedding_dim, n_heads=num_attn_heads,
                     self_attention2=False, cross_attention2=False,

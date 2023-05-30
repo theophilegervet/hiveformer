@@ -101,6 +101,8 @@ class EmptyCondition(Condition):
         met = len(self._container) == 0
         return met, False
 
+    def score(self):
+        return 1.0 - len(self._container) / 50
 
 class FollowCondition(Condition):
 
