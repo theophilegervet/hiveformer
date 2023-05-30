@@ -1,17 +1,10 @@
 exp=hiveformer_10_episodes
 ckpts=(
-  reach_target-HIVEFORMER-10-episodes_version8815937
-  lamp_off-HIVEFORMER-10-episodes_version8815940
   close_fridge-HIVEFORMER-10-episodes_version8815938
-  push_button-HIVEFORMER-10-episodes_version8815942
-  close_microwave-HIVEFORMER-10-episodes_version8815939
-  press_switch-HIVEFORMER-10-episodes_version8815941
   unplug_charger-HIVEFORMER-10-episodes_version8815946
-  close_drawer-HIVEFORMER-10-episodes_version8815937
   play_jenga-HIVEFORMER-10-episodes_version8815958
   slide_cabinet_open_and_place_cups-HIVEFORMER-10-episodes_version8816006
   insert_onto_square_peg-HIVEFORMER-10-episodes_version8815982
-  toilet_seat_up-HIVEFORMER-10-episodes_version8815960
   stack_wine-HIVEFORMER-10-episodes_version8816001
   pick_and_lift_small-HIVEFORMER-10-episodes_version8815971
   phone_on_base-HIVEFORMER-10-episodes_version8815987
@@ -36,54 +29,38 @@ ckpts=(
   put_umbrella_in_umbrella_stand-HIVEFORMER-10-episodes_version8815974
   put_knife_on_chopping_board-HIVEFORMER-10-episodes_version8815972
   open_window-HIVEFORMER-10-episodes_version8815969","running
-  take_umbrella_out_of_umbrella_stand-HIVEFORMER-10-episodes_version8815959
   change_clock-HIVEFORMER-10-episodes_version8815964
   pick_up_cup-HIVEFORMER-10-episodes_version8815957
   place_hanger_on_rack-HIVEFORMER-10-episodes_version8815988
   hang_frame_on_hanger-HIVEFORMER-10-episodes_version8815968
-  turn_oven_on-HIVEFORMER-10-episodes_version8815961
   pick_and_lift-HIVEFORMER-10-episodes_version8815970
   lift_numbered_block-HIVEFORMER-10-episodes_version8815949
   open_wine_bottle-HIVEFORMER-10-episodes_version8815956
   put_books_on_bookshelf-HIVEFORMER-10-episodes_version8815991
-  take_money_out_safe-HIVEFORMER-10-episodes_version8815977
   close_door-HIVEFORMER-10-episodes_version8815947
   stack_cups-HIVEFORMER-10-episodes_version8816007
-  basketball_in_hoop-HIVEFORMER-10-episodes_version8815962
   reach_and_drag-HIVEFORMER-10-episodes_version8815997
-  push_buttons-HIVEFORMER-10-episodes_version8815996
   tv_on-HIVEFORMER-10-episodes_version8816005
-  take_lid_off_saucepan-HIVEFORMER-10-episodes_version8815959
   plug_charger_in_power_supply-HIVEFORMER-10-episodes_version8815990
   change_channel-HIVEFORMER-10-episodes_version8816004
-  put_rubbish_in_bin-HIVEFORMER-10-episodes_version8815973
   open_fridge-HIVEFORMER-10-episodes_version8815953
   take_toilet_roll_off_stand-HIVEFORMER-10-episodes_version8815979
   open_grill-HIVEFORMER-10-episodes_version8815954
   open_door-HIVEFORMER-10-episodes_version8815968
-  toilet_seat_down-HIVEFORMER-10-episodes_version8815980
   meat_on_grill-HIVEFORMER-10-episodes_version8815987
   open_oven-HIVEFORMER-10-episodes_version8815986
   screw_nail-HIVEFORMER-10-episodes_version8815998
   take_plate_off_colored_dish_rack-HIVEFORMER-10-episodes_version8815994
   tower3-HIVEFORMER-10-episodes_version8816002
   water_plants-HIVEFORMER-10-episodes_version8815995
-  close_box-HIVEFORMER-10-episodes_version8815981
 )
 
 tasks=(
-  reach_target
-  lamp_off
   close_fridge
-  push_button
-  close_microwave
-  press_switch
   unplug_charger
-  close_drawer
   play_jenga
   slide_cabinet_open_and_place_cups
   insert_onto_square_peg
-  toilet_seat_up
   stack_wine
   pick_and_lift_small
   phone_on_base
@@ -108,39 +85,30 @@ tasks=(
   put_umbrella_in_umbrella_stand
   put_knife_on_chopping_board
   open_window
-  take_umbrella_out_of_umbrella_stand
   change_clock
   pick_up_cup
   place_hanger_on_rack
   hang_frame_on_hanger
-  turn_oven_on
   pick_and_lift
   lift_numbered_block
   open_wine_bottle
   put_books_on_bookshelf
-  take_money_out_safe
   close_door
   stack_cups
-  basketball_in_hoop
   reach_and_drag
-  push_buttons
   tv_on
-  take_lid_off_saucepan
   plug_charger_in_power_supply
   change_channel
-  put_rubbish_in_bin
   open_fridge
   take_toilet_roll_off_stand
   open_grill
   open_door
-  toilet_seat_down
   meat_on_grill
   open_oven
   screw_nail
   take_plate_off_colored_dish_rack
   tower3
   water_plants
-  close_box
 )
 
 data_dir=/home/sirdome/katefgroup/datasets/raw/74_hiveformer_tasks_val
