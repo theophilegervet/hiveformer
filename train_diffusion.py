@@ -31,6 +31,7 @@ from pathlib import Path
 
 
 class Arguments(tap.Tap):
+    master_port: str = '29500'
     cameras: Tuple[str, ...] = ("wrist", "left_shoulder", "right_shoulder")
     image_size: str = "256,256"
     max_tries: int = 10
@@ -130,6 +131,7 @@ class Arguments(tap.Tap):
     rotation_parametrization: str = "quat_from_query"
     use_instruction: int = 0
     use_goal: int = 0
+    use_goal_at_test: int = 1
     use_rgb: int = 1
     task_specific_biases: int = 0
     diffusion_head: str = "simple"
@@ -155,9 +157,13 @@ def training(
     args,
     gripper_loc_bounds
 ):
-    setup(rank, world_size)
+    setup(rank, world_size, args.master_port)
 
     train_loader = get_train_loader(rank, world_size, args, gripper_loc_bounds)
+
+    model = model.to(rank)
+    model = DDP(model, [rank], find_unused_parameters=True)
+    model_no_ddp = model.module
 
     # Set up optimizer
     optimizer_grouped_parameters = [
@@ -165,7 +171,7 @@ def training(
         {"params": [], "weight_decay": 5e-4, "lr": args.lr},
     ]
     no_decay = ["bias", "LayerNorm.weight", "LayerNorm.bias"]
-    for name, param in model.named_parameters():
+    for name, param in model_no_ddp.named_parameters():
         if any(nd in name for nd in no_decay):
             optimizer_grouped_parameters[0]["params"].append(param)
         else:
@@ -181,13 +187,11 @@ def training(
         for key in model_dict["weight"]:
             _key = key[7:]
             model_dict_weight[_key] = model_dict["weight"][key]
-        model.load_state_dict(model_dict_weight)
+        model_no_ddp.load_state_dict(model_dict_weight)
         optimizer.load_state_dict(model_dict["optimizer"])
         start_iter = model_dict.get("iter", 0)
         best_loss = model_dict.get("best_loss", None)
 
-    model = model.to(rank)
-    model = DDP(model, [rank], find_unused_parameters=True)
     model.train()
 
     # Set up logging and checkpointing
@@ -579,6 +583,7 @@ def get_model(args, gripper_loc_bounds):
             num_sampling_level=args.num_sampling_level,
             use_instruction=bool(args.use_instruction),
             use_goal=bool(args.use_goal),
+            use_goal_at_test=bool(args.use_goal_at_test),
             use_rgb=bool(args.use_rgb),
             gripper_loc_bounds=gripper_loc_bounds,
             positional_features=args.positional_features,
@@ -607,9 +612,9 @@ def get_model(args, gripper_loc_bounds):
     return _model
 
 
-def setup(rank, world_size):
+def setup(rank, world_size, master_port):
     os.environ['MASTER_ADDR'] = 'localhost'
-    os.environ['MASTER_PORT'] = '12355'
+    os.environ['MASTER_PORT'] = master_port
     dist.init_process_group("nccl", rank=rank, world_size=world_size)
 
 

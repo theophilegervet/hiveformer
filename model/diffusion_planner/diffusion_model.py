@@ -19,12 +19,14 @@ class DiffusionPlanner(nn.Module):
                  num_sampling_level=3,
                  use_instruction=False,
                  use_goal=False,
+                 use_goal_at_test=True,
                  use_rgb=True,
                  gripper_loc_bounds=None,
                  positional_features="none",
                  diffusion_head="simple"):
         super().__init__()
         self._use_goal = use_goal
+        self._use_goal_at_test = use_goal_at_test
         if diffusion_head == "simple":
             from .diffusion_head_simple import DiffusionHead
             self.prediction_head = DiffusionHead(
@@ -152,10 +154,11 @@ class DiffusionPlanner(nn.Module):
         cond_data[:, 0] = curr_gripper
         cond_mask[:, 0] = 1
         # end pose
-        for d in range(len(cond_data)):
-            neg_len_ = -trajectory_mask[d].sum().long()
-            cond_data[d][neg_len_ - 1] = goal_gripper[d]
-            cond_mask[d][neg_len_ - 1:] = 1
+        if self._use_goal_at_test:
+            for d in range(len(cond_data)):
+                neg_len_ = -trajectory_mask[d].sum().long()
+                cond_data[d][neg_len_ - 1] = goal_gripper[d]
+                cond_mask[d][neg_len_ - 1:] = 1
         cond_mask = cond_mask.bool()
 
         # Sample

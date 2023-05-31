@@ -1,7 +1,7 @@
 dataset=/projects/katefgroup/datasets/rlbench/diffusion_trajectories_train/
 valset=/projects/katefgroup/datasets/rlbench/diffusion_trajectories_val/
 
-main_dir=diffusion_whole
+main_dir=diffusion_whole_no_goal
 
 
 # task=unplug_charger close_door open_box open_drawer open_fridge open_door put_umbrella_in_umbrella_stand take_frame_off_hanger open_oven put_books_on_bookshelf slide_cabinet_open_and_place_cups put_knife_on_chopping_board wipe_desk reach_target pick_up_cup stack_cups stack_blocks open_grill open_microwave toilet_seat_up
@@ -20,7 +20,8 @@ python train_diffusion.py --tasks close_door \
     --train_diffusion_on_whole 1 \
     --action_dim 8 \
     --use_rgb 1 \
-    --use_goal 1 \
+    --use_goal 0 \
+    --use_goal_at_test 0 \
     --val_freq 1000 \
     --checkpoint_freq 5 \
     --dense_interpolation $dense_interpolation \
