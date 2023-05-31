@@ -50,24 +50,24 @@ ckpts=(
 #  place_cups-PERACT_version8003449
 #  put_item_in_drawer-PERACT_version8003450
 #  stack_blocks-PERACT_version8003451
-  multi-task
-  multi-task
-  multi-task
-  multi-task
-  multi-task
-  multi-task
-  multi-task
-  multi-task
-  multi-task
-  multi-task
-  multi-task
-  multi-task
-  multi-task
-  multi-task
-  multi-task
-  multi-task
-  multi-task
-  multi-task
+  multi-task2
+  multi-task2
+  multi-task2
+  multi-task2
+  multi-task2
+  multi-task2
+  multi-task2
+  multi-task2
+  multi-task2
+  multi-task2
+  multi-task2
+  multi-task2
+  multi-task2
+  multi-task2
+  multi-task2
+  multi-task2
+  multi-task2
+  multi-task2
 )
 tasks=(
   turn_tap
