@@ -253,7 +253,7 @@ def training(
                     "optimizer": optimizer.state_dict(),
                     "iter": step_id + 1,
                     "best_loss": best_loss
-                }, args.log_dir / f"model.step={self._step * self._val_freq}.pth")
+                }, args.log_dir / f"model.step={step_id}.pth")
 
 
 @torch.no_grad()

@@ -20,7 +20,7 @@ lr=1e-4
 dense_interpolation=1
 interpolation_length=50
 predict_length=0
-denoise_steps=200
+denoise_steps=50
 B=24
 
 num_query_cross_attn_layers=2
