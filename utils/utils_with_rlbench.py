@@ -432,7 +432,7 @@ class RLBenchEnv:
         record_videos: bool = False,
         num_videos: int = 10,
         record_demo_video: bool = False,
-        offline: bool = True,
+        offline: int = 0,
         position_prediction_only: bool = False,
         verbose: bool = False,
         dense_interpolation=False,
@@ -542,7 +542,7 @@ class RLBenchEnv:
         record_videos: bool = False,
         num_videos: int = 10,
         record_demo_video: bool = False,
-        offline: bool = True,
+        offline: int = 0,
         position_prediction_only: bool = False,
         verbose: bool = False,
         dense_interpolation=False,
@@ -692,7 +692,11 @@ class RLBenchEnv:
                     # Update the observation based on the predicted action
                     try:
                         # Execute entire predicted trajectory step by step
-                        if "trajectory" in output:
+                        if offline == 1:
+                            action_np = action[-1].detach().cpu().numpy()
+                            collision_checking = self._collision_checking(task_str, step_id)
+                            obs, reward, terminate, step_images = move(action_np, collision_checking=collision_checking)
+                        elif "trajectory" in output:
                             trajectory_np = output["trajectory"][-1].detach().cpu().numpy()
 
                             if verbose:
@@ -733,7 +737,7 @@ class RLBenchEnv:
                             trajectory_np_full = np.concatenate([trajectory_np_full, gt_keyframe_actions[step_id].numpy()], axis=0)
                             trajectory_np_full_gt = np.concatenate([trajectories[step_id][1:], gt_keyframe_actions[step_id].numpy()], axis=0)
                             # trajectory_np_full_gt = self.resample_trajectory(trajectory_np_full_gt, 100)
-                            if offline:
+                            if offline == 2:
                                 for action_np in trajectory_np_full_gt:  # To execute ground-truth trajectory
                                     obs, reward, terminate, step_images = move(action_np)
                             else:

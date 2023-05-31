@@ -1,10 +1,12 @@
 valset=/home/zhouxian/git/datasets/raw/diffusion_trajectories_val/
+valset=/home/zhouxian/git/datasets/raw/74_hiveformer_tasks_val/
 use_goal=1
 use_instruction=0
 gripper_bounds_buffer=0.02
 predict_length=0
+denoise_steps=100
 single_task_gripper_loc_bounds=1
-
+offline=0
 task=close_door
 
 dense_interpolation=1
@@ -25,6 +27,11 @@ task=wipe_desk
 dense_interpolation=1
 interpolation_length=50
 ckpt=/home/zhouxian/git/hiveformer/train_logs/diffuse_05_28/wipe_desk-B24-lr1e-4-DI1-50-PL0/last.pth
+denoise_steps=200
+ckpt=/home/zhouxian/git/hiveformer/train_logs/diffuse_05_30/wipe_desk-B24-lr1e-4-DI1-50-PL0-L2-DN200/last.pth
+
+offline=1
+task=take_shoes_out_of_box
 
 python eval.py\
      --seed 0\
@@ -39,7 +46,8 @@ python eval.py\
      --single_task_gripper_loc_bounds $single_task_gripper_loc_bounds \
      --predict_length $predict_length \
      --interpolation_length $interpolation_length \
-     --offline 0\
+     --offline $offline\
+     --denoise_steps $denoise_steps\
      --num_episodes 100\
      --use_instruction $use_instruction\
      --gripper_bounds_buffer $gripper_bounds_buffer\

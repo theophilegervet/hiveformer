@@ -56,6 +56,7 @@ class Arguments(tap.Tap):
     run_log_dir: str = "run"
     
     # Toggle to switch between offline and online evaluation
+    # 0: false, 1: keypose 2: full
     offline: int = 0
 
     # Toggle to switch between original HiveFormer and our models
@@ -68,6 +69,7 @@ class Arguments(tap.Tap):
     dense_interpolation: int = 0
     interpolation_length: int = 100
     predict_length: int = 0
+    denoise_steps: int = 100
 
     # ---------------------------------------------------------------
     # Original HiveFormer parameters
@@ -228,6 +230,7 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
             use_goal=bool(args.use_goal),
             gripper_loc_bounds=gripper_loc_bounds,
             predict_length=bool(args.predict_length),
+            denoise_steps=args.denoise_steps,
             positional_features=args.positional_features
         ).to(device)
     elif args.model == "analogical":
@@ -345,7 +348,7 @@ if __name__ == "__main__":
             interpolation_length=args.interpolation_length,
             record_videos=bool(args.record_videos),
             position_prediction_only=bool(args.position_prediction_only),
-            offline=bool(args.offline),
+            offline=args.offline,
             verbose=bool(args.verbose),
         )
         print()

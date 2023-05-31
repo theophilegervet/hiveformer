@@ -4,11 +4,11 @@ rsync -avzh --info=progress2  xianz1@matrix.ml.cmu.edu:/home/xianz1/git/hiveform
 
 rsync -avzh --info=progress2 xianz1@matrix.ml.cmu.edu:/home/xianz1/git/hiveformer/train_logs/diffuse_05_28/wipe_desk-B24-lr1e-4-DI1-50-PL0 /home/zhouxian/git/hiveformer/train_logs/diffuse_05_28/
 
-rsync -avzh --info=progress2 xianz1@matrix.ml.cmu.edu:/home/xianz1/git/hiveformer/train_logs/diffuse_05_25/close_door-B24-lr1e-4-DI1-50_version174697/model.step=415000-value=0.00000.pth /home/zhouxian/git/hiveformer/train_logs/diffuse_05_25/close_door-B24-lr1e-4-DI1-50_version174697/
+rsync -avzh --info=progress2 xianz1@matrix.ml.cmu.edu:/home/xianz1/git/hiveformer/train_logs/diffuse_05_30/wipe_desk-B24-lr1e-4-DI1-50-PL0-L2-DN200/* /home/zhouxian/git/hiveformer/train_logs/diffuse_05_30/wipe_desk-B24-lr1e-4-DI1-50-PL0-L2-DN200/
 
 rsync -avzh --info=progress2 xianz1@matrix.ml.cmu.edu:/projects/katefgroup/datasets/rlbench/diffusion_trajectories_train/close_door+0 /home/zhouxian/git/datasets/packaged/diffusion_trajectories_train/
 
-rsync -avzh --info=progress2 --exclude *.png sirdome@128.2.176.111:/home/sirdome/katefgroup/datasets/raw/diffusion_trajectories_val /home/zhouxian/git/datasets/raw/
+rsync -avzh --info=progress2 --exclude *.png sirdome@128.2.176.111:/home/sirdome/katefgroup/datasets/raw/74_hiveformer_tasks_val/take_shoes_out_of_box* /home/zhouxian/git/datasets/raw/74_hiveformer_tasks_val/
 
 squeue -o "%u %c %m %b %P %M %N" |grep 2-25
 squeue -o "%u %c %m %b %P %M %N" |grep 2-29

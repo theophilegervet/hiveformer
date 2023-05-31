@@ -3,7 +3,7 @@ from pyrep.const import PrimitiveShape
 from pyrep.objects.shape import Shape
 from pyrep.objects.proximity_sensor import ProximitySensor
 from rlbench.backend.task import Task
-from rlbench.backend.conditions import EmptyCondition
+from rlbench.backend.conditions import EmptyCondition, RelaxedEmptyCondition
 from rlbench.backend.spawn_boundary import SpawnBoundary
 
 DIRT_POINTS = 50
@@ -24,6 +24,7 @@ class WipeDesk(Task):
     def init_episode(self, index: int) -> List[str]:
         self._place_dirt()
         self.empty_condition = EmptyCondition(self.dirt_spots)
+        # self.empty_condition = RelaxedEmptyCondition(self.dirt_spots)
         self.register_success_conditions([self.empty_condition])
         return ['wipe dirt off the desk',
                 'use the sponge to clean up the desk',
