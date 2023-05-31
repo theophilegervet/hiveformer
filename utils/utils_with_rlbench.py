@@ -114,7 +114,7 @@ class Mover:
         # we execute the gripper action after re-tries
         action = target
         if (
-            not reward
+            not reward == 1.0
             and self._last_action is not None
             and action[7] != self._last_action[7]
         ):
@@ -433,7 +433,7 @@ class RLBenchEnv:
         record_videos: bool = False,
         num_videos: int = 10,
         record_demo_video: bool = False,
-        offline: bool = True,
+        offline: int = 0,
         position_prediction_only: bool = False,
         verbose: bool = False,
         dense_interpolation=False,
@@ -543,7 +543,7 @@ class RLBenchEnv:
         record_videos: bool = False,
         num_videos: int = 10,
         record_demo_video: bool = False,
-        offline: bool = True,
+        offline: int = 0,
         position_prediction_only: bool = False,
         verbose: bool = False,
         dense_interpolation=False,
@@ -595,6 +595,7 @@ class RLBenchEnv:
 
         success_rate = 0
         missing_demos = 0
+        total_reward = 0
 
         with torch.no_grad():
             for demo_id in range(num_demos):
@@ -626,9 +627,12 @@ class RLBenchEnv:
                 )
                 move = Mover(task, max_tries=max_tries)
                 reward = None
+                max_reward = 0.0
                 gt_keyframe_actions, trajectories, gt_trajectory_masks = actioner.get_action_from_demo(demo)
-                if offline:
-                    max_steps = len(gt_keyframe_actions)
+                # if offline:
+                    # max_steps = len(gt_keyframe_actions)
+                max_steps = len(gt_keyframe_actions)
+
                 gt_keyframe_gripper_matrices = np.stack([self.get_gripper_matrix_from_action(a[-1])
                                                          for a in gt_keyframe_actions])
                 pred_keyframe_gripper_matrices = []
@@ -690,7 +694,11 @@ class RLBenchEnv:
                     # Update the observation based on the predicted action
                     try:
                         # Execute entire predicted trajectory step by step
-                        if "trajectory" in output:
+                        if offline == 1:
+                            action_np = action[-1].detach().cpu().numpy()
+                            collision_checking = self._collision_checking(task_str, step_id)
+                            obs, reward, terminate, step_images = move(action_np, collision_checking=collision_checking)
+                        elif "trajectory" in output:
                             trajectory_np = output["trajectory"][-1].detach().cpu().numpy()
 
                             if verbose:
@@ -731,7 +739,7 @@ class RLBenchEnv:
                             trajectory_np_full = np.concatenate([trajectory_np_full, gt_keyframe_actions[step_id].numpy()], axis=0)
                             trajectory_np_full_gt = np.concatenate([trajectories[step_id][1:], gt_keyframe_actions[step_id].numpy()], axis=0)
                             # trajectory_np_full_gt = self.resample_trajectory(trajectory_np_full_gt, 100)
-                            if offline:
+                            if offline == 2:
                                 for action_np in trajectory_np_full_gt:  # To execute ground-truth trajectory
                                     obs, reward, terminate, step_images = move(action_np)
                             else:
@@ -745,6 +753,7 @@ class RLBenchEnv:
                             obs, reward, terminate, step_images = move(action_np, collision_checking=collision_checking)
 
                         images += step_images
+                        max_reward = max(max_reward, reward)
 
                         if reward == 1:
                             success_rate += 1
@@ -768,6 +777,7 @@ class RLBenchEnv:
                     task_recorder.save(record_video_file, lang_goal)
                     task_recorder._cam_motion.restore_pose()
 
+                total_reward += max_reward
                 print(
                     task_str,
                     "Variation",
@@ -775,8 +785,11 @@ class RLBenchEnv:
                     "Demo",
                     demo_id,
                     "Reward",
-                    reward,
+                    f"{reward:.2f}",
+                    "max_reward",
+                    f"{max_reward:.2f}",
                     f"SR: {success_rate}/{demo_id+1}",
+                    f"SR: {total_reward:.2f}/{demo_id+1}",
                     "Missing", missing_demos,
                 )
 

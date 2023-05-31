@@ -56,6 +56,7 @@ class Arguments(tap.Tap):
     run_log_dir: str = "run"
     
     # Toggle to switch between offline and online evaluation
+    # 0: false, 1: keypose 2: full
     offline: int = 0
 
     # Toggle to switch between original HiveFormer and our models
@@ -361,7 +362,7 @@ if __name__ == "__main__":
             interpolation_length=args.interpolation_length,
             record_videos=bool(args.record_videos),
             position_prediction_only=bool(args.position_prediction_only),
-            offline=bool(args.offline),
+            offline=args.offline,
             verbose=bool(args.verbose),
         )
         print()

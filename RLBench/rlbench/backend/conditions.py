@@ -101,7 +101,22 @@ class EmptyCondition(Condition):
         met = len(self._container) == 0
         return met, False
 
+    def score(self):
+        return 1.0 - len(self._container) / 50
 
+
+class RelaxedEmptyCondition(Condition):
+
+    def __init__(self, container: list):
+        self._container = container
+
+    def condition_met(self):
+        met = len(self._container) == 0
+        return met, False
+
+    def score(self):
+        return 1.0 - len(self._container) / 50
+        
 class FollowCondition(Condition):
 
     def __init__(self, obj: Object, points: list,

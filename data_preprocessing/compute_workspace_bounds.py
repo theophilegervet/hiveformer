@@ -76,8 +76,8 @@ if __name__ == "__main__":
 
         for i in range(len(dataset)):
             ep = dataset[i]
-            bounds[ep["task"]].append(ep["action"][ep["padding_mask"], :3])
-            bounds[ep["task"]].append(ep["trajectory"][ep["padding_mask"], :, :3].reshape([-1, 3]))
+            bounds[task].append(ep["action"][:, :3])
+            bounds[task].append(ep["trajectory"][..., :3].reshape([-1, 3]))
 
     bounds = {
         task: [
