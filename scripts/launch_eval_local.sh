@@ -51,17 +51,17 @@ ckpts=(
 #  put_item_in_drawer-PERACT_version8003450
 #  stack_blocks-PERACT_version8003451
   multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
+#  multi-task2
+#  multi-task2
+#  multi-task2
+#  multi-task2
 )
 tasks=(
   sweep_to_dustpan_of_size
-  place_wine_at_rack_location
-  put_groceries_in_cupboard
-  put_money_in_safe
-  light_bulb_in
+#  place_wine_at_rack_location
+#  put_groceries_in_cupboard
+#  put_money_in_safe
+#  light_bulb_in
 #  turn_tap
 #  open_drawer
 #  push_buttons
@@ -86,7 +86,7 @@ tasks=(
 #data_dir=/home/zhouxian/git/datasets/raw/18_peract_tasks_val
 #data_dir=/home/sirdome/katefgroup/datasets/raw/18_peract_tasks_val_new
 data_dir=/home/katefgroup/Documents/datasets/rlbench/raw/18_peract_tasks_val_new
-num_episodes=3
+num_episodes=5
 #gripper_loc_bounds_file=tasks/74_hiveformer_tasks_location_bounds.json
 gripper_loc_bounds_file=tasks/18_peract_tasks_location_bounds.json
 #use_instruction=0
