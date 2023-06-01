@@ -2,7 +2,7 @@
 
 ## 1 - HiveFormer Data Generation
 ```
-root=/home/katefgroup/Documents/hiveformer
+root=/home/katefgroup/Documents
 data_dir=$root/datasets/raw
 output_dir=$root/datasets/packaged
 train_dir=diffusion_trajectory_new_train
