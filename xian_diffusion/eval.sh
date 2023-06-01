@@ -1,12 +1,14 @@
 valset=/home/zhouxian/git/datasets/raw/diffusion_trajectories_val/
-valset=/home/zhouxian/git/datasets/raw/74_hiveformer_tasks_val/
+
 use_goal=1
 use_instruction=0
 gripper_bounds_buffer=0.02
 predict_length=0
-denoise_steps=100
 single_task_gripper_loc_bounds=1
 offline=0
+num_query_cross_attn_layers=2
+bound_file=diffusion_location_bounds.json
+
 task=close_door
 
 dense_interpolation=1
@@ -27,27 +29,32 @@ task=wipe_desk
 dense_interpolation=1
 interpolation_length=50
 ckpt=/home/zhouxian/git/hiveformer/train_logs/diffuse_05_28/wipe_desk-B24-lr1e-4-DI1-50-PL0/last.pth
-denoise_steps=200
-ckpt=/home/zhouxian/git/hiveformer/train_logs/diffuse_05_30/wipe_desk-B24-lr1e-4-DI1-50-PL0-L2-DN200/last.pth
 
-offline=1
-task=take_shoes_out_of_box
+
+task=close_door
+task=wipe_desk
+dense_interpolation=1
+interpolation_length=100
+num_query_cross_attn_layers=8
+use_instruction=1
+ckpt=/home/zhouxian/Downloads/last.pth
+
+bound_file=multitask_diffusion_location_bounds.json
 
 python eval.py\
      --seed 0\
      --tasks $task\
      --checkpoint $ckpt\
      --data_dir $valset\
-Expand All
-     @@ -21,11 +43,14 @@ python eval.py\
+     --instructions instructions.pkl \
+     --gripper_loc_bounds_file $bound_file\
      --use_goal $use_goal \
      --model diffusion \
      --dense_interpolation $dense_interpolation \
+     --num_query_cross_attn_layers $num_query_cross_attn_layers \
      --single_task_gripper_loc_bounds $single_task_gripper_loc_bounds \
-     --predict_length $predict_length \
      --interpolation_length $interpolation_length \
      --offline $offline\
-     --denoise_steps $denoise_steps\
      --num_episodes 100\
      --use_instruction $use_instruction\
      --gripper_bounds_buffer $gripper_bounds_buffer\

@@ -107,7 +107,7 @@ class DiffusionHead(nn.Module):
         self.goal_gripper_embed = nn.Embedding(1, embedding_dim)
 
         # Query learnable features
-        # self.query_embed = nn.Embedding(1, embedding_dim)
+        self.query_embed = nn.Embedding(1, embedding_dim)
 
         # Visual tokens cross-attention to language instructions
         if self.use_instruction:

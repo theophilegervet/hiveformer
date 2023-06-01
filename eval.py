@@ -227,6 +227,7 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
             num_vis_ins_attn_layers=args.num_vis_ins_attn_layers,
             num_sampling_level=args.num_sampling_level,
             use_instruction=bool(args.use_instruction),
+            num_query_cross_attn_layers=args.num_query_cross_attn_layers,
             use_goal=bool(args.use_goal),
             gripper_loc_bounds=gripper_loc_bounds,
             positional_features=args.positional_features

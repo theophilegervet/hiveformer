@@ -30,8 +30,12 @@ python train_diffusion.py \
     --dataset  $dataset\
     --valset $valset \
     --instructions instructions_old/instructions_local.pkl \
-Expand All
-    @@ -29,9 +39,12 @@ python train_diffusion.py --tasks $task \
+    --gripper_loc_bounds_file diffusion_location_bounds.json\
+    --use_instruction 0 \
+    --num_workers 2\
+    --train_iters 500000\
+    --use_goal 1 \
+    --val_freq 1000 \
     --checkpoint_freq 5 \
     --dense_interpolation $dense_interpolation \
     --interpolation_length $interpolation_length \
