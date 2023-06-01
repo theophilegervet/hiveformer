@@ -60,7 +60,7 @@ class Arguments(tap.Tap):
     run_log_dir: str = "run"
 
     # Main training parameters
-    devices: List[str] = ["cuda:0"]  # ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
+    n_gpus: int = 0
     num_workers: int = 1
     batch_size: int = 16
     batch_size_val: int = 4
@@ -261,22 +261,23 @@ def training(
                     aggregated_losses = defaultdict(list)
 
                     if val_loaders is not None:
-                        validation_step(
-                            step_id,
-                            [train_loader],
-                            model,
-                            args,
-                            writer,
-                            val_iters=1,
-                            split='train'
-                        )
+                        # skip train to save time
+                        # validation_step(
+                        #     step_id,
+                        #     [train_loader],
+                        #     model,
+                        #     args,
+                        #     writer,
+                        #     val_iters=int(24/args.batch_size),
+                        #     split='train'
+                        # )
                         val_metrics = validation_step(
                             step_id,
                             val_loaders,
                             model,
                             args,
                             writer,
-                            val_iters=2
+                            val_iters=int(24*len(args.tasks)/args.batch_size_val)
                         )
                         model.train()
                     else:
@@ -335,28 +336,37 @@ def validation_step(
                 sample["curr_gripper"].to(device),
                 sample["action"].to(device)
             )
-            losses = compute_metrics(
+            losses, losses_B = compute_metrics(
                 action,
                 sample["trajectory"].to(device),
                 sample["trajectory_mask"].to(device)
             )
-
             for n, l in losses.items():
                 key = f"{split}-loss-{val_id}/{n}"
                 if key not in values:
                     values[key] = torch.Tensor([]).to(device)
                 values[key] = torch.cat([values[key], l.unsqueeze(0)])
 
-            # Generate visualizations
-            if i == 0:
-                viz_key = f'{split}-viz-{val_id}/viz'
-                viz = generate_visualizations(
-                    action,
-                    sample["trajectory"].to(device),
-                    sample["trajectory_mask"].to(device)
-                )
-                if args.logger == 'tensorboard':
-                    writer.add_image(viz_key, viz, step_id)
+            tasks = np.array(sample["task"])
+            for n, l in losses_B.items():
+                for task in np.unique(tasks):
+                    key = f"{split}-loss-{val_id}/{task}/{n}"
+                    l_task = l[tasks==task].mean()
+                    # print(l)
+                    if key not in values:
+                        values[key] = torch.Tensor([]).to(device)
+                    values[key] = torch.cat([values[key], l_task.unsqueeze(0)])
+                
+            # # Generate visualizations
+            # if i == 0:
+            #     viz_key = f'{split}-viz-{val_id}/viz'
+            #     viz = generate_visualizations(
+            #         action,
+            #         sample["trajectory"].to(device),
+            #         sample["trajectory_mask"].to(device)
+            #     )
+            #     if args.logger == 'tensorboard':
+            #         writer.add_image(viz_key, viz, step_id)
 
         values = {k: v.mean().item() for k, v in values.items()}
         for key, val in values.items():
@@ -383,6 +393,8 @@ def compute_metrics(pred, gt, mask):
     pos_l2 = ((pred[..., :3] - gt[..., :3]) ** 2).sum(-1).sqrt() * (1 - mask)
     quat_l1 = (pred[..., 3:7] - gt[..., 3:7]).abs().sum(-1) * (1 - mask)
     div_ = (1 - mask).sum()
+    div_batch = (1 - mask).sum(-1)
+
     return {
         'action_mse': (
             F.mse_loss(pred, gt, reduction='none')* (1 - mask)[..., None]
@@ -391,7 +403,13 @@ def compute_metrics(pred, gt, mask):
         'pos_acc_001': ((pos_l2 < 0.01).float()  * (1 - mask)).sum() / div_,
         'rot_l1': quat_l1.sum() / div_,
         'rot_l1_005': ((quat_l1 < 0.05).float()  * (1 - mask)).sum() / div_,
-        'rot_l1_0025': ((quat_l1 < 0.025).float()  * (1 - mask)).sum() / div_
+        'rot_l1_0025': ((quat_l1 < 0.025).float()  * (1 - mask)).sum() / div_,
+    }, {
+        'pos_l2': pos_l2.sum(-1) / div_batch,
+        'pos_acc_001': ((pos_l2 < 0.01).float()  * (1 - mask)).sum(-1) / div_batch,
+        'rot_l1': quat_l1.sum(-1) / div_batch,
+        'rot_l1_005': ((quat_l1 < 0.05).float()  * (1 - mask)).sum(-1) / div_batch,
+        'rot_l1_0025': ((quat_l1 < 0.025).float()  * (1 - mask)).sum(-1) / div_batch,
     }
 
 
@@ -459,6 +477,9 @@ def collate_fn(batch):
         trajectory_mask[i, len_:] = 1
     ret_dict["trajectory_mask"] = trajectory_mask.bool()
 
+    ret_dict["task"] = []
+    for item in batch:
+        ret_dict["task"] += item['task']
     return ret_dict
 
 
@@ -646,7 +667,7 @@ if __name__ == "__main__":
     args.save(str(log_dir / "hparams.json"))
 
     print("Logging:", log_dir)
-    print("Args devices:", args.devices)
+    print("Args n_gpus:", args.n_gpus)
     print(
         "Available devices (CUDA_VISIBLE_DEVICES):",
         os.environ.get("CUDA_VISIBLE_DEVICES")
@@ -677,7 +698,7 @@ if __name__ == "__main__":
 
     if args.train_iters > 0:
         # DDP training
-        world_size = len(args.devices)
+        world_size = args.n_gpus
         training_args = (
             world_size,
             model,

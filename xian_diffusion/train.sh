@@ -1,50 +1,60 @@
 
 dataset=/home/zhouxian/git/datasets/packaged/diffusion_trajectories_train/
-valset=/home/zhouxian/git/datasets/packaged/diffusion_trajectories_val/
+valset=/home/zhouxian/git/datasets/packaged/diffusion_trajectories_train/
 
-dataset=/projects/katefgroup/datasets/rlbench/diffusion_trajectories_train/
-valset=/projects/katefgroup/datasets/rlbench/diffusion_trajectories_val/
+# dataset=/projects/katefgroup/datasets/rlbench/diffusion_trajectories_train/
+# valset=/projects/katefgroup/datasets/rlbench/diffusion_trajectories_val/
+
+dataset=/scratch/rlbench/diffusion_trajectories_train/
+valset=/scratch/rlbench/diffusion_trajectories_val/
 
 main_dir=diffuse_05_24
 main_dir=diffuse_05_25
 main_dir=diffuse_05_28
 main_dir=diffuse_05_29
 main_dir=diffuse_05_30
+main_dir=diffuse_05_31_multitask
 
 # main_dir=debug
 
-task=close_door
-task=wipe_desk
+# task=close_door
+# task=wipe_desk
+task_file=tasks/diffusion_10_tough_tasks.csv
+task=10_tough_tasks
+bound_file=10_tough_diffusion_location_bounds.json
 
 lr=1e-4
 dense_interpolation=1
 interpolation_length=50
-predict_length=0
-denoise_steps=50
 B=24
-
+n_gpus=4
+use_instruction=1
 num_query_cross_attn_layers=2
 
+B_gpu=$((B/n_gpus))
 python train_diffusion.py \
-    --tasks $task \
-    --dataset  $dataset\
+    --master_port 29501\
+    --tasks $(cat $task_file | tr '\n' ' ')\
+    --n_gpus $n_gpus\
+    --dataset $dataset\
     --valset $valset \
     --instructions instructions_old/instructions_local.pkl \
-    --gripper_loc_bounds_file diffusion_location_bounds.json\
-    --use_instruction 0 \
-    --num_workers 2\
+    --gripper_loc_bounds_file $bound_file\
+    --use_instruction $use_instruction \
+    --num_workers 8\
     --train_iters 500000\
+    --use_rgb 1 \
     --use_goal 1 \
+    --cache_size 0 \
+    --cache_size_val 0 \
     --val_freq 1000 \
     --checkpoint_freq 5 \
     --dense_interpolation $dense_interpolation \
     --interpolation_length $interpolation_length \
-    --predict_length $predict_length \
-    --denoise_steps $denoise_steps\
     --num_query_cross_attn_layers $num_query_cross_attn_layers \
     --gripper_bounds_buffer 0.02\
     --exp_log_dir $main_dir \
-    --batch_size $B \
+    --batch_size $B_gpu \
     --batch_size_val 12 \
     --lr $lr\
-    --run_log_dir $task-B$B-lr$lr-DI$dense_interpolation-$interpolation_length-PL$predict_length-L$num_query_cross_attn_layers-DN$denoise_steps\
+    --run_log_dir $task-B$B-lr$lr-DI$dense_interpolation-$interpolation_length-L$num_query_cross_attn_layers\

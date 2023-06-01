@@ -9,7 +9,7 @@ rsync -avzh --info=progress2 xianz1@matrix.ml.cmu.edu:/home/xianz1/git/hiveforme
 
 rsync -avzh --info=progress2 xianz1@matrix.ml.cmu.edu:/projects/katefgroup/datasets/rlbench/diffusion_trajectories_train/close_door+0 /home/zhouxian/git/datasets/packaged/diffusion_trajectories_train/
 
-rsync -avzh --info=progress2 --exclude *.png sirdome@128.2.176.111:/home/sirdome/katefgroup/datasets/raw/74_hiveformer_tasks_val/take_shoes_out_of_box* /home/zhouxian/git/datasets/raw/74_hiveformer_tasks_val/
+rsync -avzh --info=progress2 --exclude *.png sirdome@128.2.176.111:/home/sirdome/katefgroup/datasets/raw/74_hiveformer_tasks_val/screw_nail* /home/zhouxian/git/datasets/raw/74_hiveformer_tasks_val/
 
 squeue -o "%u %c %m %b %P %M %N" |grep 2-25
 squeue -o "%u %c %m %b %P %M %N" |grep 2-29

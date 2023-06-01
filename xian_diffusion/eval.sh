@@ -33,6 +33,7 @@ ckpt=/home/zhouxian/git/hiveformer/train_logs/diffuse_05_28/wipe_desk-B24-lr1e-4
 
 task=close_door
 task=wipe_desk
+
 dense_interpolation=1
 interpolation_length=100
 num_query_cross_attn_layers=8
@@ -60,4 +61,4 @@ python eval.py\
      --gripper_bounds_buffer $gripper_bounds_buffer\
      --run_log_dir $task-ONLINE\
      --max_steps -1 \
-     --max_tries 1
+     --max_tries 10
