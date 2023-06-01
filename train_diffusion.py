@@ -277,7 +277,7 @@ def training(
                             model,
                             args,
                             writer,
-                            val_iters=int(24*len(args.tasks)/args.batch_size_val)
+                            val_iters=int(4*len(args.tasks)/args.batch_size_val)
                         )
                         model.train()
                     else:
@@ -301,12 +301,12 @@ def training(
                         "best_loss": best_loss
                     }, args.log_dir / "last.pth")
 
-                    torch.save({
-                        "weight": model.state_dict(),
-                        "optimizer": optimizer.state_dict(),
-                        "iter": step_id + 1,
-                        "best_loss": best_loss
-                    }, args.log_dir / f"model.step={step_id+1}.pth")
+                    # torch.save({
+                    #     "weight": model.state_dict(),
+                    #     "optimizer": optimizer.state_dict(),
+                    #     "iter": step_id + 1,
+                    #     "best_loss": best_loss
+                    # }, args.log_dir / f"model.step={step_id+1}.pth")
 
 
 @torch.no_grad()

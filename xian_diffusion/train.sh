@@ -33,6 +33,7 @@ num_query_cross_attn_layers=2
 
 B_gpu=$((B/n_gpus))
 python train_diffusion.py \
+    --checkpoint train_logs/diffuse_05_31_multitask/10_tough_tasks-B24-lr1e-4-DI1-50-L2/last.pth\
     --master_port 29501\
     --tasks $(cat $task_file | tr '\n' ' ')\
     --n_gpus $n_gpus\
@@ -42,7 +43,7 @@ python train_diffusion.py \
     --gripper_loc_bounds_file $bound_file\
     --use_instruction $use_instruction \
     --num_workers 8\
-    --train_iters 500000\
+    --train_iters 1000000\
     --use_rgb 1 \
     --use_goal 1 \
     --cache_size 0 \

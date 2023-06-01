@@ -7,7 +7,7 @@ rsync -avzh --info=progress2 xianz1@matrix.ml.cmu.edu:/home/xianz1/git/hiveforme
 
 rsync -avzh --info=progress2 xianz1@matrix.ml.cmu.edu:/home/xianz1/git/hiveformer/train_logs/diffuse_05_30/wipe_desk-B24-lr1e-4-DI1-50-PL0-L2-DN200/* /home/zhouxian/git/hiveformer/train_logs/diffuse_05_30/wipe_desk-B24-lr1e-4-DI1-50-PL0-L2-DN200/
 
-rsync -avzh --info=progress2 xianz1@matrix.ml.cmu.edu:/projects/katefgroup/datasets/rlbench/diffusion_trajectories_train/close_door+0 /home/zhouxian/git/datasets/packaged/diffusion_trajectories_train/
+rsync -avzh --info=progress2 xianz1@matrix.ml.cmu.edu:/projects/katefgroup/datasets/rlbench/diffusion_trajectories_train/* /home/zhouxian/git/datasets/packaged/diffusion_trajectories_train/
 
 rsync -avzh --info=progress2 --exclude *.png sirdome@128.2.176.111:/home/sirdome/katefgroup/datasets/raw/74_hiveformer_tasks_val/screw_nail* /home/zhouxian/git/datasets/raw/74_hiveformer_tasks_val/
 
