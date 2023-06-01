@@ -427,11 +427,11 @@ class TaskRecorder(object):
             frame = cv2.putText(frame, lang_goal, org=(lang_textX, image_size[1] - 45),
                                 fontScale=font_scale, fontFace=font, color=(0, 0, 0),
                                 thickness=font_thickness, lineType=cv2.LINE_AA)
-            if len(self._all_step_metrics) > 0:
-                metrics_str = f"Position L2 = {self._all_step_metrics[i]['l2_pos']:.3f}"
-                frame = cv2.putText(frame, metrics_str, org=(lang_textX, image_size[1] - 25),
-                                    fontScale=font_scale, fontFace=font, color=(0, 0, 0),
-                                    thickness=font_thickness, lineType=cv2.LINE_AA)
+            # if len(self._all_step_metrics) > 0:
+            #     metrics_str = f"Position L2 = {self._all_step_metrics[i]['l2_pos']:.3f}"
+            #     frame = cv2.putText(frame, metrics_str, org=(lang_textX, image_size[1] - 25),
+            #                         fontScale=font_scale, fontFace=font, color=(0, 0, 0),
+            #                         thickness=font_thickness, lineType=cv2.LINE_AA)
             video.write(frame)
         video.release()
 

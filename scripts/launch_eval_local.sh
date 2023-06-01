@@ -55,39 +55,31 @@ ckpts=(
   multi-task2
   multi-task2
   multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
 )
 tasks=(
-  turn_tap
-  open_drawer
-  push_buttons
   sweep_to_dustpan_of_size
-  slide_block_to_color_target
-  insert_onto_square_peg
-  meat_off_grill
-  place_shape_in_shape_sorter
   place_wine_at_rack_location
   put_groceries_in_cupboard
   put_money_in_safe
-  close_jar
-  reach_and_drag
   light_bulb_in
-  stack_cups
-  place_cups
-  put_item_in_drawer
-  stack_blocks
+#  turn_tap
+#  open_drawer
+#  push_buttons
+#  sweep_to_dustpan_of_size
+#  slide_block_to_color_target
+#  insert_onto_square_peg
+#  meat_off_grill
+#  place_shape_in_shape_sorter
+#  place_wine_at_rack_location
+#  put_groceries_in_cupboard
+#  put_money_in_safe
+#  close_jar
+#  reach_and_drag
+#  light_bulb_in
+#  stack_cups
+#  place_cups
+#  put_item_in_drawer
+#  stack_blocks
 )
 
 #data_dir=/home/zhouxian/git/datasets/raw/74_hiveformer_tasks_val
@@ -100,7 +92,7 @@ gripper_loc_bounds_file=tasks/18_peract_tasks_location_bounds.json
 #use_instruction=0
 use_instruction=1
 num_ghost_points=10000
-headless=1
+headless=0
 offline=0
 cameras="left_shoulder,right_shoulder,wrist,front"
 embedding_dim=120
