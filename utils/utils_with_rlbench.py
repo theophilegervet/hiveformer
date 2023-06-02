@@ -1,3 +1,4 @@
+import imageio
 from scipy.interpolate import CubicSpline, interp1d
 import os
 from scipy.signal import savgol_filter
@@ -431,6 +432,7 @@ class RLBenchEnv:
         max_tries: int = 1,
         save_attn: bool = False,
         record_videos: bool = False,
+        record_imgs: bool = False,
         num_videos: int = 10,
         record_demo_video: bool = False,
         offline: int = 0,
@@ -462,6 +464,7 @@ class RLBenchEnv:
                 max_tries=max_tries,
                 save_attn=save_attn,
                 record_videos=record_videos,
+                record_imgs=record_imgs,
                 num_videos=num_videos,
                 record_demo_video=record_demo_video,
                 offline=offline,
@@ -529,6 +532,52 @@ class RLBenchEnv:
         resampled_trajectory[:, 3:7] = self.normalise_quat(resampled_trajectory[:, 3:7])
         return resampled_trajectory
 
+    def plt_pcd(self, points, colors, size, ghost_pcd = True):
+        import IPython;IPython.embed()
+        if True:
+            return
+
+        original_colors = torch.tensor(colors)
+        N = 10000
+        torch.manual_seed(0)
+        points_ = torch.rand((N, 3)) * torch.tensor([[1, 1, 0.8]]) + torch.tensor([0, -0.5, 0.8])
+
+        import open3d as o3d
+        colors = original_colors * 0.4 + 0.6
+        colors = original_colors
+        # Create a visualization window
+        vis = o3d.visualization.Visualizer()
+        vis.create_window()
+
+        # opt = vis.get_render_option()
+        # opt.background_color = np.asarray([235.0, 235.0, 235.0]) / 255
+
+        # Create an Open3D point cloud object
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(points)
+        pcd.colors = o3d.utility.Vector3dVector(colors)
+
+        # Add the point cloud to the visualization
+        vis.add_geometry(pcd)
+
+        vis_ghost_pcd = True
+        # vis_ghost_pcd = False
+        if vis_ghost_pcd:
+            pcd_ghost = o3d.geometry.PointCloud()
+            pcd_ghost.points = o3d.utility.Vector3dVector(points_)
+            pcd_ghost.colors = o3d.utility.Vector3dVector(
+                torch.tile(torch.tensor([[0.8, 0.2, 0.0]]), [N, 1])
+                # torch.tile(torch.tensor([[0.9, 0.65, 0.65]]), [N, 1])
+            )
+            vis.add_geometry(pcd_ghost)
+
+        # Set the camera view
+        vis.get_render_option().point_size = 2
+
+        vis.get_view_control().convert_from_pinhole_camera_parameters(o3d.io.read_pinhole_camera_parameters('open3d_pose.json'), allow_arbitrary=True)
+        vis.run()
+        vis.destroy_window()
+
     def _evaluate_task_on_one_variation(
         self,
         task_str: str,
@@ -541,6 +590,7 @@ class RLBenchEnv:
         max_tries: int = 1,
         save_attn: bool = False,
         record_videos: bool = False,
+        record_imgs: bool = False,
         num_videos: int = 10,
         record_demo_video: bool = False,
         offline: int = 0,
@@ -549,9 +599,27 @@ class RLBenchEnv:
         dense_interpolation=False,
         interpolation_length=100,
     ):
+        if record_imgs:
+            cam_placeholder = Dummy('cam_cinematic_placeholder')
+            front_cam = VisionSensor.create([1280, 1280])
+            front_cam.set_pose(cam_placeholder.get_pose())
+            front_cam.set_parent(cam_placeholder)
+
+            left_cam = VisionSensor.create([1280, 1280])
+            left_cam.set_pose(self.env._scene._cam_over_shoulder_left.get_pose())
+            left_cam.set_parent(cam_placeholder)
+
+            right_cam = VisionSensor.create([1280, 1280])
+            right_cam.set_pose(self.env._scene._cam_over_shoulder_right.get_pose())
+            right_cam.set_parent(cam_placeholder)
+
+            wrist_cam = VisionSensor.create([1280, 1280])
+            wrist_cam.set_pose(self.env._scene._cam_wrist.get_pose())
+            wrist_cam.set_parent(cam_placeholder)
+
         if record_videos:
             cam_placeholder = Dummy('cam_cinematic_placeholder')
-            cam = VisionSensor.create([480, 480])
+            cam = VisionSensor.create([1280, 1280])
             cam.set_pose(cam_placeholder.get_pose())
             cam.set_parent(cam_placeholder)
             cam_motion = CircleCameraMotion(cam, Dummy('cam_cinematic_base'), 0.005)
@@ -638,8 +706,20 @@ class RLBenchEnv:
                 pred_keyframe_gripper_matrices = []
 
                 for step_id in range(max_steps):
+                    if record_imgs:
+                        imageio.imwrite(f'{step_id}_front.png', (front_cam.capture_rgb() * 255.).astype(np.uint8))
+                        imageio.imwrite(f'{step_id}_left.png', (left_cam.capture_rgb() * 255.).astype(np.uint8))
+                        imageio.imwrite(f'{step_id}_right.png', (right_cam.capture_rgb() * 255.).astype(np.uint8))
+                        imageio.imwrite(f'{step_id}_wrist.png', (wrist_cam.capture_rgb() * 255.).astype(np.uint8))
+                        
                     # Fetch the current observation, and predict one action
                     rgb, pcd, gripper = self.get_rgb_pcd_gripper_from_obs(obs)
+
+
+                    points = torch.permute(pcd, [0, 1, 3, 4, 2]).reshape([-1, 3])
+                    colors = torch.permute(rgb, [0, 1, 3, 4, 2]).reshape([-1, 4])[:, :3] / 2 + 0.5
+                    if step_id == 2:
+                        self.plt_pcd(points[::3, :], colors[::3, :], 2)
 
                     rgb = rgb.to(device)
                     pcd = pcd.to(device)

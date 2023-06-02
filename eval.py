@@ -63,6 +63,7 @@ class Arguments(tap.Tap):
     model: str = "baseline"  # one of "original", "baseline", "analogical"
 
     record_videos: int = 0
+    record_imgs: int = 0
     max_steps: int = 50
     collision_checking: int = 0
     use_rgb: int = 1
@@ -362,6 +363,7 @@ if __name__ == "__main__":
             dense_interpolation=bool(args.dense_interpolation),
             interpolation_length=args.interpolation_length,
             record_videos=bool(args.record_videos),
+            record_imgs=bool(args.record_imgs),
             position_prediction_only=bool(args.position_prediction_only),
             offline=args.offline,
             verbose=bool(args.verbose),
