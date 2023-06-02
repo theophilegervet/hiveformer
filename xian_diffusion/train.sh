@@ -14,6 +14,7 @@ main_dir=diffuse_05_28
 main_dir=diffuse_05_29
 main_dir=diffuse_05_30
 main_dir=diffuse_05_31_multitask
+main_dir=diffuse_06_02_multitask
 
 # main_dir=debug
 
@@ -27,14 +28,13 @@ lr=1e-4
 dense_interpolation=1
 interpolation_length=50
 B=24
-n_gpus=4
+n_gpus=2
 use_instruction=1
-num_query_cross_attn_layers=2
+num_query_cross_attn_layers=4
 
 B_gpu=$((B/n_gpus))
 python train_diffusion.py \
-    --checkpoint train_logs/diffuse_05_31_multitask/10_tough_tasks-B24-lr1e-4-DI1-50-L2/last.pth\
-    --master_port 29501\
+    --master_port 29500\
     --tasks $(cat $task_file | tr '\n' ' ')\
     --n_gpus $n_gpus\
     --dataset $dataset\
@@ -59,3 +59,5 @@ python train_diffusion.py \
     --batch_size_val 12 \
     --lr $lr\
     --run_log_dir $task-B$B-lr$lr-DI$dense_interpolation-$interpolation_length-L$num_query_cross_attn_layers\
+    # --checkpoint train_logs/diffuse_05_31_multitask/10_tough_tasks-B24-lr1e-4-DI1-50-L2/last.pth\
+    
