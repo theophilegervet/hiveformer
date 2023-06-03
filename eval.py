@@ -45,7 +45,7 @@ class Arguments(tap.Tap):
     arch: Optional[str] = None
     variations: Tuple[int, ...] = (0,)
     data_dir: Path = Path(__file__).parent / "demos"
-    cameras: Tuple[str, ...] = ("left_shoulder", "right_shoulder", "wrist")
+    cameras: Tuple[str, ...] = ("left_shoulder", "right_shoulder", "wrist", "front")
     image_size: str = "256,256"
     verbose: int = 0
     output_file: Path = Path(__file__).parent / "eval.json"

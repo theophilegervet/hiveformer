@@ -1,5 +1,5 @@
 valset=/home/zhouxian/git/datasets/raw/diffusion_trajectories_val/
-valset=/home/zhouxian/git/datasets/raw/74_hiveformer_tasks_val
+# valset=/home/zhouxian/git/datasets/raw/74_hiveformer_tasks_val
 
 use_goal=1
 use_instruction=0
@@ -34,7 +34,7 @@ ckpt=/home/zhouxian/git/hiveformer/train_logs/diffuse_05_28/wipe_desk-B24-lr1e-4
 
 task=close_door
 task=wipe_desk
-task=sweep_to_dustpan
+# task=sweep_to_dustpan
 
 offline=1
 
@@ -59,4 +59,4 @@ python eval.py\
      --run_log_dir $task-ONLINE\
      --max_steps -1 \
      --max_tries 10\
-     --record_imgs 0
+     --record_imgs 1

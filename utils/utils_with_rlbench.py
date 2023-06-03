@@ -538,13 +538,14 @@ class RLBenchEnv:
             return
 
         original_colors = torch.tensor(colors)
-        N = 10000
+        N = 5000
         torch.manual_seed(0)
         points_ = torch.rand((N, 3)) * torch.tensor([[1, 1, 0.8]]) + torch.tensor([0, -0.5, 0.8])
 
         import open3d as o3d
         colors = original_colors * 0.4 + 0.6
-        colors = original_colors
+        # colors = original_colors * 0.3 + 0.7
+        # colors = original_colors
         # Create a visualization window
         vis = o3d.visualization.Visualizer()
         vis.create_window()
@@ -554,8 +555,8 @@ class RLBenchEnv:
 
         # Create an Open3D point cloud object
         pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(points)
-        pcd.colors = o3d.utility.Vector3dVector(colors)
+        pcd.points = o3d.utility.Vector3dVector(points[points[:, 0]>-0.5])
+        pcd.colors = o3d.utility.Vector3dVector(colors[points[:, 0]>-0.5])
 
         # Add the point cloud to the visualization
         vis.add_geometry(pcd)
@@ -574,7 +575,7 @@ class RLBenchEnv:
         # Set the camera view
         vis.get_render_option().point_size = 2
 
-        vis.get_view_control().convert_from_pinhole_camera_parameters(o3d.io.read_pinhole_camera_parameters('open3d_pose.json'), allow_arbitrary=True)
+        vis.get_view_control().convert_from_pinhole_camera_parameters(o3d.io.read_pinhole_camera_parameters('open3d_pose2.json'), allow_arbitrary=True)
         vis.run()
         vis.destroy_window()
 
@@ -605,14 +606,17 @@ class RLBenchEnv:
             front_cam.set_pose(cam_placeholder.get_pose())
             front_cam.set_parent(cam_placeholder)
 
+            cam_placeholder = Dummy('cam_cinematic_placeholder')
             left_cam = VisionSensor.create([1280, 1280])
             left_cam.set_pose(self.env._scene._cam_over_shoulder_left.get_pose())
             left_cam.set_parent(cam_placeholder)
 
+            cam_placeholder = Dummy('cam_cinematic_placeholder')
             right_cam = VisionSensor.create([1280, 1280])
             right_cam.set_pose(self.env._scene._cam_over_shoulder_right.get_pose())
             right_cam.set_parent(cam_placeholder)
 
+            cam_placeholder = Dummy('cam_cinematic_placeholder')
             wrist_cam = VisionSensor.create([1280, 1280])
             wrist_cam.set_pose(self.env._scene._cam_wrist.get_pose())
             wrist_cam.set_parent(cam_placeholder)
@@ -718,7 +722,7 @@ class RLBenchEnv:
 
                     points = torch.permute(pcd, [0, 1, 3, 4, 2]).reshape([-1, 3])
                     colors = torch.permute(rgb, [0, 1, 3, 4, 2]).reshape([-1, 4])[:, :3] / 2 + 0.5
-                    if step_id == 2:
+                    if step_id == 3:
                         self.plt_pcd(points[::3, :], colors[::3, :], 2)
 
                     rgb = rgb.to(device)
@@ -872,6 +876,7 @@ class RLBenchEnv:
                     f"SR: {total_reward:.2f}/{demo_id+1}",
                     "Missing", missing_demos,
                 )
+
 
         # Compensate for failed demos
         if (num_demos - missing_demos) == 0:
