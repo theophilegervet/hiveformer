@@ -32,8 +32,8 @@ python train_diffusion.py \
     --use_goal 1 \
     --cache_size 0 \
     --cache_size_val 0 \
-    --val_freq 1000 \
-    --checkpoint_freq 5 \
+    --val_freq 2000 \
+    --checkpoint_freq 1 \
     --dense_interpolation $dense_interpolation \
     --interpolation_length $interpolation_length \
     --num_query_cross_attn_layers $num_query_cross_attn_layers \
