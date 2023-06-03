@@ -3,9 +3,9 @@ rsync -avzh --info=progress2  --exclude-from='/home/zhouxian/git/hiveformer/xian
 rsync -avzh --info=progress2  xianz1@matrix.ml.cmu.edu:/home/xianz1/git/hiveformer/instruction*  /home/zhouxian/git/hiveformer/
 rsync -avzh --info=progress2  xianz1@matrix.ml.cmu.edu:/home/tgervet/hiveformer/instructions.pkl  /home/zhouxian/git/hiveformer/
 
-rsync -avzh --info=progress2 xianz1@matrix.ml.cmu.edu:/home/xianz1/git/hiveformer/train_logs/diffuse_05_28/wipe_desk-B24-lr1e-4-DI1-50-PL0 /home/zhouxian/git/hiveformer/train_logs/diffuse_05_28/
+rsync -avzh --info=progress2 xianz1@matrix.ml.cmu.edu:/home/xianz1/git/hiveformer/train_logs/diffuse_05_31_multitask/10_tough_tasks-B24-lr1e-4-DI1-50-L2 /home/zhouxian/git/hiveformer/train_logs/diffuse_05_31_multitask/
 
-rsync -avzh --info=progress2 xianz1@matrix.ml.cmu.edu:/home/xianz1/git/hiveformer/train_logs/diffuse_05_30/wipe_desk-B24-lr1e-4-DI1-50-PL0-L2-DN200/* /home/zhouxian/git/hiveformer/train_logs/diffuse_05_30/wipe_desk-B24-lr1e-4-DI1-50-PL0-L2-DN200/
+rsync -avzh --info=progress2 xianz1@matrix.ml.cmu.edu:/home/xianz1/git/hiveformer/train_logs/diffuse_06_02_multitask/10_tough_tasks-B24-lr1e-4-DI1-50-L4/last.pth /home/zhouxian/git/hiveformer/train_logs/diffuse_06_02_multitask/10_tough_tasks-B24-lr1e-4-DI1-50-L4
 
 rsync -avzh --info=progress2 xianz1@matrix.ml.cmu.edu:/projects/katefgroup/datasets/rlbench/diffusion_trajectories_train/* /home/zhouxian/git/datasets/packaged/diffusion_trajectories_train/
 

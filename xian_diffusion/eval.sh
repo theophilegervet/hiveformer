@@ -35,12 +35,12 @@ task=close_door
 task=wipe_desk
 
 dense_interpolation=1
-interpolation_length=100
-num_query_cross_attn_layers=8
+interpolation_length=50
+num_query_cross_attn_layers=4
 use_instruction=1
-ckpt=/home/zhouxian/Downloads/last.pth
+ckpt=/home/zhouxian/git/hiveformer/train_logs/diffuse_06_02_multitask/10_tough_tasks-B24-lr1e-4-DI1-50-L4/last.pth
 
-bound_file=multitask_diffusion_location_bounds.json
+bound_file=10_tough_diffusion_location_bounds.json
 
 python eval.py\
      --seed 0\

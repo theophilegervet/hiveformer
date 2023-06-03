@@ -145,9 +145,9 @@ python -m data_preprocessing.compute_workspace_bounds \
     --tasks $(cat $task_file | tr '\n' ' ')
 ```
 
-task_file=tasks/diffusion_tasks.csv
+task_file=tasks/diffusion_10_hiveformer_tasks.csv
 python -m data_preprocessing.compute_workspace_bounds \
-    --dataset /home/zhouxian/git/datasets/packaged/diffusion_trajectories_train \
-    --out_file diffusion_location_bounds.json \
+    --dataset /projects/katefgroup/datasets/rlbench/diffusion_trajectories_train/ \
+    --out_file 10_hiveformer_diffusion_location_bounds.json \
     --instructions instructions_new.pkl \
     --tasks $(cat $task_file | tr '\n' ' ')
