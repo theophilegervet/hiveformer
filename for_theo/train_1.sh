@@ -43,5 +43,6 @@ sbatch train_8gpu_32gb_fair_devlab.sh \
     --batch_size $B_gpu \
     --batch_size_val 12 \
     --lr $lr\
+    --logger wandb\
     --run_log_dir $task-B$B-lr$lr-DI$dense_interpolation-$interpolation_length-L$num_query_cross_attn_layers
     
