@@ -1,6 +1,6 @@
 
-dataset=/scratch/rlbench/diffusion_trajectories_train/
-valset=/scratch/rlbench/diffusion_trajectories_val/
+dataset=/private/home/theop123/datasets/rlbench/packaged/diffusion_trajectories_train/
+valset=/private/home/theop123/datasets/rlbench/packaged/diffusion_trajectories_val/
 
 main_dir=diffuse_06_03_multitask
 
@@ -17,13 +17,14 @@ use_instruction=1
 num_query_cross_attn_layers=4
 
 B_gpu=$((B/n_gpus))
-python train_diffusion.py \
+#python train_diffusion.py \
+sbatch train_8gpu_32gb_fair_devlab.sh \
     --master_port 29500\
     --tasks $(cat $task_file | tr '\n' ' ')\
     --n_gpus $n_gpus\
     --dataset $dataset\
     --valset $valset \
-    --instructions instructions_old/instructions_local.pkl \
+    --instructions instructions.pkl \
     --gripper_loc_bounds_file $bound_file\
     --use_instruction $use_instruction \
     --num_workers 8\
@@ -42,5 +43,5 @@ python train_diffusion.py \
     --batch_size $B_gpu \
     --batch_size_val 12 \
     --lr $lr\
-    --run_log_dir $task-B$B-lr$lr-DI$dense_interpolation-$interpolation_length-L$num_query_cross_attn_layers\
+    --run_log_dir $task-B$B-lr$lr-DI$dense_interpolation-$interpolation_length-L$num_query_cross_attn_layers
     
