@@ -277,7 +277,7 @@ def training(
                             model,
                             args,
                             writer,
-                            val_iters=int(4*len(args.tasks)/args.batch_size_val)
+                            val_iters=max(1, int(4*len(args.tasks)/args.batch_size_val))
                         )
                         model.train()
                     else:

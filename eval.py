@@ -29,6 +29,7 @@ from utils.utils_without_rlbench import (
 
 class Arguments(tap.Tap):
     checkpoint: Path
+    act3d_checkpoint: Path
     seed: int = 2
     save_img: bool = True
     device: str = "cuda"
@@ -87,8 +88,10 @@ class Arguments(tap.Tap):
 
     visualize_rgb_attn: int = 0
     gripper_loc_bounds_file: str = "tasks/74_hiveformer_tasks_location_bounds.json"
+    act3d_gripper_loc_bounds_file: str = "tasks/74_hiveformer_tasks_location_bounds.json"
     single_task_gripper_loc_bounds: int = 0
     gripper_bounds_buffer: float = 0.04
+    act3d_gripper_bounds_buffer: float = 0.04
 
     position_prediction_only: int = 0
     regress_position_offset: int = 0
@@ -107,10 +110,12 @@ class Arguments(tap.Tap):
     embedding_dim: int = 60
     num_ghost_point_cross_attn_layers: int = 2
     num_query_cross_attn_layers: int = 2
+    act3d_num_query_cross_attn_layers: int = 2
     num_vis_ins_attn_layers: int = 2
     # one of "quat_from_top_ghost", "quat_from_query", "6D_from_top_ghost", "6D_from_query"
     rotation_parametrization: str = "quat_from_query"
     use_instruction: int = 0
+    act3d_use_instruction: int = 0
     task_specific_biases: int = 0
 
     # Positional features
@@ -292,6 +297,77 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
     return model
 
 
+def load_model_full(diffusion_checkpoint: Path, act3d_checkpoint: Path, args) -> Hiveformer:
+    device = torch.device(args.device)
+
+    print("Loading model from", diffusion_checkpoint, flush=True)
+    print("Loading model from", act3d_checkpoint, flush=True)
+
+    max_episode_length = get_max_episode_length(args.tasks, args.variations)
+
+    # Gripper workspace is the union of workspaces for all tasks
+    if args.single_task_gripper_loc_bounds and len(args.tasks) == 1:
+        task = args.tasks[0]
+    else:
+        task = None
+
+    diffusion_gripper_loc_bounds = get_gripper_loc_bounds(
+        args.gripper_loc_bounds_file, task=task, buffer=args.gripper_bounds_buffer)
+    act3d_gripper_loc_bounds = get_gripper_loc_bounds(
+        args.act3d_gripper_loc_bounds_file, task=task, buffer=args.act3d_gripper_bounds_buffer)
+
+    diffusion_model = DiffusionPlanner(
+        backbone=args.backbone,
+        image_size=tuple(int(x) for x in args.image_size.split(",")),
+        embedding_dim=args.embedding_dim,
+        num_vis_ins_attn_layers=args.num_vis_ins_attn_layers,
+        num_sampling_level=args.num_sampling_level,
+        use_instruction=bool(args.use_instruction),
+        num_query_cross_attn_layers=args.num_query_cross_attn_layers,
+        use_goal=bool(args.use_goal),
+        gripper_loc_bounds=diffusion_gripper_loc_bounds,
+        positional_features=args.positional_features
+    ).to(device)
+    act3d_model = Baseline(
+        backbone=args.backbone,
+        image_size=tuple(int(x) for x in args.image_size.split(",")),
+        embedding_dim=args.embedding_dim,
+        num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,
+        num_query_cross_attn_layers=args.act3d_num_query_cross_attn_layers,
+        rotation_parametrization=args.rotation_parametrization,
+        gripper_loc_bounds=act3d_gripper_loc_bounds,
+        num_ghost_points=args.num_ghost_points,
+        num_ghost_points_val=args.num_ghost_points_val,
+        weight_tying=bool(args.weight_tying),
+        gp_emb_tying=bool(args.gp_emb_tying),
+        num_sampling_level=args.num_sampling_level,
+        fine_sampling_ball_diameter=args.fine_sampling_ball_diameter,
+        regress_position_offset=bool(args.regress_position_offset),
+        visualize_rgb_attn=bool(args.visualize_rgb_attn),
+        use_instruction=bool(args.act3d_use_instruction),
+        task_specific_biases=bool(args.task_specific_biases),
+        positional_features=args.positional_features,
+        task_ids=[TASK_TO_ID[task] for task in args.tasks],
+    ).to(device)
+
+    diffusion_model_dict = torch.load(diffusion_checkpoint, map_location="cpu")
+    diffusion_model_dict_weight = {}
+    for key in diffusion_model_dict["weight"]:
+        _key = key[7:]
+        diffusion_model_dict_weight[_key] = diffusion_model_dict["weight"][key]
+    diffusion_model.load_state_dict(diffusion_model_dict_weight)
+    diffusion_model.eval()
+
+    act3d_model_dict = torch.load(act3d_checkpoint, map_location="cpu")
+    act3d_model_dict_weight = {}
+    for key in act3d_model_dict["weight"]:
+        _key = key[7:]
+        act3d_model_dict_weight[_key] = act3d_model_dict["weight"][key]
+    act3d_model.load_state_dict(act3d_model_dict_weight)
+    act3d_model.eval()
+
+    return [diffusion_model, act3d_model]
+
 def find_checkpoint(checkpoint: Path) -> Path:
     if checkpoint.is_dir():
         candidates = [c for c in checkpoint.rglob("*.pth") if c.name != "best"]
@@ -321,15 +397,29 @@ if __name__ == "__main__":
     random.seed(args.seed)
 
     # load model and args
-    checkpoint = find_checkpoint(args.checkpoint)
-    args = copy_args(checkpoint, args)
-    if checkpoint is None:
-        raise RuntimeError()
-    model = load_model(checkpoint, args)
+
+    if args.model == 'full':
+        diffusion_checkpoint = find_checkpoint(args.checkpoint)
+        act3d_checkpoint = find_checkpoint(args.act3d_checkpoint)
+
+        if diffusion_checkpoint is None:
+            raise RuntimeError()
+        if act3d_checkpoint is None:
+            raise RuntimeError()
+        model = load_model_full(diffusion_checkpoint, act3d_checkpoint, args)
+
+    else:
+        checkpoint = find_checkpoint(args.checkpoint)
+
+        args = copy_args(checkpoint, args)
+        if checkpoint is None:
+            raise RuntimeError()
+        model = load_model(checkpoint, args)
+
 
     # load RLBench environment
     env = RLBenchEnv(
-        traj_cmd=args.model == "diffusion",
+        traj_cmd=args.model in ["full", "diffusion"],
         data_path=args.data_dir,
         image_size=[int(x) for x in args.image_size.split(",")],
         apply_rgb=True,
@@ -345,7 +435,7 @@ if __name__ == "__main__":
     if instruction is None:
         raise NotImplementedError()
 
-    actioner = Actioner(model=model, instructions=instruction)
+    actioner = Actioner(model_type=args.model, model=model, instructions=instruction)
     max_eps_dict = load_episodes()["max_episode_length"]
     task_success_rates = {}
 
