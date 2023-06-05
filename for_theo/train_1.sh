@@ -14,7 +14,8 @@ interpolation_length=50
 B=24
 n_gpus=8
 use_instruction=1
-num_query_cross_attn_layers=8
+#num_query_cross_attn_layers=8
+num_query_cross_attn_layers=4
 
 B_gpu=$((B/n_gpus))
 #python train_diffusion.py \
