@@ -829,7 +829,8 @@ def keypoint_discovery(demo: Demo, stopping_delta=0.1) -> List[int]:
     ):
         episode_keypoints.pop(-2)
 
-    return episode_keypoints
+    # return episode_keypoints
+    return [i for i in range(len(demo))]
 
 
 def transform(obs_dict, augmentation=False):
