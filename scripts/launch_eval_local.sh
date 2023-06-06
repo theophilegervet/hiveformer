@@ -34,11 +34,9 @@ exp=peract_new_data
 ckpts=(
   multi-task2
   multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
+#  multi-task2
+#  multi-task2
+
 #  multi-task2
 #  multi-task2
 #  multi-task2
@@ -59,13 +57,11 @@ ckpts=(
 #  multi-task2
 )
 tasks=(
-  light_bulb_in
-  place_wine_at_rack_location
-  put_groceries_in_cupboard
-  put_money_in_safe
-  sweep_to_dustpan_of_size
-  reach_and_drag
-  insert_onto_square_peg
+  close_jar
+  put_item_in_drawer
+#  put_groceries_in_cupboard
+#  put_money_in_safe
+
 #  turn_tap
 #  open_drawer
 #  push_buttons
