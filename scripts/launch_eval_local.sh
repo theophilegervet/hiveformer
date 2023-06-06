@@ -35,98 +35,37 @@ ckpts=(
   multi-task2
   multi-task2
   multi-task2
-#  multi-task2
-#  multi-task2
-#  multi-task2
-#  multi-task2
-#  multi-task2
-#  multi-task2
-#  multi-task2
-#  multi-task2
-#  multi-task2
-
-#  multi-task2
-#  multi-task2
-#  multi-task2
-#  multi-task2
-#  multi-task2
-#  multi-task2
-#  multi-task2
-#  multi-task2
-#  multi-task2
-#  multi-task2
-#  multi-task2
-#  multi-task2
-#  multi-task2
-#  multi-task2
-#  multi-task2
-#  multi-task2
-#  multi-task2
-#  multi-task2
-#  multi-task2
+  multi-task2
+  multi-task2
+  multi-task2
+  multi-task2
+  multi-task2
 )
 tasks=(
-  toilet_seat_up
-  close_laptop_lid
-  open_microwave
-#  unplug_charger
-#  close_door
-#  open_box
-#  open_fridge
-#  hang_frame_on_hanger
-#  take_frame_off_hanger
-#  open_oven
-#  put_books_on_bookshelf
-#  wipe_desk
-#  slide_cabinet_open_and_place_cups
-#  take_shoes_out_of_box
-
-#  insert_onto_square_peg
-#  insert_usb_in_computer
-#  place_shape_in_shape_sorter
-#  water_plants
-#  place_hanger_on_rack
-#  plug_charger_in_power_supply
-#  tower3
-#  straighten_rope
-#  screw_nail
-#  stack_cups
-#  stack_blocks
-#  put_umbrella_in_umbrella_stand
-#  turn_tap
-#  open_drawer
-#  push_buttons
-#  sweep_to_dustpan_of_size
-#  slide_block_to_color_target
-#  insert_onto_square_peg
-#  meat_off_grill
-#  place_shape_in_shape_sorter
-#  place_wine_at_rack_location
-#  put_groceries_in_cupboard
-#  put_money_in_safe
-#  close_jar
-#  reach_and_drag
-#  light_bulb_in
-#  stack_cups
-#  place_cups
-#  put_item_in_drawer
-#  stack_blocks
+  turn_tap
+  insert_onto_square_peg
+  place_shape_in_shape_sorter
+  put_groceries_in_cupboard
+  light_bulb_in
+  stack_cups
+  place_cups
+  stack_blocks
 )
 
 #data_dir=/home/zhouxian/git/datasets/raw/74_hiveformer_tasks_val
 #data_dir=/home/zhouxian/git/datasets/raw/18_peract_tasks_val
 #data_dir=/home/sirdome/katefgroup/datasets/raw/18_peract_tasks_val_new
-#data_dir=/home/katefgroup/Documents/datasets/rlbench/raw/18_peract_tasks_val_new
-data_dir=/home/katefgroup/Documents/datasets/rlbench/raw/74_hiveformer_tasks_val
+data_dir=/home/katefgroup/Documents/datasets/rlbench/raw/18_peract_tasks_val_new
+#data_dir=/home/katefgroup/Documents/datasets/rlbench/raw/74_hiveformer_tasks_val
 num_episodes=100
-gripper_loc_bounds_file=tasks/74_hiveformer_tasks_location_bounds.json
-#gripper_loc_bounds_file=tasks/18_peract_tasks_location_bounds.json
+#gripper_loc_bounds_file=tasks/74_hiveformer_tasks_location_bounds.json
+gripper_loc_bounds_file=tasks/18_peract_tasks_location_bounds.json
 #use_instruction=0
 use_instruction=1
 num_ghost_points=10000
 headless=0
-offline=1
-record_videos=1
+offline=0
+record_videos=0
 cameras="left_shoulder,right_shoulder,wrist,front"
 embedding_dim=120
 
