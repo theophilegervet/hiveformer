@@ -48,14 +48,14 @@ ckpts=(
   multi-task2
   multi-task2
   multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
+#  multi-task2
+#  multi-task2
+#  multi-task2
+#  multi-task2
+#  multi-task2
+#  multi-task2
+#  multi-task2
+#  multi-task2
 #  multi-task2
 #  multi-task2
 #  multi-task2
@@ -77,15 +77,15 @@ tasks=(
 #  slide_cabinet_open_and_place_cups
 #  take_shoes_out_of_box
 
-  insert_onto_square_peg
-  insert_usb_in_computer
-  place_shape_in_shape_sorter
-  water_plants
-  place_hanger_on_rack
+#  insert_onto_square_peg
+#  insert_usb_in_computer
+#  place_shape_in_shape_sorter
+#  water_plants
+#  place_hanger_on_rack
   plug_charger_in_power_supply
-  tower3
-  straighten_rope
-  screw_nail
+#  tower3
+#  straighten_rope
+#  screw_nail
   stack_cups
   stack_blocks
   put_umbrella_in_umbrella_stand
