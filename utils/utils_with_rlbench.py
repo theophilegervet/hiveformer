@@ -462,7 +462,7 @@ class RLBenchEnv:
             cam = VisionSensor.create([1920, 1080])
             cam.set_pose(cam_placeholder.get_pose())
             cam.set_parent(cam_placeholder)
-            cam_motion = CircleCameraMotion(cam, Dummy('cam_cinematic_base'), 0.005)
+            cam_motion = CircleCameraMotion(cam, Dummy('cam_cinematic_base'), 0.0)
             task_recorder = TaskRecorder(
                 ("left_shoulder", "right_shoulder", "wrist"),
                 self.env, cam_motion,
