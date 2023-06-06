@@ -230,7 +230,7 @@ class CameraMotion(object):
 class CircleCameraMotion(CameraMotion):
 
     def __init__(self, cam: VisionSensor, origin: Dummy,
-                 speed: float, init_rotation: float = np.deg2rad(180)):
+                 speed: float, init_rotation: float = np.deg2rad(0)):
         super().__init__(cam)
         self.origin = origin
         self.speed = speed  # in radians
@@ -374,33 +374,33 @@ class TaskRecorder(object):
             (self._cam_motion.cam.capture_rgb()[:, :, ::-1] * 255.).astype(np.uint8))
 
         # Obs point cloud and RGB snaps
-        if len(self._3d_person_snaps) % self._obs_record_freq == 0:
-            rgb_obs = np.stack([getattr(obs, f"{cam}_rgb") for cam in self._obs_cameras])
-            pcd_obs = np.stack([getattr(obs, f"{cam}_point_cloud") for cam in self._obs_cameras])
-            for i in range(len(self._rgb_snaps)):
-                rgb = rgb_obs[i].copy()
-                if self._top_coarse_rgb_heatmap is not None:
-                    rgb[self._top_coarse_rgb_heatmap[i] == 1] = [x * 255 for x in COARSE_PRED_COLOR]
-                if self._top_fine_rgb_heatmap is not None:
-                    rgb[self._top_fine_rgb_heatmap[i] == 1] = [x * 255 for x in FINE_PRED_COLOR]
-                self._rgb_snaps[i].append(rgb)
-            rgb_obs = einops.rearrange(rgb_obs, "n_cam h w c -> n_cam c h w")
-            # normalise to [-1, 1]
-            rgb_obs = rgb_obs / 255.0
-            rgb_obs = 2 * (rgb_obs - 0.5)
-            pcd_obs = einops.rearrange(pcd_obs, "n_cam h w c -> n_cam c h w")
-            pcd_imgs = get_point_cloud_images(
-                self._open3d_pcd_vis, rgb_obs, pcd_obs,
-                self._custom_cam_params,
-                self._gt_keyframe_gripper_matrices,
-                self._pred_keyframe_gripper_matrices,
-                self._pred_coarse_position,
-                self._pred_fine_position,
-                self._position_prediction_only,
-                self._fine_sampling_ball_diameter
-            )
-            for i in range(len(self._pcd_snaps)):
-                self._pcd_snaps[i].append(pcd_imgs[i])
+        # if len(self._3d_person_snaps) % self._obs_record_freq == 0:
+        #     rgb_obs = np.stack([getattr(obs, f"{cam}_rgb") for cam in self._obs_cameras])
+        #     pcd_obs = np.stack([getattr(obs, f"{cam}_point_cloud") for cam in self._obs_cameras])
+        #     for i in range(len(self._rgb_snaps)):
+        #         rgb = rgb_obs[i].copy()
+        #         if self._top_coarse_rgb_heatmap is not None:
+        #             rgb[self._top_coarse_rgb_heatmap[i] == 1] = [x * 255 for x in COARSE_PRED_COLOR]
+        #         if self._top_fine_rgb_heatmap is not None:
+        #             rgb[self._top_fine_rgb_heatmap[i] == 1] = [x * 255 for x in FINE_PRED_COLOR]
+        #         self._rgb_snaps[i].append(rgb)
+        #     rgb_obs = einops.rearrange(rgb_obs, "n_cam h w c -> n_cam c h w")
+        #     # normalise to [-1, 1]
+        #     rgb_obs = rgb_obs / 255.0
+        #     rgb_obs = 2 * (rgb_obs - 0.5)
+        #     pcd_obs = einops.rearrange(pcd_obs, "n_cam h w c -> n_cam c h w")
+        #     pcd_imgs = get_point_cloud_images(
+        #         self._open3d_pcd_vis, rgb_obs, pcd_obs,
+        #         self._custom_cam_params,
+        #         self._gt_keyframe_gripper_matrices,
+        #         self._pred_keyframe_gripper_matrices,
+        #         self._pred_coarse_position,
+        #         self._pred_fine_position,
+        #         self._position_prediction_only,
+        #         self._fine_sampling_ball_diameter
+        #     )
+        #     for i in range(len(self._pcd_snaps)):
+        #         self._pcd_snaps[i].append(pcd_imgs[i])
 
     def save(self, path, lang_goal):
         print(f"Saving eval video at {path}")
@@ -436,31 +436,31 @@ class TaskRecorder(object):
         video.release()
 
         # Visualize most informative views together
-        assert self._obs_record_freq == 1
-        top_row_visualizations = [
-            self._3d_person_snaps,
-            self._pcd_snaps[0],
-            self._pcd_snaps[1],
-        ]
-        bottom_row_visualizations = [
-            self._rgb_snaps[2],
-            self._rgb_snaps[0],
-            self._rgb_snaps[1],
-        ]
-        image_size = (480 * len(top_row_visualizations), 480 * 2)
-        video = cv2.VideoWriter(
-            f"{path}/pcd_obs.mp4",
-            cv2.VideoWriter_fourcc('m', 'p', '4', 'v'),
-            self._fps // self._obs_record_freq,
-            tuple(image_size)
-        )
-        for i in range(len(top_row_visualizations[0])):
-            top_row = np.concatenate([snaps[i] for snaps in top_row_visualizations], axis=1)
-            bottom_row = np.concatenate([cv2.resize(snaps[i][:, :, ::-1], (480, 480))
-                                         for snaps in bottom_row_visualizations], axis=1)
-            snap = np.concatenate([top_row, bottom_row], axis=0)
-            video.write(cv2.resize(snap, image_size))
-        video.release()
+        # assert self._obs_record_freq == 1
+        # top_row_visualizations = [
+        #     self._3d_person_snaps,
+        #     self._pcd_snaps[0],
+        #     self._pcd_snaps[1],
+        # ]
+        # bottom_row_visualizations = [
+        #     self._rgb_snaps[2],
+        #     self._rgb_snaps[0],
+        #     self._rgb_snaps[1],
+        # ]
+        # image_size = (480 * len(top_row_visualizations), 480 * 2)
+        # video = cv2.VideoWriter(
+        #     f"{path}/pcd_obs.mp4",
+        #     cv2.VideoWriter_fourcc('m', 'p', '4', 'v'),
+        #     self._fps // self._obs_record_freq,
+        #     tuple(image_size)
+        # )
+        # for i in range(len(top_row_visualizations[0])):
+        #     top_row = np.concatenate([snaps[i] for snaps in top_row_visualizations], axis=1)
+        #     bottom_row = np.concatenate([cv2.resize(snaps[i][:, :, ::-1], (480, 480))
+        #                                  for snaps in bottom_row_visualizations], axis=1)
+        #     snap = np.concatenate([top_row, bottom_row], axis=0)
+        #     video.write(cv2.resize(snap, image_size))
+        # video.release()
 
         self._3d_person_snaps = []
         self._pcd_snaps = [[] for _ in range(len(self._pcd_views))]
