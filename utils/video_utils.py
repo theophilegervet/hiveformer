@@ -230,7 +230,7 @@ class CameraMotion(object):
 class CircleCameraMotion(CameraMotion):
 
     def __init__(self, cam: VisionSensor, origin: Dummy,
-                 speed: float, init_rotation: float = np.deg2rad(0)):
+                 speed: float, init_rotation: float = np.deg2rad(90)):
         super().__init__(cam)
         self.origin = origin
         self.speed = speed  # in radians
