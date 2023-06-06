@@ -34,8 +34,7 @@ exp=peract_new_data
 ckpts=(
   multi-task2
   multi-task2
-#  multi-task2
-#  multi-task2
+  multi-task2
 
 #  multi-task2
 #  multi-task2
@@ -57,10 +56,9 @@ ckpts=(
 #  multi-task2
 )
 tasks=(
-  close_jar
   put_item_in_drawer
-#  put_groceries_in_cupboard
-#  put_money_in_safe
+  put_groceries_in_cupboard
+  put_money_in_safe
 
 #  turn_tap
 #  open_drawer
