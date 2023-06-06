@@ -61,7 +61,7 @@ class Arguments(tap.Tap):
     model: str = "baseline"  # one of "original", "baseline", "analogical"
 
     record_videos: int = 0
-    max_steps: int = 15
+    max_steps: int = 10
     collision_checking: int = 0
 
     # ---------------------------------------------------------------
