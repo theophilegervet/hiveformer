@@ -39,51 +39,66 @@ ckpts=(
   multi-task2
   multi-task2
   multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
+#  multi-task2
+#  multi-task2
+#  multi-task2
+#  multi-task2
+#  multi-task2
+#  multi-task2
+#  multi-task2
+#  multi-task2
+#  multi-task2
+#  multi-task2
+#  multi-task2
+#  multi-task2
+#  multi-task2
+#  multi-task2
+#  multi-task2
+#  multi-task2
+#  multi-task2
+#  multi-task2
 )
 tasks=(
-  turn_tap
-  open_drawer
-  push_buttons
-  sweep_to_dustpan_of_size
-  slide_block_to_color_target
-  insert_onto_square_peg
-  meat_off_grill
-  place_shape_in_shape_sorter
+  light_bulb_in
   place_wine_at_rack_location
   put_groceries_in_cupboard
   put_money_in_safe
-  close_jar
+  sweep_to_dustpan_of_size
   reach_and_drag
-  light_bulb_in
-  stack_cups
-  place_cups
-  put_item_in_drawer
-  stack_blocks
+  insert_onto_square_peg
+#  turn_tap
+#  open_drawer
+#  push_buttons
+#  sweep_to_dustpan_of_size
+#  slide_block_to_color_target
+#  insert_onto_square_peg
+#  meat_off_grill
+#  place_shape_in_shape_sorter
+#  place_wine_at_rack_location
+#  put_groceries_in_cupboard
+#  put_money_in_safe
+#  close_jar
+#  reach_and_drag
+#  light_bulb_in
+#  stack_cups
+#  place_cups
+#  put_item_in_drawer
+#  stack_blocks
 )
 
 #data_dir=/home/zhouxian/git/datasets/raw/74_hiveformer_tasks_val
 #data_dir=/home/zhouxian/git/datasets/raw/18_peract_tasks_val
 data_dir=/home/sirdome/katefgroup/datasets/raw/18_peract_tasks_val_new
 #data_dir=/home/katefgroup/Documents/datasets/rlbench/raw/18_peract_tasks_val_new
-num_episodes=100
+num_episodes=3
 #gripper_loc_bounds_file=tasks/74_hiveformer_tasks_location_bounds.json
 gripper_loc_bounds_file=tasks/18_peract_tasks_location_bounds.json
 #use_instruction=0
 use_instruction=1
 num_ghost_points=10000
-headless=1
+headless=0
 offline=0
+record_videos=1
 cameras="left_shoulder,right_shoulder,wrist,front"
 embedding_dim=120
 
@@ -91,7 +106,7 @@ num_ckpts=${#ckpts[@]}
 for ((i=0; i<$num_ckpts; i++)); do
   python eval.py --tasks ${tasks[$i]} --checkpoint $exp/${ckpts[$i]}/best.pth \
     --data_dir $data_dir --offline $offline --num_episodes $num_episodes --headless $headless --output_file eval/${tasks[$i]}.json  \
-    --exp_log_dir $exp --run_log_dir ${tasks[$i]}-ONLINE --record_videos 0 --use_instruction $use_instruction \
+    --exp_log_dir $exp --run_log_dir ${tasks[$i]}-ONLINE --record_videos $record_videos --use_instruction $use_instruction \
     --gripper_loc_bounds_file $gripper_loc_bounds_file --num_ghost_points $num_ghost_points --num_ghost_points_val $num_ghost_points \
     --variations {0..60} --cameras $cameras --embedding_dim $embedding_dim
 done

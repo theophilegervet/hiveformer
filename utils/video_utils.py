@@ -436,31 +436,31 @@ class TaskRecorder(object):
         video.release()
 
         # Visualize most informative views together
-        assert self._obs_record_freq == 1
-        top_row_visualizations = [
-            self._3d_person_snaps,
-            self._pcd_snaps[0],
-            self._pcd_snaps[1],
-        ]
-        bottom_row_visualizations = [
-            self._rgb_snaps[2],
-            self._rgb_snaps[0],
-            self._rgb_snaps[1],
-        ]
-        image_size = (480 * len(top_row_visualizations), 480 * 2)
-        video = cv2.VideoWriter(
-            f"{path}/pcd_obs.mp4",
-            cv2.VideoWriter_fourcc('m', 'p', '4', 'v'),
-            self._fps // self._obs_record_freq,
-            tuple(image_size)
-        )
-        for i in range(len(top_row_visualizations[0])):
-            top_row = np.concatenate([snaps[i] for snaps in top_row_visualizations], axis=1)
-            bottom_row = np.concatenate([cv2.resize(snaps[i][:, :, ::-1], (480, 480))
-                                         for snaps in bottom_row_visualizations], axis=1)
-            snap = np.concatenate([top_row, bottom_row], axis=0)
-            video.write(cv2.resize(snap, image_size))
-        video.release()
+        # assert self._obs_record_freq == 1
+        # top_row_visualizations = [
+        #     self._3d_person_snaps,
+        #     self._pcd_snaps[0],
+        #     self._pcd_snaps[1],
+        # ]
+        # bottom_row_visualizations = [
+        #     self._rgb_snaps[2],
+        #     self._rgb_snaps[0],
+        #     self._rgb_snaps[1],
+        # ]
+        # image_size = (480 * len(top_row_visualizations), 480 * 2)
+        # video = cv2.VideoWriter(
+        #     f"{path}/pcd_obs.mp4",
+        #     cv2.VideoWriter_fourcc('m', 'p', '4', 'v'),
+        #     self._fps // self._obs_record_freq,
+        #     tuple(image_size)
+        # )
+        # for i in range(len(top_row_visualizations[0])):
+        #     top_row = np.concatenate([snaps[i] for snaps in top_row_visualizations], axis=1)
+        #     bottom_row = np.concatenate([cv2.resize(snaps[i][:, :, ::-1], (480, 480))
+        #                                  for snaps in bottom_row_visualizations], axis=1)
+        #     snap = np.concatenate([top_row, bottom_row], axis=0)
+        #     video.write(cv2.resize(snap, image_size))
+        # video.release()
 
         self._3d_person_snaps = []
         self._pcd_snaps = [[] for _ in range(len(self._pcd_views))]
