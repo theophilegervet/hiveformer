@@ -32,17 +32,17 @@
 # PERACT
 exp=peract_new_data
 ckpts=(
-  multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
+#  multi-task2
+#  multi-task2
+#  multi-task2
+#  multi-task2
+#  multi-task2
+#  multi-task2
+#  multi-task2
+#  multi-task2
+#  multi-task2
+#  multi-task2
+#  multi-task2
 
   multi-task2
   multi-task2
@@ -65,17 +65,17 @@ ckpts=(
 #  multi-task2
 )
 tasks=(
-  unplug_charger
-  close_door
-  open_box
-  open_fridge
-  hang_frame_on_hanger
-  take_frame_off_hanger
-  open_oven
-  put_books_on_bookshelf
-  wipe_desk
-  slide_cabinet_open_and_place_cups
-  take_shoes_out_of_box
+#  unplug_charger
+#  close_door
+#  open_box
+#  open_fridge
+#  hang_frame_on_hanger
+#  take_frame_off_hanger
+#  open_oven
+#  put_books_on_bookshelf
+#  wipe_desk
+#  slide_cabinet_open_and_place_cups
+#  take_shoes_out_of_box
 
   insert_onto_square_peg
   insert_usb_in_computer
