@@ -374,33 +374,33 @@ class TaskRecorder(object):
             (self._cam_motion.cam.capture_rgb()[:, :, ::-1] * 255.).astype(np.uint8))
 
         # Obs point cloud and RGB snaps
-        if len(self._3d_person_snaps) % self._obs_record_freq == 0:
-            rgb_obs = np.stack([getattr(obs, f"{cam}_rgb") for cam in self._obs_cameras])
-            pcd_obs = np.stack([getattr(obs, f"{cam}_point_cloud") for cam in self._obs_cameras])
-            for i in range(len(self._rgb_snaps)):
-                rgb = rgb_obs[i].copy()
-                if self._top_coarse_rgb_heatmap is not None:
-                    rgb[self._top_coarse_rgb_heatmap[i] == 1] = [x * 255 for x in COARSE_PRED_COLOR]
-                if self._top_fine_rgb_heatmap is not None:
-                    rgb[self._top_fine_rgb_heatmap[i] == 1] = [x * 255 for x in FINE_PRED_COLOR]
-                self._rgb_snaps[i].append(rgb)
-            rgb_obs = einops.rearrange(rgb_obs, "n_cam h w c -> n_cam c h w")
-            # normalise to [-1, 1]
-            rgb_obs = rgb_obs / 255.0
-            rgb_obs = 2 * (rgb_obs - 0.5)
-            pcd_obs = einops.rearrange(pcd_obs, "n_cam h w c -> n_cam c h w")
-            pcd_imgs = get_point_cloud_images(
-                self._open3d_pcd_vis, rgb_obs, pcd_obs,
-                self._custom_cam_params,
-                self._gt_keyframe_gripper_matrices,
-                self._pred_keyframe_gripper_matrices,
-                self._pred_coarse_position,
-                self._pred_fine_position,
-                self._position_prediction_only,
-                self._fine_sampling_ball_diameter
-            )
-            for i in range(len(self._pcd_snaps)):
-                self._pcd_snaps[i].append(pcd_imgs[i])
+        # if len(self._3d_person_snaps) % self._obs_record_freq == 0:
+        #     rgb_obs = np.stack([getattr(obs, f"{cam}_rgb") for cam in self._obs_cameras])
+        #     pcd_obs = np.stack([getattr(obs, f"{cam}_point_cloud") for cam in self._obs_cameras])
+        #     for i in range(len(self._rgb_snaps)):
+        #         rgb = rgb_obs[i].copy()
+        #         if self._top_coarse_rgb_heatmap is not None:
+        #             rgb[self._top_coarse_rgb_heatmap[i] == 1] = [x * 255 for x in COARSE_PRED_COLOR]
+        #         if self._top_fine_rgb_heatmap is not None:
+        #             rgb[self._top_fine_rgb_heatmap[i] == 1] = [x * 255 for x in FINE_PRED_COLOR]
+        #         self._rgb_snaps[i].append(rgb)
+        #     rgb_obs = einops.rearrange(rgb_obs, "n_cam h w c -> n_cam c h w")
+        #     # normalise to [-1, 1]
+        #     rgb_obs = rgb_obs / 255.0
+        #     rgb_obs = 2 * (rgb_obs - 0.5)
+        #     pcd_obs = einops.rearrange(pcd_obs, "n_cam h w c -> n_cam c h w")
+        #     pcd_imgs = get_point_cloud_images(
+        #         self._open3d_pcd_vis, rgb_obs, pcd_obs,
+        #         self._custom_cam_params,
+        #         self._gt_keyframe_gripper_matrices,
+        #         self._pred_keyframe_gripper_matrices,
+        #         self._pred_coarse_position,
+        #         self._pred_fine_position,
+        #         self._position_prediction_only,
+        #         self._fine_sampling_ball_diameter
+        #     )
+        #     for i in range(len(self._pcd_snaps)):
+        #         self._pcd_snaps[i].append(pcd_imgs[i])
 
     def save(self, path, lang_goal):
         print(f"Saving eval video at {path}")
