@@ -633,6 +633,24 @@ def get_model(args, gripper_loc_bounds):
             gripper_loc_bounds=gripper_loc_bounds,
             positional_features=args.positional_features
         )
+    elif args.model == "continuous_diffusion":
+        from model.diffusion_planner.diffusion_continuous import DiffusionPlanner
+        _model = DiffusionPlanner(
+            backbone=args.backbone,
+            image_size=tuple(int(x) for x in args.image_size.split(",")),
+            embedding_dim=args.embedding_dim,
+            output_dim=args.action_dim,
+            num_vis_ins_attn_layers=args.num_vis_ins_attn_layers,
+            num_query_cross_attn_layers=args.num_query_cross_attn_layers,
+            num_sampling_level=args.num_sampling_level,
+            use_instruction=bool(args.use_instruction),
+            use_goal=bool(args.use_goal),
+            use_goal_at_test=bool(args.use_goal_at_test),
+            use_rgb=bool(args.use_rgb),
+            gripper_loc_bounds=gripper_loc_bounds,
+            positional_features=args.positional_features,
+            diffusion_head=args.diffusion_head
+        )
 
     model_params = count_parameters(_model)
     print("Model parameters:", model_params)

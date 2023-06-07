@@ -32,7 +32,8 @@ class DiffusionHead(nn.Module):
                  use_instruction=False,
                  use_goal=False,
                  positional_features="none",
-                 use_rgb=True):
+                 use_rgb=True,
+                 use_sigma=False):
         super().__init__()
         assert backbone in ["resnet", "clip"]
         assert image_size in [(128, 128), (256, 256)]
@@ -98,7 +99,15 @@ class DiffusionHead(nn.Module):
             self.absolute_pe_layer = LearnedAbsolutePositionEncoding3D(1, embedding_dim)
 
         # Time embeddings
-        self.time_emb = SinusoidalPosEmb(embedding_dim)
+        if not use_sigma:
+            self.time_emb = SinusoidalPosEmb(embedding_dim)
+        else:
+            self.time_emb = nn.Sequential(
+                SinusoidalPosEmb(embedding_dim),
+                nn.Linear(embedding_dim, embedding_dim * 2),
+                nn.ReLU(),
+                nn.Linear(embedding_dim * 2, embedding_dim)
+            )
 
         # Current gripper learnable features
         self.curr_gripper_embed = nn.Embedding(1, embedding_dim)

@@ -18,7 +18,7 @@ python train_diffusion.py --tasks unplug_charger close_door open_box open_fridge
     --instructions /home/tgervet/hiveformer/instructions.pkl \
     --gripper_loc_bounds_file 12_tough_diffusion_location_bounds.json \
     --num_workers 4 \
-    --train_iters 500000 \
+    --train_iters 1000000 \
     --use_instruction 1 \
     --train_diffusion_on_whole 1 \
     --action_dim 8 \
@@ -37,4 +37,5 @@ python train_diffusion.py --tasks unplug_charger close_door open_box open_fridge
     --batch_size $B \
     --batch_size_val 12 \
     --lr $lr\
-    --run_log_dir multiwhole_12hard-B$B-lr$lr-DI$dense_interpolation-$interpolation_length
+    --run_log_dir multiwhole_12hard-B$B-lr$lr-DI$dense_interpolation-$interpolation_length \
+    --checkpoint /home/ngkanats/hiveformer/train_logs/diffusion_whole_no_goal/multiwhole_12hard-B24-lr1e-4-DI1-300/last.pth
