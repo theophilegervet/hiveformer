@@ -8,13 +8,13 @@ tasks=(
 
 data_dir=/home/sirdome/katefgroup/datasets/raw/diffusion_trajectories_val
 #data_dir=/home/sirdome/katefgroup/datasets/raw/diffusion_trajectories_train
-num_episodes=10
+num_episodes=5
 gripper_loc_bounds_file=tasks/74_hiveformer_tasks_location_bounds.json
 use_instruction=1
 num_ghost_points=10000
 headless=0
 offline=1
-record_videos=0
+record_videos=1
 max_tries=10
 verbose=1
 
