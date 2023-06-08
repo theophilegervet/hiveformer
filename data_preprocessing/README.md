@@ -55,16 +55,6 @@ for task in $(cat $root/hiveformer/$task_file | tr '\n' ','); do
 done
 ```
 
-task=close_door
-split_dir=diffusion_trajectories_train
-python -m data_preprocessing.data_gen \
-            --data_dir=$data_dir/$split_dir \
-            --output=$output_dir/$split_dir \
-            --image_size=$image_size \
-            --max_variations=1 \
-            --tasks=$task \
-            --store_intermediate_actions 1
-
 ## 1 - PerAct Data Generation
 ```
 root=/home/theophile_gervet_gmail_com
