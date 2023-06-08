@@ -810,18 +810,20 @@ def _is_stopped(demo, i, obs, stopped_buffer, delta):
 
 
 def keypoint_discovery(demo: Demo, stopping_delta=0.1) -> List[int]:
-    episode_keypoints = []
-    prev_gripper_open = demo[0].gripper_open
-    stopped_buffer = 0
+    # episode_keypoints = []
+    # prev_gripper_open = demo[0].gripper_open
+    # stopped_buffer = 0
+    #
+    # for i, obs in enumerate(demo):
+    #     stopped = _is_stopped(demo, i, obs, stopped_buffer, stopping_delta)
+    #     stopped_buffer = 4 if stopped else stopped_buffer - 1
+    #     # If change in gripper, or end of episode.
+    #     last = i == (len(demo) - 1)
+    #     if i != 0 and (obs.gripper_open != prev_gripper_open or last or stopped):
+    #         episode_keypoints.append(i)
+    #     prev_gripper_open = obs.gripper_open
 
-    for i, obs in enumerate(demo):
-        stopped = _is_stopped(demo, i, obs, stopped_buffer, stopping_delta)
-        stopped_buffer = 4 if stopped else stopped_buffer - 1
-        # If change in gripper, or end of episode.
-        last = i == (len(demo) - 1)
-        if i != 0 and (obs.gripper_open != prev_gripper_open or last or stopped):
-            episode_keypoints.append(i)
-        prev_gripper_open = obs.gripper_open
+    episode_keypoints = list(range(10, len(demo), 10)) + [len(demo)]
 
     if (
         len(episode_keypoints) > 1
@@ -830,11 +832,6 @@ def keypoint_discovery(demo: Demo, stopping_delta=0.1) -> List[int]:
         episode_keypoints.pop(-2)
 
     print("episode_keypoints", episode_keypoints)
-    print("len(demo)", len(demo))
-
-    episode_keypoints = list(range(0, len(demo), 10)) + [len(demo)]
-    print("episode_keypoints", episode_keypoints)
-
     return episode_keypoints
 
 
