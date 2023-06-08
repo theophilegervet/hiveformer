@@ -829,6 +829,7 @@ def keypoint_discovery(demo: Demo, stopping_delta=0.1) -> List[int]:
     ):
         episode_keypoints.pop(-2)
 
+    print("episode_keypoints", episode_keypoints)
     return episode_keypoints
 
 
