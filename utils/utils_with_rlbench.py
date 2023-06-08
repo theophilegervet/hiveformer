@@ -823,7 +823,7 @@ def keypoint_discovery(demo: Demo, stopping_delta=0.1) -> List[int]:
     #         episode_keypoints.append(i)
     #     prev_gripper_open = obs.gripper_open
 
-    episode_keypoints = list(range(10, len(demo), 10)) + [len(demo)]
+    episode_keypoints = list(range(10, len(demo), 10)) + [len(demo) - 1]
 
     if (
         len(episode_keypoints) > 1
@@ -831,7 +831,6 @@ def keypoint_discovery(demo: Demo, stopping_delta=0.1) -> List[int]:
     ):
         episode_keypoints.pop(-2)
 
-    print("episode_keypoints", episode_keypoints)
     return episode_keypoints
 
 

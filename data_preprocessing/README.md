@@ -2,15 +2,15 @@
 
 ## 1 - HiveFormer Data Generation
 ```
-root=/home/katefgroup/Documents
+root=/home/sirdome/katefgroup
 data_dir=$root/datasets/raw
 output_dir=$root/datasets/packaged
-train_dir=diffusion_trajectory_new_train
-val_dir=diffusion_trajectory_new_val
+train_dir=diffusion_trajectories_train
+val_dir=diffusion_trajectories_val
 train_episodes_per_task=100
 val_episodes_per_task=100
 image_size="256,256"
-task_file=tasks/diffusion_trajectory_new_tasks.csv
+task_file=tasks/diffusion_10_tough_tasks.csv
 
 nohup sudo X &
 export DISPLAY=:0.0
@@ -54,6 +54,16 @@ for task in $(cat $root/hiveformer/$task_file | tr '\n' ','); do
     done
 done
 ```
+
+task=close_door
+split_dir=diffusion_trajectories_train
+python -m data_preprocessing.data_gen \
+            --data_dir=$data_dir/$split_dir \
+            --output=$output_dir/$split_dir \
+            --image_size=$image_size \
+            --max_variations=1 \
+            --tasks=$task \
+            --store_intermediate_actions 1
 
 ## 1 - PerAct Data Generation
 ```
