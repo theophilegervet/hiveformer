@@ -42,7 +42,7 @@ python dataset_generator.py \
 
 ### B - Preprocess train and val data
 ```
-for task in $(cat $root/hiveformer/$task_file | tr '\n' ','); do
+for task in $(cat $root/hiveformer2/$task_file | tr '\n' ' '); do
     for split_dir in $train_dir $val_dir; do
         python -m data_preprocessing.data_gen \
             --data_dir=$data_dir/$split_dir \
