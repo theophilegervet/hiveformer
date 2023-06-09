@@ -155,12 +155,12 @@ class Dataset(torch.utils.data.Dataset):
         num_frames = len(frame_ids)
         attn_indices = get_attn_indices_from_demo(task, demo, args.cameras)
 
-        if (task in self.variable_lengths and num_frames > self.max_eps_dict[task]) or (
-            task not in self.variable_lengths and num_frames != self.max_eps_dict[task]
-        ):
-            print(f"ERROR ({task}, {variation}, {episode})")
-            print(f"\t {len(frame_ids)} != {self.max_eps_dict[task]}")
-            return
+        # if (task in self.variable_lengths and num_frames > self.max_eps_dict[task]) or (
+        #     task not in self.variable_lengths and num_frames != self.max_eps_dict[task]
+        # ):
+        #     print(f"ERROR ({task}, {variation}, {episode})")
+        #     print(f"\t {len(frame_ids)} != {self.max_eps_dict[task]}")
+        #     return
 
         state_dict: List = [[] for _ in range(6)]
         print("Demo {}".format(episode))
