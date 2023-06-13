@@ -48,8 +48,8 @@ tasks=(
 
 #data_dir=/home/zhouxian/git/datasets/raw/74_hiveformer_tasks_val
 #data_dir=/home/zhouxian/git/datasets/raw/18_peract_tasks_val
-#data_dir=/home/sirdome/katefgroup/datasets/raw/18_peract_tasks_val_new
-data_dir=/home/katefgroup/Documents/datasets/rlbench/raw/18_peract_tasks_val_new
+data_dir=/home/sirdome/katefgroup/datasets/raw/18_peract_tasks_val_new
+#data_dir=/home/katefgroup/Documents/datasets/rlbench/raw/18_peract_tasks_val_new
 #data_dir=/home/katefgroup/Documents/datasets/rlbench/raw/74_hiveformer_tasks_val
 num_episodes=50
 #gripper_loc_bounds_file=tasks/74_hiveformer_tasks_location_bounds.json
