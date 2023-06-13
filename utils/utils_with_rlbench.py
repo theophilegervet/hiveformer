@@ -605,6 +605,7 @@ class RLBenchEnv:
                         vis.create_window(window_name="vis", width=1920, height=1080)
                         ctr = vis.get_view_control()
                         camera_params = ctr.convert_to_pinhole_camera_parameters()
+                        print(type(camera_params.extrinsic))
                         print(camera_params.extrinsic)
                         ctr.convert_from_pinhole_camera_parameters(camera_params)
 
