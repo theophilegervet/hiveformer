@@ -572,23 +572,47 @@ class RLBenchEnv:
                     if verbose:
                         print(f"Step {step_id}")
 
-                    if record_videos and demo_id < num_videos:
-                        pred_keyframe_gripper_matrices.append(self.get_gripper_matrix_from_action(output["action"][-1]))
-                        task_recorder.take_snap(
-                            obs,
-                            # All past keyframe actions
-                            # gt_keyframe_gripper_matrices=gt_keyframe_gripper_matrices[:step_id + 1],
-                            # pred_keyframe_gripper_matrices=np.stack(pred_keyframe_gripper_matrices),
+                    # if record_videos and demo_id < num_videos:
+                    #     pred_keyframe_gripper_matrices.append(self.get_gripper_matrix_from_action(output["action"][-1]))
+                    #     task_recorder.take_snap(
+                    #         obs,
+                    #         # All past keyframe actions
+                    #         # gt_keyframe_gripper_matrices=gt_keyframe_gripper_matrices[:step_id + 1],
+                    #         # pred_keyframe_gripper_matrices=np.stack(pred_keyframe_gripper_matrices),
+                    #
+                    #         # Just the last one
+                    #         gt_keyframe_gripper_matrices=gt_keyframe_gripper_matrices[[step_id]] if step_id < len(gt_keyframe_gripper_matrices) else None,
+                    #         pred_keyframe_gripper_matrices=np.stack(pred_keyframe_gripper_matrices)[[-1]],
+                    #
+                    #         pred_coarse_position=output.get("coarse_position"),
+                    #         pred_fine_position=output.get("fine_position"),
+                    #         top_coarse_rgb_heatmap=output.get("top_coarse_rgb"),
+                    #         top_fine_rgb_heatmap=output.get("top_fine_rgb"),
+                    #     )
 
-                            # Just the last one
-                            gt_keyframe_gripper_matrices=gt_keyframe_gripper_matrices[[step_id]] if step_id < len(gt_keyframe_gripper_matrices) else None,
-                            pred_keyframe_gripper_matrices=np.stack(pred_keyframe_gripper_matrices)[[-1]],
+                    # -------------------------------------------------------------------------------------------------
+                    # Let's hack visualization here
+                    if record_videos:
+                        rgb_obs = np.stack([getattr(obs, f"{cam}_rgb") for cam in self._obs_cameras])
+                        pcd_obs = np.stack([getattr(obs, f"{cam}_point_cloud") for cam in self._obs_cameras])
+                        rgb_obs = einops.rearrange(rgb_obs[:, :, :, :3], "n_cam h w c -> (n_cam h w) c")
+                        rgb_obs = rgb_obs / 255.0
+                        rgb_obs = 2 * (rgb_obs - 0.5)
+                        pcd_obs = einops.rearrange(pcd_obs, "n_cam h w c -> (n_cam h w) c")
 
-                            pred_coarse_position=output.get("coarse_position"),
-                            pred_fine_position=output.get("fine_position"),
-                            top_coarse_rgb_heatmap=output.get("top_coarse_rgb"),
-                            top_fine_rgb_heatmap=output.get("top_fine_rgb"),
-                        )
+                        vis = open3d.visualization.Visualizer()
+                        vis.create_window(window_name="vis", width=1920, height=1080)
+                        opcd = open3d.geometry.PointCloud()
+                        opcd.points = open3d.utility.Vector3dVector(pcd_obs)
+                        opcd.colors = open3d.utility.Vector3dVector(rgb_obs)
+                        vis.add_geometry(opcd)
+                        vis.poll_events()
+                        vis.update_renderer()
+                        img = vis.capture_screen_float_buffer(do_render=True)
+                        img = np.fliplr(np.flipud((np.array(img) * 255).astype(np.uint8)[:, :, ::-1]))
+                        print(img.shape)
+                        vis.clear_geometries()
+                    # -------------------------------------------------------------------------------------------------
 
                     if action is None:
                         break
