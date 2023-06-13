@@ -593,8 +593,9 @@ class RLBenchEnv:
                     # -------------------------------------------------------------------------------------------------
                     # Let's hack visualization here
                     if record_videos:
-                        rgb_obs = np.stack([getattr(obs, f"{cam}_rgb") for cam in self._obs_cameras])
-                        pcd_obs = np.stack([getattr(obs, f"{cam}_point_cloud") for cam in self._obs_cameras])
+                        cameras = ("left_shoulder", "right_shoulder", "wrist")
+                        rgb_obs = np.stack([getattr(obs, f"{cam}_rgb") for cam in cameras])
+                        pcd_obs = np.stack([getattr(obs, f"{cam}_point_cloud") for cam in cameras])
                         rgb_obs = einops.rearrange(rgb_obs[:, :, :, :3], "n_cam h w c -> (n_cam h w) c")
                         rgb_obs = rgb_obs / 255.0
                         rgb_obs = 2 * (rgb_obs - 0.5)
