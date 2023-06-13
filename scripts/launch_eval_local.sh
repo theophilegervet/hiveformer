@@ -33,17 +33,17 @@
 exp=peract_new_data
 ckpts=(
   multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
-  multi-task2
+#  multi-task2
+#  multi-task2
+#  multi-task2
+#  multi-task2
 )
 tasks=(
   put_groceries_in_cupboard
-  place_cups
-  light_bulb_in
-  stack_cups
-  stack_blocks
+#  place_cups
+#  light_bulb_in
+#  stack_cups
+#  stack_blocks
 )
 
 #data_dir=/home/zhouxian/git/datasets/raw/74_hiveformer_tasks_val
