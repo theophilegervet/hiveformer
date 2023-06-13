@@ -601,7 +601,7 @@ class RLBenchEnv:
                         rgb_obs = 2 * (rgb_obs - 0.5)
                         pcd_obs = einops.rearrange(pcd_obs, "n_cam h w c -> (n_cam h w) c")
 
-                        print(obs.keys())
+                        print(obs.__dir__())
 
                         vis = open3d.visualization.Visualizer()
                         vis.create_window(window_name="vis", width=1920, height=1080)
