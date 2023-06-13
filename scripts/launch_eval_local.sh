@@ -58,9 +58,9 @@ gripper_loc_bounds_file=tasks/18_peract_tasks_location_bounds.json
 use_instruction=1
 collision_checking=1
 num_ghost_points=10000
-headless=1
+headless=0
 offline=0
-record_videos=0
+record_videos=1
 cameras="left_shoulder,right_shoulder,wrist,front"
 embedding_dim=120
 
