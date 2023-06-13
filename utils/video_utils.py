@@ -369,9 +369,9 @@ class TaskRecorder(object):
             self._all_step_metrics.append(self._latest_keyframe_metrics)
 
         # Third-person snap
-        # self._cam_motion.step()
-        # self._3d_person_snaps.append(
-        #     (self._cam_motion.cam.capture_rgb()[:, :, ::-1] * 255.).astype(np.uint8))
+        self._cam_motion.step()
+        self._3d_person_snaps.append(
+            (self._cam_motion.cam.capture_rgb()[:, :, ::-1] * 255.).astype(np.uint8))
 
         # Obs point cloud and RGB snaps
         if len(self._3d_person_snaps) % self._obs_record_freq == 0:
@@ -410,30 +410,30 @@ class TaskRecorder(object):
         import cv2
 
         # Third-person video
-        # image_size = self._cam_motion.cam.get_resolution()
-        # video = cv2.VideoWriter(
-        #     f"{path}/3rd_person.mp4",
-        #     cv2.VideoWriter_fourcc('m', 'p', '4', 'v'),
-        #     self._fps,
-        #     tuple(image_size)
-        # )
-        # for i, image in enumerate(self._3d_person_snaps):
-        #     frame = image
-        #     font = cv2.FONT_HERSHEY_DUPLEX
-        #     font_scale = (0.45 * image_size[0]) / 480
-        #     font_thickness = 1
-        #     lang_textsize = cv2.getTextSize(lang_goal, font, font_scale, font_thickness)[0]
-        #     lang_textX = (image_size[0] - lang_textsize[0]) // 2
-        #     frame = cv2.putText(frame, lang_goal, org=(lang_textX, image_size[1] - 45),
-        #                         fontScale=font_scale, fontFace=font, color=(0, 0, 0),
-        #                         thickness=font_thickness, lineType=cv2.LINE_AA)
-        #     # if len(self._all_step_metrics) > 0:
-        #     #     metrics_str = f"Position L2 = {self._all_step_metrics[i]['l2_pos']:.3f}"
-        #     #     frame = cv2.putText(frame, metrics_str, org=(lang_textX, image_size[1] - 25),
-        #     #                         fontScale=font_scale, fontFace=font, color=(0, 0, 0),
-        #     #                         thickness=font_thickness, lineType=cv2.LINE_AA)
-        #     video.write(frame)
-        # video.release()
+        image_size = self._cam_motion.cam.get_resolution()
+        video = cv2.VideoWriter(
+            f"{path}/3rd_person.mp4",
+            cv2.VideoWriter_fourcc('m', 'p', '4', 'v'),
+            self._fps,
+            tuple(image_size)
+        )
+        for i, image in enumerate(self._3d_person_snaps):
+            frame = image
+            font = cv2.FONT_HERSHEY_DUPLEX
+            font_scale = (0.45 * image_size[0]) / 480
+            font_thickness = 1
+            lang_textsize = cv2.getTextSize(lang_goal, font, font_scale, font_thickness)[0]
+            lang_textX = (image_size[0] - lang_textsize[0]) // 2
+            frame = cv2.putText(frame, lang_goal, org=(lang_textX, image_size[1] - 45),
+                                fontScale=font_scale, fontFace=font, color=(0, 0, 0),
+                                thickness=font_thickness, lineType=cv2.LINE_AA)
+            # if len(self._all_step_metrics) > 0:
+            #     metrics_str = f"Position L2 = {self._all_step_metrics[i]['l2_pos']:.3f}"
+            #     frame = cv2.putText(frame, metrics_str, org=(lang_textX, image_size[1] - 25),
+            #                         fontScale=font_scale, fontFace=font, color=(0, 0, 0),
+            #                         thickness=font_thickness, lineType=cv2.LINE_AA)
+            video.write(frame)
+        video.release()
 
         # Visualize most informative views together
         assert self._obs_record_freq == 1
