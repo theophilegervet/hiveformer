@@ -369,38 +369,38 @@ class TaskRecorder(object):
             self._all_step_metrics.append(self._latest_keyframe_metrics)
 
         # Third-person snap
-        self._cam_motion.step()
-        self._3d_person_snaps.append(
-            (self._cam_motion.cam.capture_rgb()[:, :, ::-1] * 255.).astype(np.uint8))
+        # self._cam_motion.step()
+        # self._3d_person_snaps.append(
+        #     (self._cam_motion.cam.capture_rgb()[:, :, ::-1] * 255.).astype(np.uint8))
 
         # Obs point cloud and RGB snaps
-        # if len(self._3d_person_snaps) % self._obs_record_freq == 0:
-        #     rgb_obs = np.stack([getattr(obs, f"{cam}_rgb") for cam in self._obs_cameras])
-        #     pcd_obs = np.stack([getattr(obs, f"{cam}_point_cloud") for cam in self._obs_cameras])
-        #     for i in range(len(self._rgb_snaps)):
-        #         rgb = rgb_obs[i].copy()
-        #         if self._top_coarse_rgb_heatmap is not None:
-        #             rgb[self._top_coarse_rgb_heatmap[i] == 1] = [x * 255 for x in COARSE_PRED_COLOR]
-        #         if self._top_fine_rgb_heatmap is not None:
-        #             rgb[self._top_fine_rgb_heatmap[i] == 1] = [x * 255 for x in FINE_PRED_COLOR]
-        #         self._rgb_snaps[i].append(rgb)
-        #     rgb_obs = einops.rearrange(rgb_obs, "n_cam h w c -> n_cam c h w")
-        #     # normalise to [-1, 1]
-        #     rgb_obs = rgb_obs / 255.0
-        #     rgb_obs = 2 * (rgb_obs - 0.5)
-        #     pcd_obs = einops.rearrange(pcd_obs, "n_cam h w c -> n_cam c h w")
-        #     pcd_imgs = get_point_cloud_images(
-        #         self._open3d_pcd_vis, rgb_obs, pcd_obs,
-        #         self._custom_cam_params,
-        #         self._gt_keyframe_gripper_matrices,
-        #         self._pred_keyframe_gripper_matrices,
-        #         self._pred_coarse_position,
-        #         self._pred_fine_position,
-        #         self._position_prediction_only,
-        #         self._fine_sampling_ball_diameter
-        #     )
-        #     for i in range(len(self._pcd_snaps)):
-        #         self._pcd_snaps[i].append(pcd_imgs[i])
+        if len(self._3d_person_snaps) % self._obs_record_freq == 0:
+            rgb_obs = np.stack([getattr(obs, f"{cam}_rgb") for cam in self._obs_cameras])
+            pcd_obs = np.stack([getattr(obs, f"{cam}_point_cloud") for cam in self._obs_cameras])
+            for i in range(len(self._rgb_snaps)):
+                rgb = rgb_obs[i].copy()
+                if self._top_coarse_rgb_heatmap is not None:
+                    rgb[self._top_coarse_rgb_heatmap[i] == 1] = [x * 255 for x in COARSE_PRED_COLOR]
+                if self._top_fine_rgb_heatmap is not None:
+                    rgb[self._top_fine_rgb_heatmap[i] == 1] = [x * 255 for x in FINE_PRED_COLOR]
+                self._rgb_snaps[i].append(rgb)
+            rgb_obs = einops.rearrange(rgb_obs, "n_cam h w c -> n_cam c h w")
+            # normalise to [-1, 1]
+            rgb_obs = rgb_obs / 255.0
+            rgb_obs = 2 * (rgb_obs - 0.5)
+            pcd_obs = einops.rearrange(pcd_obs, "n_cam h w c -> n_cam c h w")
+            pcd_imgs = get_point_cloud_images(
+                self._open3d_pcd_vis, rgb_obs, pcd_obs,
+                self._custom_cam_params,
+                self._gt_keyframe_gripper_matrices,
+                self._pred_keyframe_gripper_matrices,
+                self._pred_coarse_position,
+                self._pred_fine_position,
+                self._position_prediction_only,
+                self._fine_sampling_ball_diameter
+            )
+            for i in range(len(self._pcd_snaps)):
+                self._pcd_snaps[i].append(pcd_imgs[i])
 
     def save(self, path, lang_goal):
         print(f"Saving eval video at {path}")
@@ -410,57 +410,57 @@ class TaskRecorder(object):
         import cv2
 
         # Third-person video
-        image_size = self._cam_motion.cam.get_resolution()
-        video = cv2.VideoWriter(
-            f"{path}/3rd_person.mp4",
-            cv2.VideoWriter_fourcc('m', 'p', '4', 'v'),
-            self._fps,
-            tuple(image_size)
-        )
-        for i, image in enumerate(self._3d_person_snaps):
-            frame = image
-            font = cv2.FONT_HERSHEY_DUPLEX
-            font_scale = (0.45 * image_size[0]) / 480
-            font_thickness = 1
-            lang_textsize = cv2.getTextSize(lang_goal, font, font_scale, font_thickness)[0]
-            lang_textX = (image_size[0] - lang_textsize[0]) // 2
-            frame = cv2.putText(frame, lang_goal, org=(lang_textX, image_size[1] - 45),
-                                fontScale=font_scale, fontFace=font, color=(0, 0, 0),
-                                thickness=font_thickness, lineType=cv2.LINE_AA)
-            # if len(self._all_step_metrics) > 0:
-            #     metrics_str = f"Position L2 = {self._all_step_metrics[i]['l2_pos']:.3f}"
-            #     frame = cv2.putText(frame, metrics_str, org=(lang_textX, image_size[1] - 25),
-            #                         fontScale=font_scale, fontFace=font, color=(0, 0, 0),
-            #                         thickness=font_thickness, lineType=cv2.LINE_AA)
-            video.write(frame)
-        video.release()
-
-        # Visualize most informative views together
-        # assert self._obs_record_freq == 1
-        # top_row_visualizations = [
-        #     self._3d_person_snaps,
-        #     self._pcd_snaps[0],
-        #     self._pcd_snaps[1],
-        # ]
-        # bottom_row_visualizations = [
-        #     self._rgb_snaps[2],
-        #     self._rgb_snaps[0],
-        #     self._rgb_snaps[1],
-        # ]
-        # image_size = (480 * len(top_row_visualizations), 480 * 2)
+        # image_size = self._cam_motion.cam.get_resolution()
         # video = cv2.VideoWriter(
-        #     f"{path}/pcd_obs.mp4",
+        #     f"{path}/3rd_person.mp4",
         #     cv2.VideoWriter_fourcc('m', 'p', '4', 'v'),
-        #     self._fps // self._obs_record_freq,
+        #     self._fps,
         #     tuple(image_size)
         # )
-        # for i in range(len(top_row_visualizations[0])):
-        #     top_row = np.concatenate([snaps[i] for snaps in top_row_visualizations], axis=1)
-        #     bottom_row = np.concatenate([cv2.resize(snaps[i][:, :, ::-1], (480, 480))
-        #                                  for snaps in bottom_row_visualizations], axis=1)
-        #     snap = np.concatenate([top_row, bottom_row], axis=0)
-        #     video.write(cv2.resize(snap, image_size))
+        # for i, image in enumerate(self._3d_person_snaps):
+        #     frame = image
+        #     font = cv2.FONT_HERSHEY_DUPLEX
+        #     font_scale = (0.45 * image_size[0]) / 480
+        #     font_thickness = 1
+        #     lang_textsize = cv2.getTextSize(lang_goal, font, font_scale, font_thickness)[0]
+        #     lang_textX = (image_size[0] - lang_textsize[0]) // 2
+        #     frame = cv2.putText(frame, lang_goal, org=(lang_textX, image_size[1] - 45),
+        #                         fontScale=font_scale, fontFace=font, color=(0, 0, 0),
+        #                         thickness=font_thickness, lineType=cv2.LINE_AA)
+        #     # if len(self._all_step_metrics) > 0:
+        #     #     metrics_str = f"Position L2 = {self._all_step_metrics[i]['l2_pos']:.3f}"
+        #     #     frame = cv2.putText(frame, metrics_str, org=(lang_textX, image_size[1] - 25),
+        #     #                         fontScale=font_scale, fontFace=font, color=(0, 0, 0),
+        #     #                         thickness=font_thickness, lineType=cv2.LINE_AA)
+        #     video.write(frame)
         # video.release()
+
+        # Visualize most informative views together
+        assert self._obs_record_freq == 1
+        top_row_visualizations = [
+            self._3d_person_snaps,
+            self._pcd_snaps[0],
+            self._pcd_snaps[1],
+        ]
+        bottom_row_visualizations = [
+            self._rgb_snaps[2],
+            self._rgb_snaps[0],
+            self._rgb_snaps[1],
+        ]
+        image_size = (480 * len(top_row_visualizations), 480 * 2)
+        video = cv2.VideoWriter(
+            f"{path}/pcd_obs.mp4",
+            cv2.VideoWriter_fourcc('m', 'p', '4', 'v'),
+            self._fps // self._obs_record_freq,
+            tuple(image_size)
+        )
+        for i in range(len(top_row_visualizations[0])):
+            top_row = np.concatenate([snaps[i] for snaps in top_row_visualizations], axis=1)
+            bottom_row = np.concatenate([cv2.resize(snaps[i][:, :, ::-1], (480, 480))
+                                         for snaps in bottom_row_visualizations], axis=1)
+            snap = np.concatenate([top_row, bottom_row], axis=0)
+            video.write(cv2.resize(snap, image_size))
+        video.release()
 
         self._3d_person_snaps = []
         self._pcd_snaps = [[] for _ in range(len(self._pcd_views))]
