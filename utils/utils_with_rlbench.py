@@ -459,7 +459,8 @@ class RLBenchEnv:
     ):
         if record_videos:
             cam_placeholder = Dummy('cam_cinematic_placeholder')
-            cam = VisionSensor.create([1920, 1080])
+            # cam = VisionSensor.create([1920, 1080])
+            cam = VisionSensor.create([480, 480])
             cam.set_pose(cam_placeholder.get_pose())
             cam.set_parent(cam_placeholder)
             cam_motion = CircleCameraMotion(cam, Dummy('cam_cinematic_base'), 0.0)
