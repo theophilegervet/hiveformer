@@ -607,6 +607,7 @@ class RLBenchEnv:
                         camera_params = ctr.convert_to_pinhole_camera_parameters()
                         print(type(camera_params.extrinsic))
                         print(camera_params.extrinsic)
+                        camera_params.extrinsic[0, 0] = -1
                         ctr.convert_from_pinhole_camera_parameters(camera_params)
 
                         opcd = open3d.geometry.PointCloud()
