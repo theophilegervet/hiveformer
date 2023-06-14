@@ -611,6 +611,7 @@ class RLBenchEnv:
                         rgb_obs = einops.rearrange(rgb_obs[:, :, :, :3], "n_cam h w c -> (n_cam h w) c")
                         rgb_obs = rgb_obs / 255.0
                         rgb_obs = 2 * (rgb_obs - 0.5)
+                        print(rgb_obs.max(), rgb_obs.min())
                         pcd_obs = einops.rearrange(pcd_obs, "n_cam h w c -> (n_cam h w) c")
                         opcd = open3d.geometry.PointCloud()
                         opcd.points = open3d.utility.Vector3dVector(pcd_obs)
@@ -625,8 +626,8 @@ class RLBenchEnv:
 
                             # Attention from query
                             scores = output["ghost_pcd_masks_pyramid"][i][-1].cpu().numpy()[0]
-                            print(scores.min(), scores.max(), scores.mean())
                             scores = (scores - scores.min()) / (scores.max() - scores.min())
+                            print(scores.max(), scores.min(), scores.mean())
                             rgb = np.zeros((len(scores), 3))
                             rgb[:, 0] = scores
 
