@@ -619,27 +619,27 @@ class RLBenchEnv:
                         geometries.append(opcd)
 
                         # Feature cloud
-                        # for i in range(3):
-                        #     pcd = einops.rearrange(output["ghost_pcd_pyramid"][i].cpu().numpy()[0], "c n -> n c")
-                        #
-                        #     # PCA of features
-                        #     # features = output["ghost_pcd_features_pyramid"][i].cpu().numpy()[:, 0]
-                        #     # pca = PCA(n_components=3)
-                        #     # components = pca.fit_transform(features)
-                        #     # rgb = (components - components.min()) / (components.max() - components.min())
-                        #     # rgb = 2 * (rgb - 0.5)
-                        #
-                        #     # Attention from query
-                        #     scores = output["ghost_pcd_masks_pyramid"][i][-1].cpu().numpy()[0]
-                        #     scores = (scores - scores.min()) / (scores.max() - scores.min())
-                        #     scores = 2 * (scores - 0.5)
-                        #     rgb = np.zeros((len(scores), 3))
-                        #     rgb[:, 0] = scores
-                        #
-                        #     opcd = open3d.geometry.PointCloud()
-                        #     opcd.points = open3d.utility.Vector3dVector(pcd)
-                        #     opcd.colors = open3d.utility.Vector3dVector(rgb)
-                        #     geometries.append(opcd)
+                        for i in range(3):
+                            pcd = einops.rearrange(output["ghost_pcd_pyramid"][i].cpu().numpy()[0], "c n -> n c")
+
+                            # PCA of features
+                            # features = output["ghost_pcd_features_pyramid"][i].cpu().numpy()[:, 0]
+                            # pca = PCA(n_components=3)
+                            # components = pca.fit_transform(features)
+                            # rgb = (components - components.min()) / (components.max() - components.min())
+                            # rgb = 2 * (rgb - 0.5)
+
+                            # Attention from query
+                            scores = output["ghost_pcd_masks_pyramid"][i][-1].cpu().numpy()[0]
+                            scores = (scores - scores.min()) / (scores.max() - scores.min())
+                            scores = 2 * (scores - 0.5)
+                            rgb = np.zeros((len(scores), 3))
+                            rgb[:, 0] = scores
+
+                            opcd = open3d.geometry.PointCloud()
+                            opcd.points = open3d.utility.Vector3dVector(pcd)
+                            opcd.colors = open3d.utility.Vector3dVector(rgb)
+                            geometries.append(opcd)
 
                         # 6-DoF gripper
                         gripper_cylinders = get_gripper_control_points_open3d(
