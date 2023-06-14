@@ -614,7 +614,7 @@ class RLBenchEnv:
                         camera_params = ctr.convert_to_pinhole_camera_parameters()
                         camera_params.extrinsic = extrinsic
                         print(camera_params.extrinsic)
-                        ctr.convert_from_pinhole_camera_parameters(camera_params)
+                        ctr.convert_from_pinhole_camera_parameters(camera_params, allow_arbitrary=True)
 
                         cameras = ("left_shoulder", "right_shoulder", "wrist")
                         rgb_obs = np.stack([getattr(obs, f"{cam}_rgb") for cam in cameras])
