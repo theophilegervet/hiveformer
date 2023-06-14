@@ -208,17 +208,10 @@ class Actioner:
 
         output["action"] = self._model.compute_action(pred)  # type: ignore
 
-        print("pred.keys()", pred.keys())
-        print()
-        print(len(pred["ghost_pcd_pyramid"]))
-        print(pred["ghost_pcd_pyramid"][0].shape)
-        print()
-        print(len(pred["ghost_pcd_features_pyramid"]))
-        print(pred["ghost_pcd_features_pyramid"][0].shape)
-        print()
-        print(len(pred["ghost_pcd_masks_pyramid"]))
-        print(pred["ghost_pcd_masks_pyramid"][0][-1].shape)
-        raise NotImplementedError
+        # For visualization
+        output["ghost_pcd_pyramid"] = pred["ghost_pcd_pyramid"]
+        output["ghost_pcd_features_pyramid"] = pred["ghost_pcd_features_pyramid"]
+        output["ghost_pcd_masks_pyramid"] = pred["ghost_pcd_masks_pyramid"]
 
         if pred.get("coarse_position") is not None:
             output["coarse_position"] = pred["coarse_position"][-1, 0].cpu().numpy()
@@ -607,14 +600,11 @@ class RLBenchEnv:
                     if record_videos:
                         from utils.video_utils import get_gripper_control_points_open3d
 
-                        print(output.keys())
-                        raise NotImplementedError
-
                         vis = open3d.visualization.Visualizer()
                         vis.create_window(window_name="vis", width=1920, height=1080)
                         geometries = []
 
-                        # Scene point cloud
+                        # Physical scene point cloud aggregated across views
                         cameras = ("left_shoulder", "right_shoulder", "wrist")
                         rgb_obs = np.stack([getattr(obs, f"{cam}_rgb") for cam in cameras])
                         pcd_obs = np.stack([getattr(obs, f"{cam}_point_cloud") for cam in cameras])
@@ -627,7 +617,29 @@ class RLBenchEnv:
                         opcd.colors = open3d.utility.Vector3dVector(rgb_obs)
                         geometries.append(opcd)
 
-                        # Gripper
+                        # Feature cloud
+                        for i in range(3):
+                            pcd = einops.rearrange(output["ghost_pcd_pyramid"][i].cpu().numpy()[0], "c n -> n c")
+                            opcd = open3d.geometry.PointCloud()
+                            opcd.points = open3d.utility.Vector3dVector(pcd)
+                            geometries.append(opcd)
+
+                        # print(output.keys())
+                        # print("pred.keys()", pred.keys())
+                        # print()
+                        # print(len(pred["ghost_pcd_pyramid"]))
+                        # print(pred["ghost_pcd_pyramid"][0].shape)
+                        # print()
+                        # print(len(pred["ghost_pcd_features_pyramid"]))
+                        # print(pred["ghost_pcd_features_pyramid"][0].shape)
+                        # print()
+                        # print(len(pred["ghost_pcd_masks_pyramid"]))
+                        # print(pred["ghost_pcd_masks_pyramid"][0][-1].shape)
+                        # raise NotImplementedError
+
+                        raise NotImplementedError
+
+                        # 6-DoF gripper
                         gripper_cylinders = get_gripper_control_points_open3d(
                             gt_keyframe_gripper_matrices[step_id],
                             color=(0.2, 0.8, 0.0)
