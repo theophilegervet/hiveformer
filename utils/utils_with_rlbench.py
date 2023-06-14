@@ -634,7 +634,7 @@ class RLBenchEnv:
 
                             opcd = open3d.geometry.PointCloud()
                             opcd.points = open3d.utility.Vector3dVector(pcd)
-                            # opcd.colors = open3d.utility.Vector3dVector(rgb)
+                            opcd.colors = open3d.utility.Vector3dVector(rgb)
                             geometries.append(opcd)
 
                         # print(output.keys())
