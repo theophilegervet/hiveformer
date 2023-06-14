@@ -213,6 +213,9 @@ class Actioner:
         print(len(pred["ghost_pcd_pyramid"]))
         print(pred["ghost_pcd_pyramid"][0].shape)
         print()
+        print(len(pred["ghost_pcd_features_pyramid"]))
+        print(pred["ghost_pcd_features_pyramid"][0].shape)
+        print()
         print(len(pred["ghost_pcd_masks_pyramid"]))
         print(pred["ghost_pcd_masks_pyramid"][0][-1].shape)
         raise NotImplementedError

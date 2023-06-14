@@ -397,6 +397,7 @@ class PredictionHead(nn.Module):
             "position_pyramid": position_pyramid,
             "visible_rgb_mask_pyramid": visible_rgb_mask_pyramid,
             "ghost_pcd_masks_pyramid":  ghost_pcd_masks_pyramid,
+            "ghost_pcd_features_pyramid": ghost_pcd_features_pyramid,
             "ghost_pcd_pyramid": ghost_pcd_pyramid,
             "fine_ghost_pcd_offsets": fine_ghost_pcd_offsets if self.regress_position_offset else None,
         }
