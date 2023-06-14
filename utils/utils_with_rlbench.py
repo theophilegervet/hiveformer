@@ -623,37 +623,23 @@ class RLBenchEnv:
                             pcd = einops.rearrange(output["ghost_pcd_pyramid"][i].cpu().numpy()[0], "c n -> n c")
 
                             # PCA of features
-                            features = output["ghost_pcd_features_pyramid"][i].cpu().numpy()[:, 0]
-                            pca = PCA(n_components=3)
-                            components = pca.fit_transform(features)
-                            rgb = (components - components.min()) / (components.max() - components.min())
-                            rgb = 2 * (rgb - 0.5)
-                            print(rgb.shape, rgb.max(), rgb.min())
+                            # features = output["ghost_pcd_features_pyramid"][i].cpu().numpy()[:, 0]
+                            # pca = PCA(n_components=3)
+                            # components = pca.fit_transform(features)
+                            # rgb = (components - components.min()) / (components.max() - components.min())
+                            # rgb = 2 * (rgb - 0.5)
 
                             # Attention from query
-                            # scores = output["ghost_pcd_masks_pyramid"][i][-1].cpu().numpy()[0]
-                            # scores = (scores - scores.min()) / (scores.max() - scores.min())
-                            # scores = 2 * (scores - 0.5)
-                            # rgb = np.zeros((len(scores), 3))
-                            # rgb[:, 0] = scores
+                            scores = output["ghost_pcd_masks_pyramid"][i][-1].cpu().numpy()[0]
+                            scores = (scores - scores.min()) / (scores.max() - scores.min())
+                            scores = 2 * (scores - 0.5)
+                            rgb = np.zeros((len(scores), 3))
+                            rgb[:, 0] = scores
 
                             opcd = open3d.geometry.PointCloud()
                             opcd.points = open3d.utility.Vector3dVector(pcd)
                             opcd.colors = open3d.utility.Vector3dVector(rgb)
                             geometries.append(opcd)
-
-                        # print(output.keys())
-                        # print("pred.keys()", pred.keys())
-                        # print()
-                        # print(len(pred["ghost_pcd_pyramid"]))
-                        # print(pred["ghost_pcd_pyramid"][0].shape)
-                        # print()
-                        # print(len(pred["ghost_pcd_features_pyramid"]))
-                        # print(pred["ghost_pcd_features_pyramid"][0].shape)
-                        # print()
-                        # print(len(pred["ghost_pcd_masks_pyramid"]))
-                        # print(pred["ghost_pcd_masks_pyramid"][0][-1].shape)
-                        # raise NotImplementedError
 
                         # 6-DoF gripper
                         gripper_cylinders = get_gripper_control_points_open3d(
