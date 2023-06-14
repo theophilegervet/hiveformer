@@ -625,6 +625,8 @@ class RLBenchEnv:
 
                             # Attention from query
                             scores = output["ghost_pcd_masks_pyramid"][i][-1].cpu().numpy()[0]
+                            print(scores.min(), scores.max(), scores.mean())
+                            scores = (scores - scores.min()) / (scores.max() - scores.min())
                             rgb = np.zeros((len(scores), 3))
                             rgb[:, 0] = scores
 
