@@ -615,7 +615,7 @@ class RLBenchEnv:
                         # Gripper
                         geometries.append(
                             get_gripper_control_points_open3d(
-                                gt_keyframe_gripper_matrices[[step_id]],
+                                gt_keyframe_gripper_matrices[step_id],
                                 color=(0.2, 0.8, 0.0)
                             )
                         )
