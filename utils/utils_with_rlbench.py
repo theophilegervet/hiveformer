@@ -606,6 +606,15 @@ class RLBenchEnv:
                             extrinsic[:3, 3] = position
                             return extrinsic
 
+                        sensor = VisionSensor("cam_over_shoulder_right")
+                        extrinsic = get_extrinsic(sensor)
+                        vis = open3d.visualization.Visualizer()
+                        vis.create_window(window_name="vis", width=1920, height=1080)
+                        ctr = vis.get_view_control()
+                        camera_params = ctr.convert_to_pinhole_camera_parameters()
+                        camera_params.extrinsic = extrinsic
+                        print(camera_params.extrinsic)
+
                         cameras = ("left_shoulder", "right_shoulder", "wrist")
                         rgb_obs = np.stack([getattr(obs, f"{cam}_rgb") for cam in cameras])
                         pcd_obs = np.stack([getattr(obs, f"{cam}_point_cloud") for cam in cameras])
@@ -618,17 +627,7 @@ class RLBenchEnv:
                         opcd.points = open3d.utility.Vector3dVector(pcd_obs)
                         opcd.colors = open3d.utility.Vector3dVector(rgb_obs)
                         vis.add_geometry(opcd)
-
-                        sensor = VisionSensor("cam_over_shoulder_right")
-                        extrinsic = get_extrinsic(sensor)
-                        vis = open3d.visualization.Visualizer()
-                        vis.create_window(window_name="vis", width=1920, height=1080)
-                        ctr = vis.get_view_control()
-                        camera_params = ctr.convert_to_pinhole_camera_parameters()
-                        camera_params.extrinsic = extrinsic
-                        print(camera_params.extrinsic)
                         ctr.convert_from_pinhole_camera_parameters(camera_params)
-
                         vis.poll_events()
                         vis.update_renderer()
                         img = vis.capture_screen_float_buffer(do_render=True)
