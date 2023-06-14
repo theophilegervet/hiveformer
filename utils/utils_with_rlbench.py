@@ -593,28 +593,29 @@ class RLBenchEnv:
                     # -------------------------------------------------------------------------------------------------
                     # Let's hack visualization here
                     if record_videos:
-                        def get_extrinsic(sensor: VisionSensor) -> np.array:
-                            pose = sensor.get_pose()
-                            position, rot_quaternion = pose[:3], pose[3:]
-                            rot_matrix = open3d.geometry.get_rotation_matrix_from_quaternion(
-                                np.array((rot_quaternion[3], rot_quaternion[0], rot_quaternion[1], rot_quaternion[2]))
-                            )
-                            extrinsic = np.eye(4)
-                            rot_matrix = rot_matrix.T
-                            position = - rot_matrix @ position
-                            extrinsic[:3, :3] = rot_matrix
-                            extrinsic[:3, 3] = position
-                            return extrinsic
-
-                        sensor = VisionSensor("cam_over_shoulder_right")
-                        extrinsic = get_extrinsic(sensor)
                         vis = open3d.visualization.Visualizer()
                         vis.create_window(window_name="vis", width=1920, height=1080)
-                        ctr = vis.get_view_control()
-                        camera_params = ctr.convert_to_pinhole_camera_parameters()
-                        camera_params.extrinsic = extrinsic
-                        print(camera_params.extrinsic)
-                        ctr.convert_from_pinhole_camera_parameters(camera_params, allow_arbitrary=True)
+
+                        # def get_extrinsic(sensor: VisionSensor) -> np.array:
+                        #     pose = sensor.get_pose()
+                        #     position, rot_quaternion = pose[:3], pose[3:]
+                        #     rot_matrix = open3d.geometry.get_rotation_matrix_from_quaternion(
+                        #         np.array((rot_quaternion[3], rot_quaternion[0], rot_quaternion[1], rot_quaternion[2]))
+                        #     )
+                        #     extrinsic = np.eye(4)
+                        #     rot_matrix = rot_matrix.T
+                        #     position = - rot_matrix @ position
+                        #     extrinsic[:3, :3] = rot_matrix
+                        #     extrinsic[:3, 3] = position
+                        #     return extrinsic
+                        #
+                        # ctr = vis.get_view_control()
+                        # camera_params = ctr.convert_to_pinhole_camera_parameters()
+                        # sensor = VisionSensor("cam_over_shoulder_right")
+                        # extrinsic = get_extrinsic(sensor)
+                        # camera_params.extrinsic = extrinsic
+                        # print(camera_params.extrinsic)
+                        # ctr.convert_from_pinhole_camera_parameters(camera_params)
 
                         cameras = ("left_shoulder", "right_shoulder", "wrist")
                         rgb_obs = np.stack([getattr(obs, f"{cam}_rgb") for cam in cameras])
@@ -627,16 +628,12 @@ class RLBenchEnv:
                         opcd = open3d.geometry.PointCloud()
                         opcd.points = open3d.utility.Vector3dVector(pcd_obs)
                         opcd.colors = open3d.utility.Vector3dVector(rgb_obs)
-                        camera_params = ctr.convert_to_pinhole_camera_parameters()
-                        print(camera_params.extrinsic)
                         vis.add_geometry(opcd)
                         vis.update_geometry(opcd)
-                        #ctr.convert_from_pinhole_camera_parameters(camera_params)
                         vis.poll_events()
                         vis.update_renderer()
-                        img = vis.capture_screen_float_buffer(do_render=True)
-                        img = np.fliplr(np.flipud((np.array(img) * 255).astype(np.uint8)[:, :, ::-1]))
-                        print(img.shape)
+                        # img = vis.capture_screen_float_buffer(do_render=True)
+                        # img = np.fliplr(np.flipud((np.array(img) * 255).astype(np.uint8)[:, :, ::-1]))
                         vis.clear_geometries()
                     # -------------------------------------------------------------------------------------------------
 
