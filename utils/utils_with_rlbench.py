@@ -620,6 +620,7 @@ class RLBenchEnv:
                         # Feature cloud
                         for i in range(3):
                             pcd = einops.rearrange(output["ghost_pcd_pyramid"][i].cpu().numpy()[0], "c n -> n c")
+                            print(pcd.shape)
                             opcd = open3d.geometry.PointCloud()
                             opcd.points = open3d.utility.Vector3dVector(pcd)
                             geometries.append(opcd)
@@ -636,8 +637,6 @@ class RLBenchEnv:
                         # print(len(pred["ghost_pcd_masks_pyramid"]))
                         # print(pred["ghost_pcd_masks_pyramid"][0][-1].shape)
                         # raise NotImplementedError
-
-                        raise NotImplementedError
 
                         # 6-DoF gripper
                         gripper_cylinders = get_gripper_control_points_open3d(
