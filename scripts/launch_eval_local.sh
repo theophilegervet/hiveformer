@@ -36,7 +36,7 @@ ckpts=(
 )
 tasks=(
 #  put_item_in_drawer
-  reach_and_drag
+  place_wine_at_rack_location
 )
 
 #data_dir=/home/zhouxian/git/datasets/raw/74_hiveformer_tasks_val
