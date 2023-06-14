@@ -629,6 +629,7 @@ class RLBenchEnv:
                         opcd.colors = open3d.utility.Vector3dVector(rgb_obs)
                         camera_params = ctr.convert_to_pinhole_camera_parameters()
                         vis.add_geometry(opcd)
+                        vis.update_geometry(opcd)
                         ctr.convert_from_pinhole_camera_parameters(camera_params)
                         vis.poll_events()
                         vis.update_renderer()
