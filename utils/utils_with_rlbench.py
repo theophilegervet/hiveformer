@@ -595,6 +595,9 @@ class RLBenchEnv:
                     if record_videos:
                         from utils.video_utils import get_gripper_control_points_open3d
 
+                        print(output.keys())
+                        raise NotImplementedError
+
                         vis = open3d.visualization.Visualizer()
                         vis.create_window(window_name="vis", width=1920, height=1080)
                         geometries = []
