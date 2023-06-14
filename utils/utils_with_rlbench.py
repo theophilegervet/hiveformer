@@ -610,7 +610,7 @@ class RLBenchEnv:
                         pcd_obs = np.stack([getattr(obs, f"{cam}_point_cloud") for cam in cameras])
                         rgb_obs = einops.rearrange(rgb_obs[:, :, :, :3], "n_cam h w c -> (n_cam h w) c")
                         rgb_obs = rgb_obs / 255.0
-                        # rgb_obs = 2 * (rgb_obs - 0.5)
+                        rgb_obs = 2 * (rgb_obs - 0.5)
                         print(rgb_obs.max(), rgb_obs.min())
                         pcd_obs = einops.rearrange(pcd_obs, "n_cam h w c -> (n_cam h w) c")
                         opcd = open3d.geometry.PointCloud()
