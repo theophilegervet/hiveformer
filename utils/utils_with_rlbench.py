@@ -614,6 +614,7 @@ class RLBenchEnv:
                         camera_params = ctr.convert_to_pinhole_camera_parameters()
                         camera_params.extrinsic = extrinsic
                         print(camera_params.extrinsic)
+                        ctr.convert_from_pinhole_camera_parameters(camera_params)
 
                         cameras = ("left_shoulder", "right_shoulder", "wrist")
                         rgb_obs = np.stack([getattr(obs, f"{cam}_rgb") for cam in cameras])
@@ -626,6 +627,7 @@ class RLBenchEnv:
                         opcd = open3d.geometry.PointCloud()
                         opcd.points = open3d.utility.Vector3dVector(pcd_obs)
                         opcd.colors = open3d.utility.Vector3dVector(rgb_obs)
+                        camera_params = ctr.convert_to_pinhole_camera_parameters()
                         vis.add_geometry(opcd)
                         ctr.convert_from_pinhole_camera_parameters(camera_params)
                         vis.poll_events()
