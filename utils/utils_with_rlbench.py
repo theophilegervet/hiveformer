@@ -599,6 +599,7 @@ class RLBenchEnv:
                     # Let's hack visualization here
                     if record_videos:
                         from utils.video_utils import get_gripper_control_points_open3d
+                        from sklearn.decomposition import PCA
 
                         vis = open3d.visualization.Visualizer()
                         vis.create_window(window_name="vis", width=1920, height=1080)
@@ -611,7 +612,6 @@ class RLBenchEnv:
                         rgb_obs = einops.rearrange(rgb_obs[:, :, :, :3], "n_cam h w c -> (n_cam h w) c")
                         rgb_obs = rgb_obs / 255.0
                         rgb_obs = 2 * (rgb_obs - 0.5)
-                        print(rgb_obs.max(), rgb_obs.min())
                         pcd_obs = einops.rearrange(pcd_obs, "n_cam h w c -> (n_cam h w) c")
                         opcd = open3d.geometry.PointCloud()
                         opcd.points = open3d.utility.Vector3dVector(pcd_obs)
@@ -623,14 +623,17 @@ class RLBenchEnv:
                             pcd = einops.rearrange(output["ghost_pcd_pyramid"][i].cpu().numpy()[0], "c n -> n c")
 
                             # PCA of features
+                            features = output["ghost_pcd_features_pyramid"][i].cpu().numpy()[:, 0]
+                            pca = PCA(n_components=3)
+                            rgb = pca.fit_transform(features)
+                            print(rgb.shape, rgb.max(), rgb.min())
 
                             # Attention from query
-                            scores = output["ghost_pcd_masks_pyramid"][i][-1].cpu().numpy()[0]
-                            scores = (scores - scores.min()) / (scores.max() - scores.min())
-                            scores = 2 * (scores - 0.5)
-                            print(scores.max(), scores.min(), scores.mean())
-                            rgb = np.zeros((len(scores), 3))
-                            rgb[:, 0] = scores
+                            # scores = output["ghost_pcd_masks_pyramid"][i][-1].cpu().numpy()[0]
+                            # scores = (scores - scores.min()) / (scores.max() - scores.min())
+                            # scores = 2 * (scores - 0.5)
+                            # rgb = np.zeros((len(scores), 3))
+                            # rgb[:, 0] = scores
 
                             opcd = open3d.geometry.PointCloud()
                             opcd.points = open3d.utility.Vector3dVector(pcd)
