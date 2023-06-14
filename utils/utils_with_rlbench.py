@@ -613,6 +613,7 @@ class RLBenchEnv:
                         geometries.append(opcd)
 
                         # Gripper
+                        print("gt_keyframe_gripper_matrices[step_id].shape", gt_keyframe_gripper_matrices[step_id].shape)
                         geometries.append(
                             get_gripper_control_points_open3d(
                                 gt_keyframe_gripper_matrices[step_id],
