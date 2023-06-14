@@ -625,7 +625,8 @@ class RLBenchEnv:
                             # PCA of features
                             features = output["ghost_pcd_features_pyramid"][i].cpu().numpy()[:, 0]
                             pca = PCA(n_components=3)
-                            rgb = pca.fit_transform(features)
+                            components = pca.fit_transform(features)
+                            rgb = (components - components.min()) / (components.max() - components.min())
                             print(rgb.shape, rgb.max(), rgb.min())
 
                             # Attention from query
