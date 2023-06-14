@@ -625,7 +625,7 @@ class RLBenchEnv:
 
                             # Attention from query
                             scores = output["ghost_pcd_masks_pyramid"][i][-1].cpu().numpy()[0]
-                            rgb = np.zeros(len(scores), 3)
+                            rgb = np.zeros((len(scores), 3))
                             rgb[:, 0] = scores
 
                             opcd = open3d.geometry.PointCloud()
