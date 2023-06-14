@@ -620,9 +620,17 @@ class RLBenchEnv:
                         # Feature cloud
                         for i in range(3):
                             pcd = einops.rearrange(output["ghost_pcd_pyramid"][i].cpu().numpy()[0], "c n -> n c")
-                            print(pcd.shape)
+
+                            # PCA of features
+
+                            # Attention from query
+                            scores = output["ghost_pcd_masks_pyramid"][i][-1].cpu().numpy()[0]
+                            rgb = np.zeros(len(scores), 3)
+                            rgb[:, 0] = scores
+
                             opcd = open3d.geometry.PointCloud()
                             opcd.points = open3d.utility.Vector3dVector(pcd)
+                            opcd.colors = open3d.utility.Vector3dVector(rgb)
                             geometries.append(opcd)
 
                         # print(output.keys())
