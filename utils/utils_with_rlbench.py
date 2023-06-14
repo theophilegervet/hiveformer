@@ -627,6 +627,7 @@ class RLBenchEnv:
                             pca = PCA(n_components=3)
                             components = pca.fit_transform(features)
                             rgb = (components - components.min()) / (components.max() - components.min())
+                            rgb = 2 * (rgb - 0.5)
                             print(rgb.shape, rgb.max(), rgb.min())
 
                             # Attention from query
