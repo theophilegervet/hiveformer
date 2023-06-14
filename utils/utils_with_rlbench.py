@@ -214,7 +214,7 @@ class Actioner:
         print(pred["ghost_pcd_pyramid"][0].shape)
         print()
         print(len(pred["ghost_pcd_masks_pyramid"]))
-        print(pred["ghost_pcd_masks_pyramid"][0].shape)
+        print(pred["ghost_pcd_masks_pyramid"][0][-1].shape)
         raise NotImplementedError
 
         if pred.get("coarse_position") is not None:
