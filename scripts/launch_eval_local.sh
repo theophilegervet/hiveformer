@@ -60,7 +60,7 @@ collision_checking=1
 num_ghost_points=10000
 headless=0
 offline=1
-record_videos=1
+record_videos=0
 cameras="left_shoulder,right_shoulder,wrist,front"
 embedding_dim=120
 

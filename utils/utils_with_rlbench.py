@@ -209,6 +209,12 @@ class Actioner:
         output["action"] = self._model.compute_action(pred)  # type: ignore
 
         print("pred.keys()", pred.keys())
+        print()
+        print(len(pred["ghost_pcd_pyramid"]))
+        print(pred["ghost_pcd_pyramid"][0].shape)
+        print()
+        print(len(pred["ghost_pcd_masks_pyramid"]))
+        print(pred["ghost_pcd_masks_pyramid"][0].shape)
         raise NotImplementedError
 
         if pred.get("coarse_position") is not None:
