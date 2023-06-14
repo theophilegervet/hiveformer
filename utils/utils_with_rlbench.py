@@ -208,6 +208,9 @@ class Actioner:
 
         output["action"] = self._model.compute_action(pred)  # type: ignore
 
+        print("pred.keys()", pred.keys())
+        raise NotImplementedError
+
         if pred.get("coarse_position") is not None:
             output["coarse_position"] = pred["coarse_position"][-1, 0].cpu().numpy()
         if pred.get("fine_position") is not None:
