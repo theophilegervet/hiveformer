@@ -10,9 +10,9 @@ import os
 
 from train import Arguments as TrainArguments
 from model.released_hiveformer.network import Hiveformer
-from model.non_analogical_baseline.baseline import Baseline
+from model.keypose_optimization.baseline import Baseline
 from model.analogical_network.analogical_network import AnalogicalNetwork
-from model.diffusion_planner.diffusion_model import DiffusionPlanner
+from model.trajectory_optimization.diffusion_model import DiffusionPlanner
 from utils.utils_with_rlbench import (
     RLBenchEnv,
     Actioner,

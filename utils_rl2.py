@@ -1,6 +1,4 @@
-from scipy.interpolate import CubicSpline, interp1d
 import os
-from scipy.signal import savgol_filter
 import random
 from typing import List, Dict, Optional, Tuple, Literal, TypedDict, Union, Any, Sequence
 from pathlib import Path
@@ -19,7 +17,7 @@ from rlbench.backend.observation import Observation
 from rlbench.task_environment import TaskEnvironment
 from rlbench.action_modes.action_mode import MoveArmThenGripper
 from rlbench.action_modes.gripper_action_modes import Discrete
-from rlbench.action_modes.arm_action_modes import EndEffectorPoseViaPlanning, EndEffectorPoseViaIK
+from rlbench.action_modes.arm_action_modes import EndEffectorPoseViaPlanning
 from rlbench.backend.exceptions import InvalidActionError
 from rlbench.demo import Demo
 from pyrep.errors import IKError, ConfigurationPathError
@@ -32,7 +30,6 @@ from model.released_hiveformer.network import Hiveformer
 from model.keypose_optimization.baseline import Baseline
 from model.analogical_network.analogical_network import AnalogicalNetwork
 from .utils_without_rlbench import TASK_TO_ID
-from model.trajectory_optimization.diffusion_model import DiffusionPlanner
 
 
 def task_file_to_task_class(task_file):
@@ -99,9 +96,9 @@ class Mover:
             gripper = obs.gripper_open
             dist_pos = np.sqrt(np.square(target[:3] - pos).sum())
             dist_rot = np.sqrt(np.square(target[3:7] - rot).sum())
-            # criteria = (dist_pos < 5e-2,)
+            criteria = (dist_pos < 5e-2,)
             # criteria = (dist_pos < 1e-3,)
-            criteria = (dist_pos < 5e-3,)
+            # criteria = (dist_pos < 5e-3,)
 
             if all(criteria) or reward == 1:
                 break
@@ -172,36 +169,23 @@ class Actioner:
             :return: a list of obs and action
         """
         key_frame = keypoint_discovery(demo)
-
         action_ls = []
-        trajectory_ls = []
-        for i in range(len(key_frame)):
-            obs = demo[key_frame[i]]
+        for f in key_frame:
+            obs = demo[f]
             action_np = np.concatenate([obs.gripper_pose, [obs.gripper_open]])
             action = torch.from_numpy(action_np)
             action_ls.append(action.unsqueeze(0))
-
-            trajectory_np = []
-            for j in range(key_frame[i - 1] if i > 0 else 0, key_frame[i]):
-                obs = demo[j]
-                trajectory_np.append(np.concatenate([obs.gripper_pose, [obs.gripper_open]]))
-            trajectory_ls.append(np.stack(trajectory_np))
-
-        trajectory_mask_ls = [torch.zeros(1, key_frame[i] - (key_frame[i - 1] if i > 0 else 0)).bool()
-                              for i in range(len(key_frame))]
-
-        return action_ls, trajectory_ls, trajectory_mask_ls
+        return action_ls
 
     def predict(
-        self, step_id: int, rgbs: torch.Tensor, pcds: torch.Tensor, gripper: torch.Tensor,
-        gt_action: torch.Tensor, trajectory_mask: torch.Tensor
+        self, step_id: int, rgbs: torch.Tensor, pcds: torch.Tensor, gripper: torch.Tensor, gt_action: torch.Tensor
     ) -> Dict[str, Any]:
         padding_mask = torch.ones_like(rgbs[:, :, 0, 0, 0, 0]).bool()
         output: Dict[str, Any] = {"action": None, "attention": {}}
 
         # Fix order of views for HiveFormer
-        rgbs = rgbs[:, :, [2, 0, 1]]
-        pcds = pcds[:, :, [2, 0, 1]]
+        # rgbs = rgbs[:, :, [2, 0, 1]]
+        # pcds = pcds[:, :, [2, 0, 1]]
 
         if self._instr is None:
             raise ValueError()
@@ -218,33 +202,28 @@ class Actioner:
                 gripper,
                 self._task_id,
             )
-            output["action"] = self._model.compute_action(pred)  # type: ignore
-
-            # if pred.get("coarse_position") is not None:
-            #     output["coarse_position"] = pred["coarse_position"][-1, 0].cpu().numpy()
-            # if pred.get("fine_position") is not None:
-            #     output["fine_position"] = pred["fine_position"][-1, 0].cpu().numpy()
-            #
-            # if pred.get("coarse_visible_rgb_mask") is not None:
-            #     top_value = pred["coarse_visible_rgb_mask"][-1].flatten().topk(k=10000).values[-1]
-            #     output["top_coarse_rgb"] = (pred["coarse_visible_rgb_mask"][-1] >= top_value).cpu().numpy()
-            # if pred.get("fine_visible_rgb_mask") is not None:
-            #     top_value = pred["fine_visible_rgb_mask"][-1].flatten().topk(k=5000).values[-1]
-            #     output["top_fine_rgb"] = (pred["fine_visible_rgb_mask"][-1] >= top_value).cpu().numpy()
-
-        elif type(self._model) == DiffusionPlanner:
-            output["trajectory"] = self._model.compute_trajectory(
-                trajectory_mask,
-                rgbs[:, -1],
-                pcds[:, -1],
-                self._instr,
-                gripper[:, -1, :7],
-                gt_action[:, -1, :7],  # TODO Replace this with predicted keypoint
-            )
-
         elif type(self._model) == AnalogicalNetwork:
             # TODO Implement evaluation with analogical network
             raise NotImplementedError
+
+        output["action"] = self._model.compute_action(pred)  # type: ignore
+
+        # For visualization
+        output["ghost_pcd_pyramid"] = pred["ghost_pcd_pyramid"]
+        output["ghost_pcd_features_pyramid"] = pred["ghost_pcd_features_pyramid"]
+        output["ghost_pcd_masks_pyramid"] = pred["ghost_pcd_masks_pyramid"]
+
+        if pred.get("coarse_position") is not None:
+            output["coarse_position"] = pred["coarse_position"][-1, 0].cpu().numpy()
+        if pred.get("fine_position") is not None:
+            output["fine_position"] = pred["fine_position"][-1, 0].cpu().numpy()
+
+        if pred.get("coarse_visible_rgb_mask") is not None:
+            top_value = pred["coarse_visible_rgb_mask"][-1].flatten().topk(k=10000).values[-1]
+            output["top_coarse_rgb"] = (pred["coarse_visible_rgb_mask"][-1] >= top_value).cpu().numpy()
+        if pred.get("fine_visible_rgb_mask") is not None:
+            top_value = pred["fine_visible_rgb_mask"][-1].flatten().topk(k=5000).values[-1]
+            output["top_fine_rgb"] = (pred["fine_visible_rgb_mask"][-1] >= top_value).cpu().numpy()
 
         return output
 
@@ -274,7 +253,6 @@ class RLBenchEnv:
     def __init__(
         self,
         data_path,
-        traj_cmd=False,
         image_size=(128, 128),
         apply_rgb=False,
         apply_depth=False,
@@ -297,18 +275,10 @@ class RLBenchEnv:
         self.obs_config = self.create_obs_config(
             image_size, apply_rgb, apply_depth, apply_pc, apply_cameras
         )
-
-        if traj_cmd:
-            self.action_mode = MoveArmThenGripper(
-                arm_action_mode=EndEffectorPoseViaPlanning(collision_checking=collision_checking),
-                # arm_action_mode=EndEffectorPoseViaIK(),
-                gripper_action_mode=Discrete(),
-            )
-        else:
-            self.action_mode = MoveArmThenGripper(
-                arm_action_mode=EndEffectorPoseViaPlanning(collision_checking=collision_checking),
-                gripper_action_mode=Discrete(),
-            )
+        self.action_mode = MoveArmThenGripper(
+            arm_action_mode=EndEffectorPoseViaPlanning(collision_checking=collision_checking),
+            gripper_action_mode=Discrete(),
+        )
         self.env = Environment(
             self.action_mode, str(data_path), self.obs_config, headless=headless
         )
@@ -435,8 +405,6 @@ class RLBenchEnv:
         offline: bool = True,
         position_prediction_only: bool = False,
         verbose: bool = False,
-        dense_interpolation=False,
-        interpolation_length=100,
     ):
         self.env.launch()
         task_type = task_file_to_task_class(task_str)
@@ -466,8 +434,6 @@ class RLBenchEnv:
                 offline=offline,
                 position_prediction_only=position_prediction_only,
                 verbose=verbose,
-                dense_interpolation=dense_interpolation,
-                interpolation_length=interpolation_length,
             )
             if valid:
                 var_success_rates[variation] = success_rate
@@ -477,56 +443,6 @@ class RLBenchEnv:
         var_success_rates["mean"] = sum(var_success_rates.values()) / len(var_success_rates)
 
         return var_success_rates
-
-
-    def smooth_trajectory(self, trajectory, window_length=5, polyorder=2, quat=False):
-        # Making a copy of the original trajectory
-        trajectory = np.copy(trajectory)
-        original_trajectory = np.copy(trajectory)
-
-        # Applying the filter to each dimension
-        if quat:
-            dim = 7
-        else:
-            dim = 3
-
-        for i in range(dim):
-            trajectory[:, i] = savgol_filter(trajectory[:, i], window_length, polyorder)
-
-        # Preserving the first and last step
-        trajectory[0] = original_trajectory[0]
-        trajectory[-1] = original_trajectory[-1]
-
-        # normalize quat
-        if quat:
-            trajectory[:, 3:7] = self.normalise_quat(trajectory[:, 3:7])
-
-        return trajectory
-
-    def normalise_quat(self, traj):
-        return traj/np.linalg.norm(traj, axis=1, keepdims=True)
-
-    def resample_trajectory(self, trajectory, n_steps):
-        trajectory = np.array(trajectory)
-        # Calculate the current number of steps
-        old_num_steps = len(trajectory)
-
-        # Create a 1D array for the old and new steps
-        old_steps = np.linspace(0, 1, old_num_steps)
-        new_steps = np.linspace(0, 1, n_steps)
-
-        # Interpolate each dimension separately
-        resampled_trajectory = np.empty((n_steps, trajectory.shape[1]))
-        for i in range(trajectory.shape[1]):
-            if i == 7: # gripper opening
-                interpolator = interp1d(old_steps, trajectory[:, i])
-            else:
-                interpolator = CubicSpline(old_steps, trajectory[:, i])
-
-            resampled_trajectory[:, i] = interpolator(new_steps)
-
-        resampled_trajectory[:, 3:7] = self.normalise_quat(resampled_trajectory[:, 3:7])
-        return resampled_trajectory
 
     def _evaluate_task_on_one_variation(
         self,
@@ -545,15 +461,14 @@ class RLBenchEnv:
         offline: bool = True,
         position_prediction_only: bool = False,
         verbose: bool = False,
-        dense_interpolation=False,
-        interpolation_length=100,
     ):
         if record_videos:
             cam_placeholder = Dummy('cam_cinematic_placeholder')
+            # cam = VisionSensor.create([1920, 1080])
             cam = VisionSensor.create([480, 480])
             cam.set_pose(cam_placeholder.get_pose())
             cam.set_parent(cam_placeholder)
-            cam_motion = CircleCameraMotion(cam, Dummy('cam_cinematic_base'), 0.005)
+            cam_motion = CircleCameraMotion(cam, Dummy('cam_cinematic_base'), 0.0)
             task_recorder = TaskRecorder(
                 ("left_shoulder", "right_shoulder", "wrist"),
                 self.env, cam_motion,
@@ -592,7 +507,7 @@ class RLBenchEnv:
             self.env._scene._workspace_maxz - 0.01
         ]).to(device)
 
-        success_rate = 0
+        success_rate = 0.0
         missing_demos = 0
 
         with torch.no_grad():
@@ -625,7 +540,7 @@ class RLBenchEnv:
                 )
                 move = Mover(task, max_tries=max_tries)
                 reward = None
-                gt_keyframe_actions, trajectories, gt_trajectory_masks = actioner.get_action_from_demo(demo)
+                gt_keyframe_actions = actioner.get_action_from_demo(demo)
                 if offline:
                     max_steps = len(gt_keyframe_actions)
                 gt_keyframe_gripper_matrices = np.stack([self.get_gripper_matrix_from_action(a[-1])
@@ -643,14 +558,8 @@ class RLBenchEnv:
                     rgbs = torch.cat([rgbs, rgb.unsqueeze(1)], dim=1)
                     pcds = torch.cat([pcds, pcd.unsqueeze(1)], dim=1)
                     grippers = torch.cat([grippers, gripper.unsqueeze(1)], dim=1)
-                    if dense_interpolation:
-                        trajectory_mask = torch.full([1, interpolation_length], False).to(device)
-                    else:
-                        trajectory_mask = gt_trajectory_masks[step_id].to(device)
-
                     output = actioner.predict(step_id, rgbs[:, -1:], pcds[:, -1:], grippers[:, -1:],
-                                              gt_action=gt_keyframe_actions[step_id].unsqueeze(0).float().to(device),
-                                              trajectory_mask=trajectory_mask)
+                                              gt_action=torch.stack(gt_keyframe_actions[:step_id + 1]).float().to(device))
 
                     if offline:
                         # Follow demo
@@ -668,85 +577,141 @@ class RLBenchEnv:
                     if verbose:
                         print(f"Step {step_id}")
 
-                    if record_videos and demo_id < num_videos:
-                        pred_keyframe_gripper_matrices.append(self.get_gripper_matrix_from_action(output["action"][-1]))
-                        task_recorder.take_snap(
-                            obs,
-                            # All past keyframe actions
-                            # gt_keyframe_gripper_matrices=gt_keyframe_gripper_matrices[:step_id + 1],
-                            # pred_keyframe_gripper_matrices=np.stack(pred_keyframe_gripper_matrices),
+                    # if record_videos and demo_id < num_videos:
+                    #     pred_keyframe_gripper_matrices.append(self.get_gripper_matrix_from_action(output["action"][-1]))
+                    #     task_recorder.take_snap(
+                    #         obs,
+                    #         # All past keyframe actions
+                    #         # gt_keyframe_gripper_matrices=gt_keyframe_gripper_matrices[:step_id + 1],
+                    #         # pred_keyframe_gripper_matrices=np.stack(pred_keyframe_gripper_matrices),
+                    #
+                    #         # Just the last one
+                    #         gt_keyframe_gripper_matrices=gt_keyframe_gripper_matrices[[step_id]] if step_id < len(gt_keyframe_gripper_matrices) else None,
+                    #         pred_keyframe_gripper_matrices=np.stack(pred_keyframe_gripper_matrices)[[-1]],
+                    #
+                    #         pred_coarse_position=output.get("coarse_position"),
+                    #         pred_fine_position=output.get("fine_position"),
+                    #         top_coarse_rgb_heatmap=output.get("top_coarse_rgb"),
+                    #         top_fine_rgb_heatmap=output.get("top_fine_rgb"),
+                    #     )
 
-                            # Just the last one
-                            gt_keyframe_gripper_matrices=gt_keyframe_gripper_matrices[[step_id]] if step_id < len(gt_keyframe_gripper_matrices) else None,
-                            pred_keyframe_gripper_matrices=np.stack(pred_keyframe_gripper_matrices)[[-1]],
+                    # -------------------------------------------------------------------------------------------------
+                    # Let's hack visualization here
+                    if record_videos and False:
+                        from utils.video_utils import get_gripper_control_points_open3d
+                        from sklearn.decomposition import PCA
 
-                            pred_coarse_position=output.get("coarse_position"),
-                            pred_fine_position=output.get("fine_position"),
-                            top_coarse_rgb_heatmap=output.get("top_coarse_rgb"),
-                            top_fine_rgb_heatmap=output.get("top_fine_rgb"),
-                        )
+                        geometries = []
+
+                        # Feature cloud
+                        for i in range(3):
+                            vis = open3d.visualization.Visualizer()
+                            vis.create_window(window_name="vis", width=1920, height=1080)
+                            # Physical scene point cloud aggregated across views
+                            cameras = ("left_shoulder", "right_shoulder", "wrist")
+                            rgb_obs = np.stack([getattr(obs, f"{cam}_rgb") for cam in cameras])
+                            pcd_obs = np.stack([getattr(obs, f"{cam}_point_cloud") for cam in cameras])
+                            rgb_obs = einops.rearrange(rgb_obs[:, :, :, :3], "n_cam h w c -> (n_cam h w) c")
+                            rgb_obs = rgb_obs / 255.0
+                            rgb_obs = 2 * (rgb_obs - 0.5)
+                            pcd_obs = einops.rearrange(pcd_obs, "n_cam h w c -> (n_cam h w) c")
+                            opcd = open3d.geometry.PointCloud()
+                            opcd.points = open3d.utility.Vector3dVector(pcd_obs)
+                            opcd.colors = open3d.utility.Vector3dVector(rgb_obs)
+
+                            # 6-DoF gripper
+                            gripper_cylinders = get_gripper_control_points_open3d(
+                                gt_keyframe_gripper_matrices[step_id],
+                                color=(0.2, 0.8, 0.0)
+                            )
+                            tmp_geometries = [opcd]
+                            pcd = einops.rearrange(output["ghost_pcd_pyramid"][i].cpu().numpy()[0], "c n -> n c")
+
+                            # PCA of features
+                            # features = output["ghost_pcd_features_pyramid"][i].cpu().numpy()[:, 0]
+                            # pca = PCA(n_components=3)
+                            # components = pca.fit_transform(features)
+                            # rgb = (components - components.min()) / (components.max() - components.min())
+                            # rgb = 2 * (rgb - 0.5)
+
+                            # Attention from query
+                            scores = output["ghost_pcd_masks_pyramid"][i][-1].cpu().numpy()[0]
+                            scores = (scores - scores.min()) / (scores.max() - scores.min())
+                            scores = 2 * (scores - 0.5)
+                            rgb = np.zeros((len(scores), 3))
+                            rgb[:, 0] = scores
+
+                            opcd = open3d.geometry.PointCloud()
+                            opcd.points = open3d.utility.Vector3dVector(pcd)
+                            opcd.colors = open3d.utility.Vector3dVector(rgb)
+                            tmp_geometries.append(opcd)
+                            tmp_geometries.extend(gripper_cylinders)
+
+                            for geom in tmp_geometries:
+                                vis.add_geometry(geom)
+                                vis.update_geometry(geom)
+                            vis.run()
+                            vis.clear_geometries()
+                    if record_videos:
+                        from utils.video_utils import get_gripper_control_points_open3d
+                        from sklearn.decomposition import PCA
+
+                        geometries = []
+
+                        # Feature cloud
+                        traj = np.load('traj.npy')  # [101, 50, 7]
+                        for i in range(0, 100, 20):
+                            vis = open3d.visualization.Visualizer()
+                            vis.create_window(window_name="vis", width=1920, height=1080)
+                            # Physical scene point cloud aggregated across views
+                            cameras = ("left_shoulder", "right_shoulder", "wrist")
+                            rgb_obs = np.stack([getattr(obs, f"{cam}_rgb") for cam in cameras])
+                            pcd_obs = np.stack([getattr(obs, f"{cam}_point_cloud") for cam in cameras])
+                            rgb_obs = einops.rearrange(rgb_obs[:, :, :, :3], "n_cam h w c -> (n_cam h w) c")
+                            rgb_obs = rgb_obs / 255.0
+                            rgb_obs = 2 * (rgb_obs - 0.5)
+                            pcd_obs = einops.rearrange(pcd_obs, "n_cam h w c -> (n_cam h w) c")
+                            opcd = open3d.geometry.PointCloud()
+                            opcd.points = open3d.utility.Vector3dVector(pcd_obs)
+                            opcd.colors = open3d.utility.Vector3dVector(rgb_obs)
+
+                            # 6-DoF gripper
+                            gripper_cylinders = get_gripper_control_points_open3d(
+                                gt_keyframe_gripper_matrices[step_id],
+                                color=(0.2, 0.8, 0.0)
+                            )
+                            tmp_geometries = [opcd]
+                            # pcd = einops.rearrange(output["ghost_pcd_pyramid"][i].cpu().numpy()[0], "c n -> n c")
+                            pcd = traj[i][:, :3]
+                            rgb = np.zeros_like(pcd)
+
+                            opcd = open3d.geometry.PointCloud()
+                            opcd.points = open3d.utility.Vector3dVector(pcd)
+                            opcd.colors = open3d.utility.Vector3dVector(rgb)
+                            tmp_geometries.append(opcd)
+                            tmp_geometries.extend(gripper_cylinders)
+
+                            for geom in tmp_geometries:
+                                vis.add_geometry(geom)
+                                vis.update_geometry(geom)
+                            vis.run()
+                            vis.clear_geometries()
+                    # -------------------------------------------------------------------------------------------------
+
+                    if action is None:
+                        break
 
                     # Update the observation based on the predicted action
                     try:
-                        # Execute entire predicted trajectory step by step
-                        if "trajectory" in output:
-                            trajectory_np = output["trajectory"][-1].detach().cpu().numpy()
+                        action_np = action[-1].detach().cpu().numpy()
 
-                            if verbose:
-                                print("current gripper xyz")
-                                print(grippers[-1, step_id, :3])
-                                print()
-                                print("predicted trajectory xyz")
-                                print(trajectory_np[:5, :3])
-                                print("...")
-                                print(trajectory_np[-5:, :3])
-                                print()
-                                print("ground-truth trajectory xyz")
-                                print(trajectories[step_id][:5, :3])
-                                print("...")
-                                print(trajectories[step_id][-5:, :3])
-                                print()
-                                print("target gripper xyz")
-                                print(action[-1, :3].cpu().numpy())
-                                print()
-                                print("Metrics:")
-                                pos_l2 = np.sqrt(((trajectory_np[:, :3] - trajectories[step_id][:, :3]) ** 2).sum(1))
-                                rot_l1 = np.abs(trajectory_np[:, 3:7] - trajectories[step_id][:, 3:7]).sum(1)
-                                print("Mean pos L2", pos_l2.mean())
-                                print("Min pos L2", pos_l2.min())
-                                print("Max pos L2", pos_l2.max())
-                                print("Mean rot L1", rot_l1.mean())
-                                print("Min rot L1", rot_l1.min())
-                                print("Max rot L1", rot_l1.max())
-                                print()
-                                print()
-                                print()
-
-                            # smoothing
-                            # trajectory_np = self.smooth_trajectory(trajectory_np, 5, 2)
-
-                            # append gripper action and next step
-                            trajectory_np_full = np.concatenate([trajectory_np, np.tile(grippers[-1, -1:, -1:].cpu().numpy(), [trajectory_np.shape[0], 1])], axis=-1)
-                            trajectory_np_full = np.concatenate([trajectory_np_full, gt_keyframe_actions[step_id].numpy()], axis=0)
-                            trajectory_np_full_gt = np.concatenate([trajectories[step_id][1:], gt_keyframe_actions[step_id].numpy()], axis=0)
-                            # trajectory_np_full_gt = self.resample_trajectory(trajectory_np_full_gt, 100)
-                            if offline:
-                                for action_np in trajectory_np_full_gt:  # To execute ground-truth trajectory
-                                    obs, reward, terminate, step_images = move(action_np)
-                            else:
-                                for action_np in trajectory_np_full[1:]:
-                                    obs, reward, terminate, step_images = move(action_np)
-
-                        # Or plan to reach next predicted keypoint
-                        else:
-                            action_np = action[-1].detach().cpu().numpy()
-                            collision_checking = self._collision_checking(task_str, step_id)
-                            obs, reward, terminate, step_images = move(action_np, collision_checking=collision_checking)
+                        collision_checking = self._collision_checking(task_str, step_id)
+                        obs, reward, terminate, step_images = move(action_np, collision_checking=collision_checking)
 
                         images += step_images
 
                         if reward == 1:
-                            success_rate += 1
+                            success_rate += 1 / num_demos
                             break
 
                         if terminate:
@@ -775,7 +740,7 @@ class RLBenchEnv:
                     demo_id,
                     "Reward",
                     reward,
-                    f"SR: {success_rate}/{demo_id+1}",
+                    "SR: %.2f" % (success_rate * 100),
                     "Missing", missing_demos,
                 )
 
@@ -974,9 +939,10 @@ def keypoint_discovery(demo: Demo, stopping_delta=0.1) -> List[int]:
         episode_keypoints.pop(-2)
 
     return episode_keypoints
+    # return [i for i in range(len(demo))]
 
 
-def transform(obs_dict, scale_size=(0.75, 1.25), augmentation=False):
+def transform(obs_dict, augmentation=False):
     apply_depth = len(obs_dict.get("depth", [])) > 0
     apply_pc = len(obs_dict["pc"]) > 0
     num_cams = len(obs_dict["rgb"])

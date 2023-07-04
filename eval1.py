@@ -29,6 +29,7 @@ from utils.utils_without_rlbench import (
 
 class Arguments(tap.Tap):
     checkpoint: Path
+    act3d_checkpoint: Path
     seed: int = 2
     save_img: bool = True
     device: str = "cuda"
@@ -56,15 +57,19 @@ class Arguments(tap.Tap):
     run_log_dir: str = "run"
     
     # Toggle to switch between offline and online evaluation
+    # 0: false, 1: keypose 2: full
     offline: int = 0
 
     # Toggle to switch between original HiveFormer and our models
     model: str = "baseline"  # one of "original", "baseline", "analogical"
+    traj_model: str = "diffusion"  # one of "original", "baseline", "analogical"
 
     record_videos: int = 0
     max_steps: int = 50
     collision_checking: int = 0
+    use_rgb: int = 1
     use_goal: int = 0
+    use_goal_at_test: int = 1
     dense_interpolation: int = 0
     interpolation_length: int = 100
 
@@ -85,8 +90,10 @@ class Arguments(tap.Tap):
 
     visualize_rgb_attn: int = 0
     gripper_loc_bounds_file: str = "tasks/74_hiveformer_tasks_location_bounds.json"
+    act3d_gripper_loc_bounds_file: str = "tasks/74_hiveformer_tasks_location_bounds.json"
     single_task_gripper_loc_bounds: int = 0
     gripper_bounds_buffer: float = 0.04
+    act3d_gripper_bounds_buffer: float = 0.04
 
     position_prediction_only: int = 0
     regress_position_offset: int = 0
@@ -100,14 +107,17 @@ class Arguments(tap.Tap):
     num_ghost_points_val: int = 10000
 
     # Model
+    action_dim: int = 7
     backbone: str = "clip"  # one of "resnet", "clip"
     embedding_dim: int = 60
     num_ghost_point_cross_attn_layers: int = 2
     num_query_cross_attn_layers: int = 2
+    act3d_num_query_cross_attn_layers: int = 2
     num_vis_ins_attn_layers: int = 2
     # one of "quat_from_top_ghost", "quat_from_query", "6D_from_top_ghost", "6D_from_query"
     rotation_parametrization: str = "quat_from_query"
     use_instruction: int = 0
+    act3d_use_instruction: int = 0
     task_specific_biases: int = 0
 
     # Positional features
@@ -221,13 +231,31 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
             backbone=args.backbone,
             image_size=tuple(int(x) for x in args.image_size.split(",")),
             embedding_dim=args.embedding_dim,
+            output_dim=args.action_dim,
             num_vis_ins_attn_layers=args.num_vis_ins_attn_layers,
             num_sampling_level=args.num_sampling_level,
             use_instruction=bool(args.use_instruction),
+            num_query_cross_attn_layers=args.num_query_cross_attn_layers,
             use_goal=bool(args.use_goal),
             gripper_loc_bounds=gripper_loc_bounds,
             positional_features=args.positional_features
         ).to(device)
+    elif args.model == "regression":
+        from model.trajectory_optimization.regression_model import TrajectoryRegressor
+        model = TrajectoryRegressor(
+            backbone=args.backbone,
+            image_size=tuple(int(x) for x in args.image_size.split(",")),
+            embedding_dim=args.embedding_dim,
+            output_dim=args.action_dim,
+            num_vis_ins_attn_layers=args.num_vis_ins_attn_layers,
+            num_query_cross_attn_layers=args.num_query_cross_attn_layers,
+            num_sampling_level=args.num_sampling_level,
+            use_instruction=bool(args.use_instruction),
+            use_goal=bool(args.use_goal),
+            use_rgb=bool(args.use_rgb),
+            gripper_loc_bounds=gripper_loc_bounds,
+            positional_features=args.positional_features
+        )
     elif args.model == "analogical":
         raise NotImplementedError
         model = AnalogicalNetwork(
@@ -272,6 +300,96 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
     return model
 
 
+def load_model_full(diffusion_checkpoint: Path, act3d_checkpoint: Path, args) -> Hiveformer:
+    device = torch.device(args.device)
+
+    print("Loading model from", diffusion_checkpoint, flush=True)
+    print("Loading model from", act3d_checkpoint, flush=True)
+
+    max_episode_length = get_max_episode_length(args.tasks, args.variations)
+
+    # Gripper workspace is the union of workspaces for all tasks
+    if args.single_task_gripper_loc_bounds and len(args.tasks) == 1:
+        task = args.tasks[0]
+    else:
+        task = None
+
+    diffusion_gripper_loc_bounds = get_gripper_loc_bounds(
+        args.gripper_loc_bounds_file, task=task, buffer=args.gripper_bounds_buffer)
+    act3d_gripper_loc_bounds = get_gripper_loc_bounds(
+        args.act3d_gripper_loc_bounds_file, task=task, buffer=args.act3d_gripper_bounds_buffer)
+
+    if args.traj_model == "diffusion":
+        diffusion_model = DiffusionPlanner(
+            backbone=args.backbone,
+            image_size=tuple(int(x) for x in args.image_size.split(",")),
+            embedding_dim=args.embedding_dim,
+            output_dim=args.action_dim,
+            num_vis_ins_attn_layers=args.num_vis_ins_attn_layers,
+            num_sampling_level=args.num_sampling_level,
+            use_instruction=bool(args.use_instruction),
+            num_query_cross_attn_layers=args.num_query_cross_attn_layers,
+            use_goal=bool(args.use_goal),
+            use_goal_at_test=bool(args.use_goal_at_test),
+            gripper_loc_bounds=diffusion_gripper_loc_bounds,
+            positional_features=args.positional_features
+        ).to(device)
+    elif args.traj_model == "regression":
+        from model.trajectory_optimization.regression_model import TrajectoryRegressor
+        diffusion_model = TrajectoryRegressor(
+            backbone=args.backbone,
+            image_size=tuple(int(x) for x in args.image_size.split(",")),
+            embedding_dim=args.embedding_dim,
+            output_dim=args.action_dim,
+            num_vis_ins_attn_layers=args.num_vis_ins_attn_layers,
+            num_query_cross_attn_layers=args.num_query_cross_attn_layers,
+            num_sampling_level=args.num_sampling_level,
+            use_instruction=bool(args.use_instruction),
+            use_goal=bool(args.use_goal),
+            use_rgb=bool(args.use_rgb),
+            gripper_loc_bounds=diffusion_gripper_loc_bounds,
+            positional_features=args.positional_features
+        ).to(device)
+    act3d_model = Baseline(
+        backbone=args.backbone,
+        image_size=tuple(int(x) for x in args.image_size.split(",")),
+        embedding_dim=args.embedding_dim,
+        num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,
+        num_query_cross_attn_layers=args.act3d_num_query_cross_attn_layers,
+        rotation_parametrization=args.rotation_parametrization,
+        gripper_loc_bounds=act3d_gripper_loc_bounds,
+        num_ghost_points=args.num_ghost_points,
+        num_ghost_points_val=args.num_ghost_points_val,
+        weight_tying=bool(args.weight_tying),
+        gp_emb_tying=bool(args.gp_emb_tying),
+        num_sampling_level=args.num_sampling_level,
+        fine_sampling_ball_diameter=args.fine_sampling_ball_diameter,
+        regress_position_offset=bool(args.regress_position_offset),
+        visualize_rgb_attn=bool(args.visualize_rgb_attn),
+        use_instruction=bool(args.act3d_use_instruction),
+        task_specific_biases=bool(args.task_specific_biases),
+        positional_features=args.positional_features,
+        task_ids=[TASK_TO_ID[task] for task in args.tasks],
+    ).to(device)
+
+    diffusion_model_dict = torch.load(diffusion_checkpoint, map_location="cpu")
+    diffusion_model_dict_weight = {}
+    for key in diffusion_model_dict["weight"]:
+        _key = key[7:]
+        diffusion_model_dict_weight[_key] = diffusion_model_dict["weight"][key]
+    diffusion_model.load_state_dict(diffusion_model_dict_weight)
+    diffusion_model.eval()
+
+    act3d_model_dict = torch.load(act3d_checkpoint, map_location="cpu")
+    act3d_model_dict_weight = {}
+    for key in act3d_model_dict["weight"]:
+        _key = key[7:]
+        act3d_model_dict_weight[_key] = act3d_model_dict["weight"][key]
+    act3d_model.load_state_dict(act3d_model_dict_weight)
+    act3d_model.eval()
+
+    return [diffusion_model, act3d_model]
+
 def find_checkpoint(checkpoint: Path) -> Path:
     if checkpoint.is_dir():
         candidates = [c for c in checkpoint.rglob("*.pth") if c.name != "best"]
@@ -301,15 +419,29 @@ if __name__ == "__main__":
     random.seed(args.seed)
 
     # load model and args
-    checkpoint = find_checkpoint(args.checkpoint)
-    args = copy_args(checkpoint, args)
-    if checkpoint is None:
-        raise RuntimeError()
-    model = load_model(checkpoint, args)
+
+    if args.model == 'full':
+        diffusion_checkpoint = find_checkpoint(args.checkpoint)
+        act3d_checkpoint = find_checkpoint(args.act3d_checkpoint)
+
+        if diffusion_checkpoint is None:
+            raise RuntimeError()
+        if act3d_checkpoint is None:
+            raise RuntimeError()
+        model = load_model_full(diffusion_checkpoint, act3d_checkpoint, args)
+
+    else:
+        checkpoint = find_checkpoint(args.checkpoint)
+
+        args = copy_args(checkpoint, args)
+        if checkpoint is None:
+            raise RuntimeError()
+        model = load_model(checkpoint, args)
+
 
     # load RLBench environment
     env = RLBenchEnv(
-        traj_cmd=args.model == "diffusion",
+        traj_cmd=args.model in ["full", "diffusion"],
         data_path=args.data_dir,
         image_size=[int(x) for x in args.image_size.split(",")],
         apply_rgb=True,
@@ -325,7 +457,7 @@ if __name__ == "__main__":
     if instruction is None:
         raise NotImplementedError()
 
-    actioner = Actioner(model=model, instructions=instruction)
+    actioner = Actioner(model_type=args.model, model=model, instructions=instruction, action_dim=args.action_dim)
     max_eps_dict = load_episodes()["max_episode_length"]
     task_success_rates = {}
 
@@ -343,7 +475,7 @@ if __name__ == "__main__":
             interpolation_length=args.interpolation_length,
             record_videos=bool(args.record_videos),
             position_prediction_only=bool(args.position_prediction_only),
-            offline=bool(args.offline),
+            offline=args.offline,
             verbose=bool(args.verbose),
         )
         print()

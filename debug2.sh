@@ -19,7 +19,7 @@ main_trajectory.py --tasks reach_target \
     --train_iters 500000 \
     --use_instruction 0 \
     --use_rgb 1 \
-    --use_goal 1 --action_dim 7 \
+    --use_goal 0 --use_goal_at_test 0 --action_dim 7 \
     --val_freq 1000 \
     --dense_interpolation $dense_interpolation \
     --interpolation_length $interpolation_length \
@@ -27,20 +27,5 @@ main_trajectory.py --tasks reach_target \
     --batch_size $B \
     --batch_size_val 24 \
     --lr $lr\
-    --run_log_dir reach_target-B$B-lr$lr-DI$dense_interpolation-$interpolation_length \
-    --checkpoint /home/ngkanats/analogical_manipulation/train_logs/diffuse_06_21/reach_target-B24-lr1e-4-DI1-50/last.pth
-
-# CUDA_LAUNCH_BLOCKING=1 python -m torch.distributed.launch --nproc_per_node 1 --master_port $RANDOM \
-#     main_trajectory.py --tasks close_door \
-#     --n_gpus 1 --num_workers 4 \
-#     --dataset /projects/katefgroup/datasets/rlbench/micro_trajectory/diffusion_trajectories_train/ \
-#     --valset /projects/katefgroup/datasets/rlbench/micro_trajectory/diffusion_trajectories_val/ \
-#     --instructions /home/tgervet/hiveformer/instructions.pkl \
-#     --use_instruction 0 \
-#     --use_goal 0 --use_goal_at_test 0 --action_dim 8 \
-#     --exp_log_dir close_door_no_lang \
-#     --num_query_cross_attn_layers 4 \
-#     --val_freq 1000 \
-#     --batch_size 24 --batch_size_val 12 --lr 1e-4 \
-#     --cache_size 30 \
-#     --cache_size_val 0
+    --run_log_dir reach_target-goalless-B$B-lr$lr-DI$dense_interpolation-$interpolation_length \
+    --checkpoint /home/ngkanats/analogical_manipulation/train_logs/diffuse_06_21/reach_target-goalless-B24-lr1e-4-DI1-50/last.pth

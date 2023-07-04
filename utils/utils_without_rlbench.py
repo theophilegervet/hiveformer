@@ -168,8 +168,8 @@ class LossAndMetrics:
         self, pred: Dict[str, torch.Tensor], sample: Sample,
     ) -> Dict[str, torch.Tensor]:
         device = pred["position"].device
-        padding_mask = sample["padding_mask"].to(device)
-        gt_action = sample["action"].to(device)[padding_mask]
+        # padding_mask = sample["padding_mask"].to(device)
+        gt_action = sample["action"].to(device)  # [padding_mask]
 
         losses = {}
 
@@ -181,10 +181,10 @@ class LossAndMetrics:
             losses["gripper"] = F.mse_loss(pred["gripper"], gt_action[:, 7:8])
             losses["gripper"] *= self.gripper_loss_coeff
 
-            if pred["task"] is not None:
-                task = torch.Tensor([self.tasks.index(t) for t in sample["task"]])
-                task = task.to(device).long()
-                losses["task"] = F.cross_entropy(pred["task"], task)
+            # if pred["task"] is not None:
+            #     task = torch.Tensor([self.tasks.index(t) for t in sample["task"]])
+            #     task = task.to(device).long()
+            #     losses["task"] = F.cross_entropy(pred["task"], task)
 
         return losses
 
@@ -253,17 +253,18 @@ class LossAndMetrics:
     ) -> Dict[str, torch.Tensor]:
         device = pred["position"].device
         dtype = pred["position"].dtype
-        padding_mask = sample["padding_mask"].to(device)
-        outputs = sample["action"].to(device)[padding_mask]
+        # padding_mask = sample["padding_mask"].to(device)
+        outputs = sample["action"].to(device)  # [padding_mask]
 
         metrics = {}
 
         tasks = np.array(sample["task"])
-        if len(tasks.shape) == 2:
-            tasks = einops.rearrange(tasks, "s b -> b s")[:, :, np.newaxis]
-        else:
-            tasks = tasks[:, np.newaxis]
-        tasks = np.repeat(tasks, padding_mask.shape[-1], axis=-1)[padding_mask.cpu()]
+        # if len(tasks.shape) == 2:
+        #     tasks = einops.rearrange(tasks, "s b -> b s")[:, :, np.newaxis]
+        # else:
+        #     tasks = tasks[:, np.newaxis]
+
+        # tasks = np.repeat(tasks, padding_mask.shape[-1], axis=-1)[padding_mask.cpu()]
 
         final_pos_l2 = ((pred["position"] - outputs[:, :3]) ** 2).sum(1).sqrt()
         metrics["mean/pos_l2_final"] = final_pos_l2.to(dtype).mean()
@@ -311,11 +312,11 @@ class LossAndMetrics:
                 metrics[f"{task}/rot_l1<0.025"] = (task_l1 < 0.025).to(dtype).mean()
 
             # Task prediction (not used by our models)
-            if pred["task"] is not None:
-                task = torch.Tensor([self.tasks.index(t) for t in sample["task"]])
-                task = task.to(device).long()
-                acc = task == pred["task"].argmax(1)
-                metrics["task"] = acc.to(dtype).mean()
+            # if pred["task"] is not None:
+            #     task = torch.Tensor([self.tasks.index(t) for t in sample["task"]])
+            #     task = task.to(device).long()
+            #     acc = task == pred["task"].argmax(1)
+            #     metrics["task"] = acc.to(dtype).mean()
 
         return metrics
 

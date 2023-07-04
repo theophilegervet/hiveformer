@@ -1,6 +1,5 @@
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
+from torch import nn
+from torch.nn import functional as F
 
 from .multihead_custom_attention import MultiheadCustomAttention
 
@@ -63,10 +62,10 @@ class ParallelAttentionLayer(nn.Module):
         # FFN-1
         if self_attention1 or cross_attention1:
             self.ffn_12 = nn.Sequential(
-                nn.Linear(d_model, 1024),
+                nn.Linear(d_model, 4 * d_model),
                 nn.ReLU(),
                 nn.Dropout(dropout),
-                nn.Linear(1024, d_model),
+                nn.Linear(4 * d_model, d_model),
                 nn.Dropout(dropout)
             )
             self.norm_122 = nn.LayerNorm(d_model)
@@ -74,10 +73,10 @@ class ParallelAttentionLayer(nn.Module):
         # FFN-2
         if self_attention2 or cross_attention2:
             self.ffn_21 = nn.Sequential(
-                nn.Linear(d_model, 1024),
+                nn.Linear(d_model, 4 * d_model),
                 nn.ReLU(),
                 nn.Dropout(dropout),
-                nn.Linear(1024, d_model),
+                nn.Linear(4 * d_model, d_model),
                 nn.Dropout(dropout)
             )
             self.norm_212 = nn.LayerNorm(d_model)
@@ -193,28 +192,53 @@ class ParallelAttentionLayer(nn.Module):
         return seq1, seq2
 
 
-class CrossAttentionLayer(nn.Module):
-    def __init__(self, embedding_dim, num_heads, dropout=0.0):
+class ParallelAttention(nn.Module):
+    """Self-/Cross-attention between two sequences."""
+
+    def __init__(self, num_layers=1,
+                 d_model=256, dropout=0.1, n_heads=8, pre_norm=False,
+                 self_attention1=True, self_attention2=True,
+                 cross_attention1=True, cross_attention2=True,
+                 apply_ffn=True,
+                 slot_attention12=False, slot_attention21=False,
+                 rotary_pe=False):
         super().__init__()
-        self.multihead_attn = nn.MultiheadAttention(embedding_dim, num_heads, dropout=dropout)
-        self.norm = nn.LayerNorm(embedding_dim)
-        self.dropout = nn.Dropout(dropout)
-        self._reset_parameters()
+        self.layers = nn.ModuleList()
+        self.update_seq1 = self_attention1 or cross_attention1
+        self.update_seq2 = self_attention2 or cross_attention2
+        for _ in range(num_layers):
+            self.layers.append(ParallelAttentionLayer(
+                d_model=d_model,
+                dropout=dropout,
+                n_heads=n_heads,
+                pre_norm=pre_norm,
+                self_attention1=self_attention1,
+                self_attention2=self_attention2,
+                cross_attention1=cross_attention1,
+                cross_attention2=cross_attention2,
+                apply_ffn=apply_ffn,
+                slot_attention12=slot_attention12,
+                slot_attention21=slot_attention21,
+                rotary_pe=rotary_pe
+            ))
 
-    def _reset_parameters(self):
-        for p in self.parameters():
-            if p.dim() > 1:
-                nn.init.xavier_uniform_(p)
-
-    def forward(self, query, value, query_pos=None, value_pos=None):
-        attn_output, attn_output_weights = self.multihead_attn(
-            query=(query + query_pos) if query_pos is not None else query,
-            key=(value + value_pos) if value_pos is not None else value,
-            value=value
-        )
-        output = query + self.dropout(attn_output)
-        output = self.norm(output)
-        return output, attn_output_weights
+    def forward(self, seq1, seq1_key_padding_mask, seq2,
+                seq2_key_padding_mask,
+                seq1_pos=None, seq2_pos=None,
+                seq1_sem_pos=None, seq2_sem_pos=None):
+        """Forward pass, seq1 (B, S1, F), seq2 (B, S2, F)."""
+        for layer in self.layers:
+            seq1_, seq2_ = layer(
+                seq1=seq1, seq1_key_padding_mask=seq1_key_padding_mask,
+                seq2=seq2, seq2_key_padding_mask=seq2_key_padding_mask,
+                seq1_pos=seq1_pos, seq2_pos=seq2_pos,
+                seq1_sem_pos=seq1_sem_pos, seq2_sem_pos=seq2_sem_pos
+            )
+            if self.update_seq1:
+                seq1 = seq1_
+            if self.update_seq2:
+                seq2 = seq2_
+        return seq1, seq2
 
 
 class RelativeCrossAttentionLayer(nn.Module):
@@ -274,110 +298,5 @@ class RelativeCrossAttentionModule(nn.Module):
         for i in range(len(self.attn_layers)):
             query, _ = self.attn_layers[i](query, value, query_pos, value_pos)
             query = self.ffw_layers[i](query)
-            output.append(query)
-        return output
-
-
-class TaskSpecificRelativeCrossAttentionLayer(nn.Module):
-    """Relative cross attention layer with task specific biases."""
-    def __init__(self, embedding_dim, num_heads, task_ids, dropout=0.0):
-        super().__init__()
-        self.multihead_attn = MultiheadCustomAttention(embedding_dim, num_heads, dropout=dropout)
-        self.norm = nn.LayerNorm(embedding_dim)
-        self.dropout = nn.Dropout(dropout)
-
-        self.task_biases = nn.ParameterDict()
-        for task in task_ids:
-            self.task_biases[f"{task}_multihead_attn_in_proj_bias"] = nn.Parameter(
-                torch.zeros_like(self.multihead_attn.in_proj_bias))
-            self.task_biases[f"{task}_multihead_attn_out_proj_bias"] = nn.Parameter(
-                torch.zeros_like(self.multihead_attn.out_proj.bias))
-            self.task_biases[f"{task}_norm_bias"] = nn.Parameter(
-                torch.zeros_like(self.norm.bias))
-
-    def forward(self, task_id, query, value, query_pos=None, value_pos=None):
-        output = torch.zeros_like(query)
-
-        for t in torch.unique(task_id):
-            self.multihead_attn.in_proj_bias = self.task_biases[f"{t}_multihead_attn_in_proj_bias"]
-            self.multihead_attn.out_proj.bias = self.task_biases[f"{t}_multihead_attn_out_proj_bias"]
-            self.norm.bias = self.task_biases[f"{t}_norm_bias"]
-
-            query_task = query[:, task_id == t]
-            value_task = value[:, task_id == t]
-            if query_pos is not None:
-                query_pos_task = query_pos[task_id == t]
-                value_pos_task = value_pos[task_id == t]
-            attn_output_task, attn_output_weights = self.multihead_attn(
-                query=query_task,
-                key=value_task,
-                value=value_task,
-                rotary_pe=(query_pos_task, value_pos_task) if query_pos is not None else None
-            )
-            output_task = query_task + self.dropout(attn_output_task)
-            output_task = self.norm(output_task)
-            output[:, task_id == t] = output_task
-
-        return output, None
-
-
-class TaskSpecificFeedforwardLayer(nn.Module):
-    """Feedforward layer with task specific biases."""
-    def __init__(self, embedding_dim, hidden_dim, task_ids, dropout=0.0):
-        super().__init__()
-        self.linear1 = nn.Linear(embedding_dim, hidden_dim)
-        self.dropout = nn.Dropout(dropout)
-        self.linear2 = nn.Linear(hidden_dim, embedding_dim)
-        self.norm = nn.LayerNorm(embedding_dim)
-        self.activation = F.relu
-        self._reset_parameters()
-
-        self.task_biases = nn.ParameterDict()
-        for task in task_ids:
-            self.task_biases[f"{task}_linear1_bias"] = nn.Parameter(
-                torch.zeros_like(self.linear1.bias))
-            self.task_biases[f"{task}_linear2_bias"] = nn.Parameter(
-                torch.zeros_like(self.linear2.bias))
-            self.task_biases[f"{task}_norm_bias"] = nn.Parameter(
-                torch.zeros_like(self.norm.bias))
-
-    def _reset_parameters(self):
-        for p in self.parameters():
-            if p.dim() > 1:
-                nn.init.xavier_uniform_(p)
-
-    def forward(self, task_id, x):
-        output = torch.zeros_like(x)
-
-        for t in torch.unique(task_id):
-            self.linear1.bias = self.task_biases[f"{t}_linear1_bias"]
-            self.linear2.bias = self.task_biases[f"{t}_linear2_bias"]
-            self.norm.bias = self.task_biases[f"{t}_norm_bias"]
-
-            x_task = x[:, task_id == t]
-            output_task = self.linear2(self.dropout(self.activation(self.linear1(x_task))))
-            output_task = x_task + self.dropout(output_task)
-            output_task = self.norm(output_task)
-            output[:, task_id == t] = output_task
-
-        return output
-
-
-class TaskSpecificRelativeCrossAttentionModule(nn.Module):
-    """Relative cross attention module with task specific biases."""
-    def __init__(self, embedding_dim, num_attn_heads, num_layers, task_ids):
-        super().__init__()
-
-        self.attn_layers = nn.ModuleList()
-        self.ffw_layers = nn.ModuleList()
-        for _ in range(num_layers):
-            self.attn_layers.append(TaskSpecificRelativeCrossAttentionLayer(embedding_dim, num_attn_heads, task_ids))
-            self.ffw_layers.append(TaskSpecificFeedforwardLayer(embedding_dim, embedding_dim, task_ids))
-
-    def forward(self, task_id, query, value, query_pos=None, value_pos=None):
-        output = []
-        for i in range(len(self.attn_layers)):
-            query, _ = self.attn_layers[i](task_id, query, value, query_pos, value_pos)
-            query = self.ffw_layers[i](task_id, query)
             output.append(query)
         return output

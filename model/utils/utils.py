@@ -3,6 +3,50 @@ import einops
 import torch
 
 
+@torch.no_grad()
+def find_cylinder_points(start, end, num_points, point_cloud):
+    """
+    start: (B, 3)
+    end: (B, 3)
+    num_points: int
+    point_cloud: (B, P, 3)
+    """
+    device = end.device
+    # Neighborhood size
+    size = (end - start).abs().max(1).values  # (B,)
+
+    # Compute line (B, num_points, 3)
+    slope = (end - start) / (num_points - 1)  # (B, 3)
+    line = (
+        slope[:, None] * torch.arange(num_points).to(device)[None, :, None]
+        + start[:, None]
+    )
+
+    # Initialize empty repository of cylinder points (B, P)
+    in_cylinder = torch.zeros(point_cloud.shape[:2], device=end.device)
+    in_cylinder = in_cylinder.bool()
+
+    # Loop over line points and add neighborhoods to repository
+    for p in range(num_points):
+        point = line[:, p]  # (B, 3)
+        dists = ((point[:, None] - point_cloud) ** 2).sum(-1).sqrt()
+        in_cylinder = in_cylinder | (dists <= size[:, None])
+    return in_cylinder  # (B, P)
+
+
+@torch.no_grad()
+def find_traj_nn(trajectory, point_cloud, nn_=64):
+    """
+    trajectory: (B, L, 3)
+    point_cloud: (B, P, 3)
+    """
+    dists = ((trajectory[:, :, None] - point_cloud[:, None]) ** 2).sum(-1)
+    min_dists = dists.min(1).values  # B P
+    lt = trajectory.shape[1]
+    indices = min_dists.topk(k=nn_ * lt, dim=-1, largest=False).indices
+    return indices  # # B nn_
+
+
 def normalise_quat(x: torch.Tensor):
     return x / torch.clamp(x.square().sum(dim=-1).sqrt().unsqueeze(-1), min=1e-10)
 

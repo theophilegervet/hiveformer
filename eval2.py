@@ -12,7 +12,6 @@ from train import Arguments as TrainArguments
 from model.released_hiveformer.network import Hiveformer
 from model.keypose_optimization.baseline import Baseline
 from model.analogical_network.analogical_network import AnalogicalNetwork
-from model.trajectory_optimization.diffusion_model import DiffusionPlanner
 from utils.utils_with_rlbench import (
     RLBenchEnv,
     Actioner,
@@ -62,11 +61,8 @@ class Arguments(tap.Tap):
     model: str = "baseline"  # one of "original", "baseline", "analogical"
 
     record_videos: int = 0
-    max_steps: int = 50
+    max_steps: int = 20
     collision_checking: int = 0
-    use_goal: int = 0
-    dense_interpolation: int = 0
-    interpolation_length: int = 100
 
     # ---------------------------------------------------------------
     # Original HiveFormer parameters
@@ -104,7 +100,6 @@ class Arguments(tap.Tap):
     embedding_dim: int = 60
     num_ghost_point_cross_attn_layers: int = 2
     num_query_cross_attn_layers: int = 2
-    num_vis_ins_attn_layers: int = 2
     # one of "quat_from_top_ghost", "quat_from_query", "6D_from_top_ghost", "6D_from_query"
     rotation_parametrization: str = "quat_from_query"
     use_instruction: int = 0
@@ -216,18 +211,6 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
             positional_features=args.positional_features,
             task_ids=[TASK_TO_ID[task] for task in args.tasks],
         ).to(device)
-    elif args.model == "diffusion":
-        model = DiffusionPlanner(
-            backbone=args.backbone,
-            image_size=tuple(int(x) for x in args.image_size.split(",")),
-            embedding_dim=args.embedding_dim,
-            num_vis_ins_attn_layers=args.num_vis_ins_attn_layers,
-            num_sampling_level=args.num_sampling_level,
-            use_instruction=bool(args.use_instruction),
-            use_goal=bool(args.use_goal),
-            gripper_loc_bounds=gripper_loc_bounds,
-            positional_features=args.positional_features
-        ).to(device)
     elif args.model == "analogical":
         raise NotImplementedError
         model = AnalogicalNetwork(
@@ -284,6 +267,7 @@ def find_checkpoint(checkpoint: Path) -> Path:
 
 if __name__ == "__main__":
     args = Arguments().parse_args()
+    args.cameras = tuple(x for y in args.cameras for x in y.split(","))
 
     if args.tasks is None:
         print(args.checkpoint)
@@ -309,7 +293,6 @@ if __name__ == "__main__":
 
     # load RLBench environment
     env = RLBenchEnv(
-        traj_cmd=args.model == "diffusion",
         data_path=args.data_dir,
         image_size=[int(x) for x in args.image_size.split(",")],
         apply_rgb=True,
@@ -339,8 +322,6 @@ if __name__ == "__main__":
             log_dir=log_dir / task_str if args.save_img else None,
             max_tries=args.max_tries,
             save_attn=False,
-            dense_interpolation=bool(args.dense_interpolation),
-            interpolation_length=args.interpolation_length,
             record_videos=bool(args.record_videos),
             position_prediction_only=bool(args.position_prediction_only),
             offline=bool(args.offline),
