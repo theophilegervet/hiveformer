@@ -216,7 +216,7 @@ class DiffusionPlanner(nn.Module):
         cond_data[:, 0] = curr_gripper
         cond_mask[:, 0] = 1
         # end pose
-        if self._use_goal:
+        if self._use_goal_at_test:
             for d in range(len(cond_data)):
                 neg_len_ = -trajectory_mask[d].sum().long()
                 cond_data[d][neg_len_ - 1] = goal_gripper[d]
