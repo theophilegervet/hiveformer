@@ -168,7 +168,7 @@ class TrajectoryHead(Encoder):
             ))
 
         # Compute visual features/positional embeddings at different scales
-        rgb_feats_pyramid, rgb_pos_pyramid, pcd_pyramid = self.encode_images(
+        rgb_feats_pyramid, pcd_pyramid = self.encode_images(
             visible_rgb, visible_pcd
         )
 
@@ -209,7 +209,7 @@ class TrajectoryHead(Encoder):
 
                 # One attention iteration
                 traj_ = self._one_attention_round(
-                    rgb_feats_pyramid, rgb_pos_pyramid,  # visual
+                    rgb_feats_pyramid, pcd_pyramid,  # visual
                     instr_feats, instr_pos,  # language
                     curr_gripper_feats, curr_gripper_pos,  # current gripper
                     goal_gripper_feats, goal_gripper_pos,  # goal gripper
@@ -226,7 +226,7 @@ class TrajectoryHead(Encoder):
 
     def _one_attention_round(
         self,
-        rgb_feats_pyramid, rgb_pos_pyramid,  # visual
+        rgb_feats_pyramid, pcd_pyramid,  # visual
         instr_feats, instr_pos,  # language
         curr_gripper_feats, curr_gripper_pos,  # current gripper
         goal_gripper_feats, goal_gripper_pos,  # goal gripper
@@ -238,7 +238,7 @@ class TrajectoryHead(Encoder):
             rgb_feats_pyramid[scale],
             "b ncam c h w -> b (ncam h w) c"
         )
-        context_pos = rgb_pos_pyramid[scale]
+        context_pos = pcd_pyramid[scale]
         if p_inds is not None:
             context_feats = torch.stack([
                 f[i]  # (nn, c)
@@ -247,6 +247,7 @@ class TrajectoryHead(Encoder):
             context_pos = torch.stack([
                 f[i] for f, i in zip(context_pos, p_inds)
             ])
+        context_pos = self.relative_pe_layer(context_pos)
 
         # Language context
         if self.use_instruction:
@@ -258,9 +259,6 @@ class TrajectoryHead(Encoder):
                 seq1_pos=None, seq2_pos=None,
                 seq1_sem_pos=None, seq2_sem_pos=None
             )
-            # # Append language features to context
-            # context_feats = torch.cat([context_feats, instr_feats], dim=1)
-            # context_pos = torch.cat([context_pos, instr_pos], dim=1)
 
         # Concatenate rest of context (gripper)
         context_feats = torch.cat([context_feats, curr_gripper_feats], dim=1)

@@ -122,7 +122,6 @@ class Encoder(nn.Module):
 
         Returns:
             - rgb_feats_pyramid: [(B, ncam, F, H_i, W_i)]
-            - rgb_pos_pyramid: [(B, ncam * H_i * W_i, F, 2)]
             - pcd_pyramid: [(B, ncam * H_i * W_i, F)]
         """
         num_cameras = rgb.shape[1]
@@ -139,7 +138,6 @@ class Encoder(nn.Module):
         pcd = einops.rearrange(pcd, "bt ncam c h w -> (bt ncam) c h w")
 
         rgb_feats_pyramid = []
-        rgb_pos_pyramid = []
         pcd_pyramid = []
         for i in range(self.num_sampling_level):
             # Isolate level's visual features
@@ -158,17 +156,15 @@ class Encoder(nn.Module):
                 pcd_i,
                 "(bt ncam) c h w -> bt (ncam h w) c", ncam=num_cameras
             )
-            rgb_pos_i = self.relative_pe_layer(pcd_i)
             rgb_features_i = einops.rearrange(
                 rgb_features_i,
                 "(bt ncam) c h w -> bt ncam c h w", ncam=num_cameras
             )
 
             rgb_feats_pyramid.append(rgb_features_i)
-            rgb_pos_pyramid.append(rgb_pos_i)
             pcd_pyramid.append(pcd_i)
 
-        return rgb_feats_pyramid, rgb_pos_pyramid, pcd_pyramid
+        return rgb_feats_pyramid, pcd_pyramid
 
     def encode_instruction(self, instruction):
         """

@@ -43,7 +43,8 @@ class DiffusionPlanner(nn.Module):
             )
         self.noise_scheduler = DDPMScheduler(
             num_train_timesteps=100,
-            beta_schedule="squaredcos_cap_v2"
+            beta_schedule="squaredcos_cap_v2",
+            prediction_type="sample"
         )
         self.n_steps = self.noise_scheduler.config.num_train_timesteps
         self.gripper_loc_bounds = torch.tensor(gripper_loc_bounds)
@@ -59,7 +60,7 @@ class DiffusionPlanner(nn.Module):
             goal_gripper
         ) = fixed_inputs
 
-        noise = self.prediction_head(
+        out = self.prediction_head(
             trajectory,
             trajectory_mask,
             timestep,
@@ -69,7 +70,7 @@ class DiffusionPlanner(nn.Module):
             goal_gripper=goal_gripper,
             instruction=instruction
         )
-        return noise
+        return out
 
     def conditional_sample(self, condition_data, condition_mask, fixed_inputs):
         # Random trajectory, conditioned on start-end
@@ -121,8 +122,8 @@ class DiffusionPlanner(nn.Module):
             rgb_obs,
             pcd_obs,
             instruction,
-            curr_gripper[..., :3],
-            goal_gripper[..., :3]
+            curr_gripper,
+            goal_gripper
         )
 
         # Condition on start-end pose
@@ -205,8 +206,8 @@ class DiffusionPlanner(nn.Module):
             rgb_obs,
             pcd_obs,
             instruction,
-            curr_gripper[..., :3],
-            goal_gripper[..., :3]
+            curr_gripper,
+            goal_gripper
         )
 
         # Condition on start-end pose

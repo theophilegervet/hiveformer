@@ -4,6 +4,7 @@ from torch import nn
 
 from model.utils.layers import ParallelAttention
 from model.utils.encoder import Encoder
+from model.utils.utils import find_traj_nn
 
 
 class DiffusionHead(Encoder):
@@ -13,7 +14,7 @@ class DiffusionHead(Encoder):
                  image_size=(256, 256),
                  embedding_dim=60,
                  output_dim=7,
-                 num_attn_heads=4,
+                 num_attn_heads=8,
                  num_vis_ins_attn_layers=2,
                  num_query_cross_attn_layers=8,
                  use_instruction=False,
@@ -36,6 +37,9 @@ class DiffusionHead(Encoder):
 
         # Trajectory encoder
         self.traj_encoder = nn.Linear(output_dim, embedding_dim)
+        self.curr_gripper_encoder = nn.Linear(output_dim-3, embedding_dim)
+        if use_goal:
+            self.goal_gripper_encoder = nn.Linear(output_dim-3, embedding_dim)
 
         # Attention from vision to language
         if use_instruction and weight_tying:
@@ -116,7 +120,7 @@ class DiffusionHead(Encoder):
                 for _ in range(self.feat_scales)
             ])
 
-        # Noise regression after every attention to a scale
+        # Regression after every attention to a scale
         self.traj_regressor = nn.ModuleList([
             nn.Sequential(
                 nn.Linear(embedding_dim, embedding_dim),
@@ -138,8 +142,8 @@ class DiffusionHead(Encoder):
             timestep: (B, 1)
             visible_rgb: (B, num_cameras, 3, H, W) in [0, 1]
             visible_pcd: (B, num_cameras, 3, H, W) in world coordinates
-            curr_gripper: (B, 3)
-            goal_gripper: (B, 3)
+            curr_gripper: (B, output_dim)
+            goal_gripper: (B, output_dim)
             instruction: (B, max_instruction_length, 512)
         """
         device = visible_rgb.device
@@ -163,7 +167,7 @@ class DiffusionHead(Encoder):
         time_feats, time_pos = self.encode_denoising_timestep(timestep)
 
         # Compute visual features/positional embeddings at different scales
-        rgb_feats_pyramid, rgb_pos_pyramid, pcd_pyramid = self.encode_images(
+        rgb_feats_pyramid, pcd_pyramid = self.encode_images(
             visible_rgb, visible_pcd
         )
 
@@ -173,48 +177,72 @@ class DiffusionHead(Encoder):
             instr_feats, instr_pos = self.encode_instruction(instruction)
 
         # Encode current gripper (B, 1, F)
-        curr_gripper_feats, curr_gripper_pos = self.encode_curr_gripper(
+        curr_gripper_feats = self.curr_gripper_encoder(curr_gripper[:, 3:])
+        curr_gripper_feats = curr_gripper_feats[:, None]
+        curr_gripper_embs, curr_gripper_pos = self.encode_curr_gripper(
             curr_gripper, batch_size=len(traj_feats)
         )
+        curr_gripper_feats = curr_gripper_feats + curr_gripper_embs
 
         # Encode goal gripper (B, 1, F)
         goal_gripper_feats, goal_gripper_pos = None, None
         if self.use_goal:
-            goal_gripper_feats, goal_gripper_pos = self.encode_goal_gripper(
+            goal_gripper_embs, goal_gripper_pos = self.encode_goal_gripper(
                 goal_gripper, batch_size=len(traj_feats)
             )
+            goal_gripper_feats = self.goal_gripper_encoder(goal_gripper[:, 3:])
+            goal_gripper_feats = goal_gripper_feats[:, None]
+            goal_gripper_feats = goal_gripper_feats + goal_gripper_embs
 
         # Attention layers
-        noise = []
+        n_trajectory = []
         for attn_round in range(self.attn_rounds):
             for scale in range(self.feat_scales):
-                noise.append(self._one_attention_round(
-                    rgb_feats_pyramid, pcd_pyramid, rgb_pos_pyramid,  # visual
+                # Local attention
+                p_inds = None
+                if scale > 0:
+                    p_inds = find_traj_nn(
+                        n_trajectory[-1][..., :3], pcd_pyramid[scale],
+                        nn_=16
+                    )
+
+                # One attention iteration
+                n_trajectory.append(self._one_attention_round(
+                    rgb_feats_pyramid, pcd_pyramid,  # visual
                     instr_feats, instr_pos,  # language
                     curr_gripper_feats, curr_gripper_pos,  # current gripper
                     goal_gripper_feats, goal_gripper_pos,  # goal gripper
                     time_feats, time_pos,  # time
                     traj_feats, traj_pos, trajectory_mask,  # trajectory
-                    attn_round, scale
+                    attn_round, scale, p_inds
                 ))
-        return noise
+        return n_trajectory
 
     def _one_attention_round(
         self,
-        rgb_feats_pyramid, pcd_pyramid, rgb_pos_pyramid,  # visual
+        rgb_feats_pyramid, pcd_pyramid,  # visual
         instr_feats, instr_pos,  # language
         curr_gripper_feats, curr_gripper_pos,  # current gripper
         goal_gripper_feats, goal_gripper_pos,  # goal gripper
         time_feats, time_pos,  # time
         traj_feats, traj_pos, trajectory_mask,  # trajectory
-        attn_round, scale
+        attn_round, scale, p_inds=None
     ):
         # Visual context
         context_feats = einops.rearrange(
             rgb_feats_pyramid[scale],
             "b ncam c h w -> b (ncam h w) c"
         )
-        context_pos = rgb_pos_pyramid[scale]
+        context_pos = pcd_pyramid[scale]
+        if p_inds is not None:
+            context_feats = torch.stack([
+                f[i]  # (nn, c)
+                for f, i in zip(context_feats, p_inds)
+            ])
+            context_pos = torch.stack([
+                f[i] for f, i in zip(context_pos, p_inds)
+            ])
+        context_pos = self.relative_pe_layer(context_pos)
 
         # Language context
         if self.use_instruction:

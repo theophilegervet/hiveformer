@@ -56,32 +56,40 @@ class RotaryPositionEncoding(nn.Module):
 
 
 class RotaryPositionEncoding3D(RotaryPositionEncoding):
+
     def __init__(self, feature_dim, pe_type='Rotary3D'):
         super().__init__(feature_dim, pe_type)
 
-    def forward(self,  XYZ):
+    @torch.no_grad()
+    def forward(self, XYZ):
         '''
         @param XYZ: [B,N,3]
         @return:
         '''
         bsize, npoint, _ = XYZ.shape
-        vox = XYZ
-        x_position, y_position, z_position = vox[..., 0:1], vox[...,1:2], vox[...,2:3]
-        div_term = torch.exp( torch.arange(0, self.feature_dim // 3, 2, dtype=torch.float, device=XYZ.device) *  (-math.log(10000.0) / (self.feature_dim // 3)))
-        div_term = div_term.view( 1,1, -1) # [1, 1, d//6]
+        x_position, y_position, z_position = XYZ[..., 0:1], XYZ[..., 1:2], XYZ[..., 2:3]
+        div_term = torch.exp(
+            torch.arange(0, self.feature_dim // 3, 2, dtype=torch.float, device=XYZ.device)
+            * (-math.log(10000.0) / (self.feature_dim // 3))
+        )
+        div_term = div_term.view(1, 1, -1)  # [1, 1, d//6]
 
-        sinx = torch.sin(x_position * div_term) # [B, N, d//6]
+        sinx = torch.sin(x_position * div_term)  # [B, N, d//6]
         cosx = torch.cos(x_position * div_term)
         siny = torch.sin(y_position * div_term)
         cosy = torch.cos(y_position * div_term)
         sinz = torch.sin(z_position * div_term)
         cosz = torch.cos(z_position * div_term)
 
-        sinx, cosx, siny, cosy, sinz, cosz = map( lambda  feat:torch.stack([feat, feat], dim=-1).view(bsize, npoint, -1),
-                [ sinx, cosx, siny, cosy, sinz, cosz] )
-        sin_pos = torch.cat([sinx,siny,sinz], dim=-1)
-        cos_pos = torch.cat([cosx,cosy,cosz], dim=-1)
-        position_code = torch.stack( [cos_pos, sin_pos] , dim=-1)
+        sinx, cosx, siny, cosy, sinz, cosz = map(
+            lambda feat: torch.stack([feat, feat], -1).view(bsize, npoint, -1),
+            [sinx, cosx, siny, cosy, sinz, cosz]
+        )
+
+        position_code = torch.stack([
+            torch.cat([cosx, cosy, cosz], dim=-1),  # cos_pos
+            torch.cat([sinx, siny, sinz], dim=-1)  # sin_pos
+        ], dim=-1)
 
         if position_code.requires_grad:
             position_code = position_code.detach()
