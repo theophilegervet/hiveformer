@@ -8,9 +8,9 @@ interpolation_length=50
 B=3
 ngpus=8
 
-#CUDA_LAUNCH_BLOCKING=1 python -m torch.distributed.launch --nproc_per_node $ngpus --master_port $RANDOM \
+#CUDA_LAUNCH_BLOCKING=1 python -m torch.distributed.launch --nproc_per_node $ngpus --master_port $RANDOM main_trajectory.py \
 sbatch train_8gpu_32gb_fair_devlab.sh \
-    main_trajectory.py --tasks unplug_charger close_door open_box open_fridge put_umbrella_in_umbrella_stand take_frame_off_hanger open_oven put_books_on_bookshelf slide_cabinet_open_and_place_cups wipe_desk \
+    --tasks unplug_charger close_door open_box open_fridge put_umbrella_in_umbrella_stand take_frame_off_hanger open_oven put_books_on_bookshelf slide_cabinet_open_and_place_cups wipe_desk \
     --dataset  $dataset\
     --valset $valset \
     --instructions $instructions \
