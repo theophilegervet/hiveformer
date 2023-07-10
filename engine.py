@@ -223,7 +223,10 @@ class BaseTrainTester:
             merged = {}
             for key in all_dicts[0].keys():
                 device = all_dicts[0][key].device
-                merged[key] = torch.cat([p[key].to(device) for p in all_dicts])
+                merged[key] = torch.cat([
+                    p[key].to(device) for p in all_dicts
+                    if key in p
+                ])
             a_dict = merged
         return a_dict
 
