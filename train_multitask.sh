@@ -5,9 +5,9 @@ main_dir=diffusion_multitask
 lr=5e-4
 dense_interpolation=1
 interpolation_length=50
-B=24
+B=18
 ngpus=8
-checkpoint=/private/home/theop123/hiveformer/train_logs/diffusion_multitask/multitask-B3-lr1e-4-DI1-50/last.pth
+checkpoint=/private/home/theop123/hiveformer/train_logs/diffusion_multitask/multitask-B3-lr1e-4-DI1-50/best.pth
 
 #CUDA_LAUNCH_BLOCKING=1 python -m torch.distributed.launch --nproc_per_node $ngpus --master_port $RANDOM main_trajectory.py \
 sbatch train_8gpu_32gb_fair_devlab.sh \
@@ -36,4 +36,5 @@ sbatch train_8gpu_32gb_fair_devlab.sh \
     --cache_size 0 \
     --cache_size_val 0 \
     --lr $lr\
-    --run_log_dir multitask-B$B-lr$lr-DI$dense_interpolation-$interpolation_length
+    --checkpoint $checkpoint \
+    --run_log_dir multitask-big-batch-B$B-lr$lr-DI$dense_interpolation-$interpolation_length

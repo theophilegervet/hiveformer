@@ -2,12 +2,12 @@ dataset=/private/home/theop123/datasets/rlbench/packaged/diffusion_trajectories_
 valset=/private/home/theop123/datasets/rlbench/packaged/diffusion_trajectories_val/
 instructions=/private/home/theop123/hiveformer/instructions.pkl
 main_dir=diffusion_short_term
-lr=1e-4
+lr=5e-4
 dense_interpolation=1
 interpolation_length=50
-B=3
+B=18
 ngpus=8
-checkpoint=/private/home/theop123/hiveformer/train_logs/diffusion_short_term/short_term-B3-lr1e-4-short_term2/last.pth
+checkpoint=/private/home/theop123/hiveformer/train_logs/diffusion_short_term/short_term-B3-lr1e-4-short_term2/best.pth
 
 #CUDA_LAUNCH_BLOCKING=1 python -m torch.distributed.launch --nproc_per_node $ngpus --master_port $RANDOM main_trajectory.py \
 sbatch train_8gpu_32gb_fair_devlab.sh \
@@ -35,4 +35,5 @@ sbatch train_8gpu_32gb_fair_devlab.sh \
     --cache_size 0 \
     --cache_size_val 0 \
     --lr $lr\
+    --checkpoint $checkpoint \
     --run_log_dir short_term-B$B-lr$lr-short_term2
