@@ -2,10 +2,10 @@ dataset=/private/home/theop123/datasets/rlbench/packaged/diffusion_trajectories_
 valset=/private/home/theop123/datasets/rlbench/packaged/diffusion_trajectories_val/
 instructions=/private/home/theop123/hiveformer/instructions.pkl
 main_dir=diffusion_multitask
-lr=4e-4
+lr=3e-4
 dense_interpolation=1
 interpolation_length=50
-B=12
+B=9
 ngpus=8
 checkpoint=/private/home/theop123/hiveformer/train_logs/diffusion_multitask/multitask-B3-lr1e-4-DI1-50/last.pth
 
