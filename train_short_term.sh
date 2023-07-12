@@ -2,10 +2,10 @@ dataset=/private/home/theop123/datasets/rlbench/packaged/diffusion_trajectories_
 valset=/private/home/theop123/datasets/rlbench/packaged/diffusion_trajectories_val/
 instructions=/private/home/theop123/hiveformer/instructions.pkl
 main_dir=diffusion_short_term
-lr=3e-4
+lr=2e-4
 dense_interpolation=1
 interpolation_length=50
-B=9
+B=6
 ngpus=8
 checkpoint=/private/home/theop123/hiveformer/train_logs/diffusion_short_term/short_term-B3-lr1e-4-short_term2/last.pth
 
