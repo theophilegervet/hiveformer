@@ -7,7 +7,7 @@ dense_interpolation=1
 interpolation_length=50
 B=6
 ngpus=8
-checkpoint=/private/home/theop123/hiveformer/train_logs/diffusion_short_term/short_term-B6-lr2e-4-short_term2/last.path
+checkpoint=/private/home/theop123/hiveformer/train_logs/diffusion_short_term/short_term-B6-lr2e-4-short_term2/last.pth
 
 #CUDA_LAUNCH_BLOCKING=1 python -m torch.distributed.launch --nproc_per_node $ngpus --master_port $RANDOM main_trajectory.py \
 sbatch train_8gpu_32gb_fair_devlab.sh \
