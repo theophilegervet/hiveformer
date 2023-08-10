@@ -1,6 +1,7 @@
 import numpy as np
 import einops
 import torch
+import torch.nn.functional as F
 
 
 @torch.no_grad()
@@ -127,3 +128,32 @@ def compute_rotation_matrix_from_ortho6d(ortho6d):
     z = z.view(-1, 3, 1)
     matrix = torch.cat((x, y, z), 2)  # batch*3*3
     return matrix
+
+
+def get_ortho6d_from_rotation_matrix(matrix):
+    # Noe the orhto6d represents the first two column vectors a1 and a2 of the
+    # rotation matrix: [ | , |,  | ]
+    #                  [ a1, a2, a3]
+    #                  [ | , |,  | ]
+    ortho6d = matrix[:, :, :2].permute(0, 2, 1).flatten(-2)
+    return ortho6d
+
+def orthonormalize_by_gram_schmidt(matrix):
+    """Post-processing a 9D matrix with Gram-Schmidt orthogonalization.
+
+    Args:
+        matrix: A tensor of shape (..., 3, 3)
+
+    Returns:
+        A tensor of shape (..., 3, 3) with orthogonal rows.
+    """
+    a1, a2, a3 = matrix[..., :, 0], matrix[..., :, 1], matrix[..., :, 2]
+    b1 = F.normalize(a1, dim=-1)
+
+    b2 = a2 - (b1 * a2).sum(-1, keepdim=True) * b1
+    b2 = F.normalize(b2, dim=-1)
+
+    b3 = a3 - (b1 * a3).sum(-1, keepdim=True) * b1 - (b2 * a3).sum(-1, keepdim=True) * b2
+    b3 = F.normalize(b3, dim=-1)
+
+    return torch.stack([b1, b2, b3], dim=-1)

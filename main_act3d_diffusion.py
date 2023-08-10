@@ -10,13 +10,17 @@ import tap
 import torch
 import torch.distributed as dist
 from torch.nn import functional as F
+import pytorch3d.transforms
 
 from datasets import RLBenchDataset
 from engine import BaseTrainTester
 from utils.utils_without_rlbench import (
     load_instructions, count_parameters, get_gripper_loc_bounds
 )
-from model.keypose_optimization.act3d import Baseline
+from model.utils.utils import compute_rotation_matrix_from_ortho6d
+from model.keypose_optimization.act3d_diffusion_model import Act3dDiffusion
+# from model.keypose_optimization.act3d_diffusion_sequential_model import Act3dDiffusion
+# from model.keypose_optimization.act3d_diffusion_sequential_model_bak import Act3dDiffusion
 
 
 class Arguments(tap.Tap):
@@ -171,7 +175,8 @@ class TrainTester(BaseTrainTester):
         """Initialize the model."""
         # Initialize model with arguments
         args = self.args
-        _model = Baseline(
+        # _model = Baseline(
+        _model = Act3dDiffusion(
             backbone=args.backbone,
             image_size=tuple(int(x) for x in args.image_size.split(",")),
             embedding_dim=args.embedding_dim,
@@ -216,13 +221,18 @@ class TrainTester(BaseTrainTester):
             optimizer.zero_grad()
 
         # Forward pass
+        visualize = (
+            dist.get_rank() == 0 and (step_id + 1) % self.args.val_freq == 0
+        )
         out = model(
             sample["rgbs"],
             sample["pcds"],
             sample["instr"],
             sample["curr_gripper"],
             # Provide ground-truth action to bias ghost point sampling at training time
-            gt_action=sample["action"] if self.args.use_ground_truth_position_for_sampling_train else None
+            gt_action=sample["action"] if self.args.use_ground_truth_position_for_sampling_train else None,
+            visualize=visualize,
+            inference=False
         )
 
         # Backward pass
@@ -238,6 +248,12 @@ class TrainTester(BaseTrainTester):
         if dist.get_rank() == 0 and (step_id + 1) % self.args.val_freq == 0:
             self.writer.add_scalar("lr", self.args.lr, step_id)
             self.writer.add_scalar("train-loss/noise_mse", loss, step_id)
+            for k in out.keys():
+                if "image" in k:
+                    self.writer.add_image(
+                        k.replace('image', 'train'),
+                        np.array(out[k]), step_id, dataformats='HWC'
+                    )
 
     @torch.no_grad()
     def evaluate_nsteps(self, model, criterion, loader, step_id, val_iters,
@@ -257,7 +273,10 @@ class TrainTester(BaseTrainTester):
                 sample["instr"],
                 sample["curr_gripper"],
                 # DO NOT provide ground-truth action to sample ghost points at validation time
-                gt_action=None
+                # gt_action=None,
+                gt_action=sample["action"], # for visualization
+                visualize=dist.get_rank() == 0,
+                inference=True,
             )
             losses = criterion.compute_metrics(
                 action,
@@ -290,6 +309,13 @@ class TrainTester(BaseTrainTester):
             print(f"Step {step_id}:")
             for key, value in values.items():
                 print(f"{key}: {value:.03f}")
+
+            for k in action.keys():
+                if "image" in k:
+                    self.writer.add_image(
+                        k.replace('image', split), np.array(action[k]),
+                        step_id, dataformats='HWC'
+                    )
 
         return values.get('val-losses/action_mse', None)
 
@@ -347,7 +373,7 @@ class LossAndMetrics:
         regress_position_offset=False,
         symmetric_rotation_loss=False,
     ):
-        assert position_loss in ["mse", "ce", "ce+mse"]
+        assert position_loss in ["mse", "ce", "ce+mse", "3p-mse"]
         assert rotation_parametrization in [
             "quat_from_top_ghost", "quat_from_query", "6D_from_top_ghost", "6D_from_query"]
         self.position_loss = position_loss
@@ -374,8 +400,8 @@ class LossAndMetrics:
 
         self._compute_rotation_loss(pred, gt_action[:, 3:7], losses)
 
-        losses["gripper"] = F.mse_loss(pred["gripper"], gt_action[:, 7:8])
-        losses["gripper"] *= self.gripper_loss_coeff
+        # losses["gripper"] = F.mse_loss(pred["gripper"], gt_action[:, 7:8])
+        # losses["gripper"] *= self.gripper_loss_coeff
 
         return losses
 
@@ -389,6 +415,18 @@ class LossAndMetrics:
                 losses['rotation'] = (select_mask * quat_loss + (1 - select_mask) * quat_loss_).mean()
             else:
                 losses["rotation"] = F.mse_loss(pred["rotation"], gt_quat)
+        elif "6D" in self.rotation_parametrization:
+            gt_rot3x3 = pytorch3d.transforms.quaternion_to_matrix(gt_quat)
+            pred_rot3x3 = compute_rotation_matrix_from_ortho6d(pred["rotation"])
+
+            if "delta_rotation" in pred and "gt_delta_rotation" in pred:
+                pred_delta_rot6d = F.normalize(
+                    pred["delta_rotation"].unflatten(-1, (2, 3)), dim=-1
+                )
+                gt_delta_rot6d = pred["gt_delta_rotation"].unflatten(-1, (2, 3))
+                losses["rotation"] = F.mse_loss(pred_delta_rot6d, gt_delta_rot6d)
+            else:
+                losses["rotation"] = F.mse_loss(pred_rot3x3, gt_rot3x3)
 
         losses["rotation"] *= self.rotation_loss_coeff
 
@@ -398,7 +436,9 @@ class LossAndMetrics:
         if self.position_loss == "mse":
             # Only used for original HiveFormer
             losses["position_mse"] = F.mse_loss(pred["position"], gt_position) * self.position_loss_coeff
-
+        elif self.position_loss == "3p-mse":
+            # Only used for original HiveFormer
+            losses["position_mse"] = F.mse_loss(pred["gripper_position"], pred["gt_gripper_position"]) * self.position_loss_coeff
         elif self.position_loss in ["ce", "ce+mse"]:
             # Select a normalized Gaussian ball around the ground-truth as a proxy label
             # for a soft cross-entropy loss
@@ -458,9 +498,9 @@ class LossAndMetrics:
         metrics["mean/pos_l2_final"] = final_pos_l2.to(dtype).mean()
         metrics["mean/pos_l2_final<0.01"] = (final_pos_l2 < 0.01).to(dtype).mean()
 
-        for i in range(len(pred["position_pyramid"])):
-            pos_l2_i = ((pred["position_pyramid"][i].squeeze(1) - outputs[:, :3]) ** 2).sum(1).sqrt()
-            metrics[f"mean/pos_l2_level{i}"] = pos_l2_i.to(dtype).mean()
+        # for i in range(len(pred["position_pyramid"])):
+        #     pos_l2_i = ((pred["position_pyramid"][i].squeeze(1) - outputs[:, :3]) ** 2).sum(1).sqrt()
+        #     metrics[f"mean/pos_l2_level{i}"] = pos_l2_i.to(dtype).mean()
 
         for task in np.unique(tasks):
             task_l2 = final_pos_l2[tasks == task]
@@ -468,22 +508,26 @@ class LossAndMetrics:
             metrics[f"{task}/pos_l2_final<0.01"] = (task_l2 < 0.01).to(dtype).mean()
 
         # Gripper accuracy
-        pred_gripper = (pred["gripper"] > 0.5).squeeze(-1)
-        true_gripper = outputs[:, 7].bool()
-        acc = pred_gripper == true_gripper
-        metrics["gripper"] = acc.to(dtype).mean()
+        # pred_gripper = (pred["gripper"] > 0.5).squeeze(-1)
+        # true_gripper = outputs[:, 7].bool()
+        # acc = pred_gripper == true_gripper
+        # metrics["gripper"] = acc.to(dtype).mean()
 
         # Rotation accuracy
         gt_quat = outputs[:, 3:7]
         if "quat" in self.rotation_parametrization:
-            if self.symmetric_rotation_loss:
-                gt_quat_ = -gt_quat.clone()
-                l1 = (pred["rotation"] - gt_quat).abs().sum(1)
-                l1_ = (pred["rotation"] - gt_quat_).abs().sum(1)
-                select_mask = (l1 < l1_).float()
-                l1 = (select_mask * l1 + (1 - select_mask) * l1_)
-            else:
-                l1 = ((pred["rotation"] - gt_quat).abs().sum(1))
+            pred_quat = pred["rotation"]
+        else:
+            pred_rot3x3 = compute_rotation_matrix_from_ortho6d(pred["rotation"])
+            pred_quat = pytorch3d.transforms.matrix_to_quaternion(pred_rot3x3)
+        if self.symmetric_rotation_loss:
+            gt_quat_ = -gt_quat.clone()
+            l1 = (pred_quat - gt_quat).abs().sum(1)
+            l1_ = (pred_quat - gt_quat_).abs().sum(1)
+            select_mask = (l1 < l1_).float()
+            l1 = (select_mask * l1 + (1 - select_mask) * l1_)
+        else:
+            l1 = ((pred_quat - gt_quat).abs().sum(1))
 
         metrics["mean/rot_l1"] = l1.to(dtype).mean()
         metrics["mean/rot_l1<0.05"] = (l1 < 0.05).to(dtype).mean()

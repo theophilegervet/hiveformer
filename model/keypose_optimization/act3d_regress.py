@@ -4,9 +4,17 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision.ops import FeaturePyramidNetwork
+import pytorch3d.transforms
 
-from model.utils.position_encodings import RotaryPositionEncoding3D
-from model.utils.layers import RelativeCrossAttentionModule
+from model.utils.position_encodings import (
+    RotaryPositionEncoding3D,
+    LearnedAbsolutePositionEncoding3Dv2,
+)
+from model.utils.layers import (
+    RelativeCrossAttentionModule,
+    RelativeCrossAttentionLayer,
+    FeedforwardLayer,
+)
 from model.utils.utils import (
     normalise_quat,
     sample_ghost_points_uniform_cube,
@@ -15,6 +23,122 @@ from model.utils.utils import (
 )
 from model.utils.resnet import load_resnet50
 from model.utils.clip import load_clip
+
+import matplotlib
+matplotlib.use('agg')
+import matplotlib.pyplot as plt
+import PIL.Image as Image
+
+
+# Offset from the gripper center to three gripper points before any action
+GRIPPER_DELTAS = torch.tensor([
+    [0, 0, 0,],
+    [0, -0.04, -0.00514],
+    [0, 0.04, -0.00514],
+])
+
+
+def get_gripper_matrix_from_action(action: torch.Tensor):
+    """Converts an action to a transformation matrix.
+
+    Args:
+        action: A N-D tensor of shape (batch_size, ..., 8)
+    """
+    dtype = action.dtype
+    device = action.device
+
+    position = action[..., :3]
+    quaternion = action[..., 3:7]
+
+    rotation = pytorch3d.transforms.quaternion_to_matrix(quaternion)
+
+    shape = list(action.shape[:-1]) + [4, 4]
+    gripper_matrix = torch.zeros(shape, dtype=dtype, device=device)
+    gripper_matrix[..., :3, :3] = rotation
+    gripper_matrix[..., :3, 3] = position
+    gripper_matrix[..., 3, 3] = 1
+
+    return gripper_matrix
+
+
+def get_inverse_matrix_from_action(action: torch.Tensor):
+    """Converts an action to a transformation matrix.
+
+    Args:
+        action: A N-D tensor of shape (batch_size, ..., 8)
+    """
+    dtype = action.dtype
+    device = action.device
+
+    position = action[..., :3]
+    quaternion = action[..., 3:7]
+
+    rotation = pytorch3d.transforms.quaternion_to_matrix(quaternion)
+
+    shape = list(action.shape[:-1]) + [4, 4]
+    gripper_matrix = torch.zeros(shape, dtype=dtype, device=device)
+    gripper_matrix[..., :3, :3] = rotation
+    gripper_matrix[..., :3, 3] = position
+    gripper_matrix[..., 3, 3] = 1
+
+    return gripper_matrix
+
+
+def get_three_points_from_curr_action(gripper: torch.Tensor):
+    gripper_matrices = get_gripper_matrix_from_action(gripper)
+    bs = gripper.shape[0]
+    pcd = GRIPPER_DELTAS.unsqueeze(0).repeat(bs, 1, 1).to(gripper.device)
+
+    pcd = torch.cat([pcd, torch.ones_like(pcd[..., :1])], dim=-1)
+    pcd = pcd.permute(0, 2, 1)
+
+    pcd = (gripper_matrices @ pcd).permute(0, 2, 1)
+    pcd = pcd[..., :3]
+
+    return pcd
+
+
+def transform_gripper(pcd: torch.Tensor, gripper: torch.Tensor, action: torch.Tensor):
+    """Converts an action to a transformation matrix.
+
+    Args:
+        pcd: (batch x history, 3)
+        gripper: (batch x history, 8)
+        action: (batch x history, 8)
+    """
+    gripper_matrices = get_gripper_matrix_from_action(gripper)
+    inverse_gripper_matrices = torch.inverse(gripper_matrices)
+    action_matrices = get_gripper_matrix_from_action(action)
+
+    pcd = torch.cat([pcd, torch.ones_like(pcd[..., :1])], dim=-1)
+    pcd = pcd.permute(0, 2, 1)
+
+    output = (action_matrices @ inverse_gripper_matrices @ pcd).permute(0, 2, 1)
+    output = output[..., :3]
+    return output
+
+
+class StagedRelativeCrossAttentionModule(nn.Module):
+    def __init__(self, embedding_dim, num_attn_heads, num_layers):
+        super().__init__()
+
+        self.num_layers = num_layers
+        self.attn_layers_1 = nn.ModuleList()
+        self.attn_layers_2 = nn.ModuleList()
+        self.ffw_layers = nn.ModuleList()
+        for _ in range(num_layers):
+            self.attn_layers_1.append(RelativeCrossAttentionLayer(embedding_dim, num_attn_heads))
+            self.attn_layers_2.append(RelativeCrossAttentionLayer(embedding_dim, num_attn_heads))
+            self.ffw_layers.append(FeedforwardLayer(embedding_dim, embedding_dim))
+
+    def forward(self, query, value_1, value_2, query_pos=None, value_pos_1=None, value_pos_2=None):
+        output = []
+        for i in range(self.num_layers):
+            query, _ = self.attn_layers_1[i](query, value_1, query_pos, value_pos_1)
+            query, _ = self.attn_layers_2[i](query, value_2, query_pos, value_pos_2)
+            query = self.ffw_layers[i](query)
+            output.append(query)
+        return output
 
 
 class Baseline(nn.Module):
@@ -57,6 +181,10 @@ class Baseline(nn.Module):
             fine_sampling_ball_diameter / 16.0
         ]
         self.gripper_loc_bounds = np.array(gripper_loc_bounds)
+        self.register_buffer(
+            'gripper_loc_bounds_for_normalize',
+            torch.tensor(gripper_loc_bounds, dtype=torch.float)
+        )
         self.regress_position_offset = regress_position_offset
         self.weight_tying = weight_tying
         self.gp_emb_tying = gp_emb_tying
@@ -86,6 +214,8 @@ class Baseline(nn.Module):
 
         # 3D relative positional embeddings
         self.relative_pe_layer = RotaryPositionEncoding3D(embedding_dim)
+        self.absolute_pe_layer = LearnedAbsolutePositionEncoding3Dv2(3, embedding_dim) # absolute poisitional encodings
+        self.relative_pe_layer_2 = RotaryPositionEncoding3D(embedding_dim * 2)
 
         # Ghost points learnable initial features
         self.ghost_points_embed_pyramid = nn.ModuleList()
@@ -176,6 +306,32 @@ class Baseline(nn.Module):
                 self.instr_position_embedding = nn.Embedding(self._num_words, embedding_dim)
                 self.instr_position_norm = nn.LayerNorm(embedding_dim)
 
+        # Final output layers
+        self.final_gripper_embed = nn.Embedding(3, embedding_dim)
+
+        # Gripper position prediction:
+        self.feature_proj = nn.Linear(embedding_dim * 2, embedding_dim)
+        self.gripper_position_predictor = nn.Sequential(
+            nn.Linear(embedding_dim, embedding_dim),
+            nn.ReLU(),
+            nn.Linear(embedding_dim, 3),
+        )
+        # Attention layers
+        self.gripper_point_cross_attn = StagedRelativeCrossAttentionModule(
+            embedding_dim * 2, num_attn_heads, 3
+        )
+
+    def normalize_pos(self, pos):
+        pos_min = self.gripper_loc_bounds_for_normalize[0]
+        pos_max = self.gripper_loc_bounds_for_normalize[1]
+        return (pos - pos_min) / (pos_max - pos_min) * 2 - 1.0
+
+    def unnormalize_pos(self, pos):
+        pos_min = self.gripper_loc_bounds_for_normalize[0]
+        pos_max = self.gripper_loc_bounds_for_normalize[1]
+        return (pos + 1.0) / 2.0 * (pos_max - pos_min) + pos_min
+
+
     def forward(self, visible_rgb, visible_pcd, instruction, curr_gripper, gt_action=None):
         """
         Arguments:
@@ -191,6 +347,7 @@ class Baseline(nn.Module):
             gt_position = gt_action[:, :3].unsqueeze(1).detach()
         else:
             gt_position = None
+        gripper_pose = curr_gripper
         curr_gripper = curr_gripper[:, :3]
 
         # Compute visual features at different scales and their positional embeddings
@@ -224,10 +381,15 @@ class Baseline(nn.Module):
 
         ghost_pcd_features_pyramid = []
         ghost_pcd_pyramid = []
+        ghost_pcd_pos_pyramid = []
         position_pyramid = []
         visible_rgb_mask_pyramid = []
         ghost_pcd_masks_pyramid = []
+        ghost_context_features_pyramid = []
+        ghost_context_pos_pyramid = []
+        ghost_context_pcd_pyramid = []
 
+        ############ Predict with Act3D ############
         for i in range(self.num_sampling_level):
             # Sample ghost points
             if i == 0:
@@ -240,6 +402,7 @@ class Baseline(nn.Module):
                 # Coarse RGB features
                 visible_rgb_features_i = visible_rgb_features_pyramid[i]
                 visible_rgb_pos_i = visible_rgb_pos_pyramid[i]
+                ghost_pcd_context_i = visible_pcd_pyramid[i]
                 ghost_pcd_context_features_i = einops.rearrange(
                     visible_rgb_features_i, "b ncam c h w -> (ncam h w) b c")
             else:
@@ -253,6 +416,8 @@ class Baseline(nn.Module):
                     f[i] for (f, i) in zip(visible_rgb_features_i, indices)])
                 visible_rgb_pos_i = torch.stack([
                     f[i] for (f, i) in zip(visible_rgb_pos_pyramid[i], indices)])
+                ghost_pcd_context_i = torch.stack([
+                    f[i] for (f, i) in zip(visible_pcd_pyramid[i], indices)])
                 ghost_pcd_context_features_i = einops.rearrange(
                     visible_rgb_features_i, "b npts c -> npts b c")
 
@@ -260,6 +425,9 @@ class Baseline(nn.Module):
             # features and current gripper position
             ghost_pcd_context_features_i = torch.cat(
                 [ghost_pcd_context_features_i, curr_gripper_features], dim=0)
+            ghost_pcd_context_i = torch.cat(
+                [ghost_pcd_context_i, curr_gripper[:, None, :]], dim=1
+            )
             ghost_pcd_context_pos_i = torch.cat([visible_rgb_pos_i, curr_gripper_pos], dim=1)
             if self.use_instruction:
                 ghost_pcd_context_features_i = self.vis_ins_attn_pyramid[i](
@@ -271,6 +439,11 @@ class Baseline(nn.Module):
                     [ghost_pcd_context_features_i, instruction_features], dim=0)
                 ghost_pcd_context_pos_i = torch.cat(
                     [ghost_pcd_context_pos_i, instruction_dummy_pos], dim=1)
+                
+                instruction_dummy_pcd = torch.zeros_like(curr_gripper)[:, None, :]
+                ghost_pcd_context_i = torch.cat(
+                    [ghost_pcd_context_i, instruction_dummy_pcd], dim=1
+                )
             (
                 ghost_pcd_features_i,
                 ghost_pcd_pos_i,
@@ -278,6 +451,10 @@ class Baseline(nn.Module):
             ) = self._compute_ghost_point_features(
                 ghost_pcd_i, ghost_pcd_context_features_i, ghost_pcd_context_pos_i,
                 total_timesteps, level=i
+            )
+            ghost_pcd_i = einops.rearrange(ghost_pcd_i, "b npts c -> b c npts")
+            ghost_pcd_context_i = einops.rearrange(
+                ghost_pcd_context_i, "b npts c -> b c npts"
             )
 
             # Initialize query features
@@ -313,7 +490,6 @@ class Baseline(nn.Module):
             query_features = query_features[-1]
 
             top_idx = torch.max(ghost_pcd_masks_i[-1], dim=-1).indices
-            ghost_pcd_i = einops.rearrange(ghost_pcd_i, "b npts c -> b c npts")
             position_i = ghost_pcd_i[torch.arange(total_timesteps), :, top_idx].unsqueeze(1)
             # from ipdb import set_trace
             # set_trace()
@@ -322,10 +498,14 @@ class Baseline(nn.Module):
             # set_trace()
 
             ghost_pcd_pyramid.append(ghost_pcd_i)
+            ghost_pcd_pos_pyramid.append(ghost_pcd_pos_i)
             ghost_pcd_features_pyramid.append(ghost_pcd_features_i)
             position_pyramid.append(position_i)
             visible_rgb_mask_pyramid.append(visible_rgb_mask_i)
             ghost_pcd_masks_pyramid.append(ghost_pcd_masks_i)
+            ghost_context_features_pyramid.append(ghost_pcd_context_features_i)
+            ghost_context_pos_pyramid.append(ghost_pcd_context_pos_i)
+            ghost_context_pcd_pyramid.append(ghost_pcd_context_i)
 
         # Regress an offset from the ghost point's position to the predicted position
         if self.regress_position_offset:
@@ -337,13 +517,67 @@ class Baseline(nn.Module):
         ghost_pcd = ghost_pcd_i
         ghost_pcd_masks = ghost_pcd_masks_i
         ghost_pcd_features = ghost_pcd_features_i
+        ghost_pcd_pos = ghost_pcd_pos_i
+        ghost_context_features = ghost_pcd_context_features_i
+        ghost_context_pos = ghost_pcd_context_pos_i
+        ghost_context_pcd = ghost_pcd_context_i
 
         # Predict the next gripper action (position, rotation, gripper opening)
         position, rotation, gripper = self._predict_action(
             ghost_pcd_masks[-1], ghost_pcd, ghost_pcd_features, query_features, total_timesteps,
             fine_ghost_pcd_offsets if self.regress_position_offset else None
         )
-        # position = position_pyramid[-1].squeeze(1)
+
+        ############ Predict with Regressor ############
+        prev_position, prev_rotation, prev_gripper = (
+            position.detach(), rotation.detach(), gripper.detach()
+        )
+        ghost_pcd = einops.rearrange(ghost_pcd, "bt c npts -> bt npts c")
+        ghost_context_pcd = einops.rearrange(ghost_context_pcd, "bt c npts -> bt npts c")
+        # Define three points on the gripper
+        predicted_action = torch.cat([prev_position, prev_rotation, prev_gripper], dim=-1)
+        # Infer the gripper position from the predicted action
+        gripper_pcd = get_three_points_from_curr_action(predicted_action)
+        gripper_pos = self.relative_pe_layer(gripper_pcd)
+        gripper_features = (
+            query_features +
+            self.final_gripper_embed.weight.unsqueeze(1).repeat(1, gripper_pcd.shape[0], 1)
+        )
+        position, rotation, gripper = self._regress_action(
+            gripper_pcd, gripper_features, gripper_pos,
+            ghost_pcd, ghost_pcd_features, ghost_pcd_pos,
+            ghost_context_pcd, ghost_context_features, ghost_context_pos,
+            prev_position, total_timesteps,
+        )
+
+        # import ipdb
+        # cur_vis_pcd = visible_pcd[0].permute(0, 2, 3, 1).flatten(0, -2).data.cpu().numpy()
+        # cur_vis_rgb = visible_rgb[0].permute(0, 2, 3, 1).flatten(0, -2).data.cpu().numpy()
+        # rand_inds = torch.randperm(cur_vis_pcd.shape[0]).data.cpu().numpy()[:10000]
+        # fig = plt.figure()
+        # canvas = fig.canvas
+        # ax = fig.add_subplot(projection='3d')
+        # ax.scatter(cur_vis_pcd[rand_inds, 0],
+        #            cur_vis_pcd[rand_inds, 1],
+        #            cur_vis_pcd[rand_inds, 2],
+        #            c=cur_vis_rgb[rand_inds], s=3)
+        # cur_gripper_pcd = gripper_pcd[0].data.cpu().numpy()
+        # ax.scatter(cur_gripper_pcd[:, 0],
+        #            cur_gripper_pcd[:, 1],
+        #            cur_gripper_pcd[:, 2],
+        #            c='g', s=20, marker='*')
+        # prev_gripper_pcd = get_three_points_from_curr_action(gripper_pose)
+        # prev_gripper_pcd = prev_gripper_pcd[0].data.cpu().numpy()
+        # ax.scatter(prev_gripper_pcd[:, 0],
+        #            prev_gripper_pcd[:, 1],
+        #            prev_gripper_pcd[:, 2],
+        #            c='r', s=20, marker='s')
+        # plt.tight_layout()
+        # canvas.draw()
+        # image_flat = np.frombuffer(canvas.tostring_rgb(), dtype='uint8')
+        # image = image_flat.reshape(*reversed(canvas.get_width_height()), 3)
+        # Image.fromarray(image, mode='RGB').save('debug.png')
+        # ipdb.set_trace()
 
         return {
             # Action
@@ -356,12 +590,6 @@ class Baseline(nn.Module):
             "ghost_pcd_masks_pyramid":  ghost_pcd_masks_pyramid,
             "ghost_pcd_pyramid": ghost_pcd_pyramid,
             "fine_ghost_pcd_offsets": fine_ghost_pcd_offsets if self.regress_position_offset else None,
-            # Return intermediate results
-            "visible_rgb_features_pyramid": visible_rgb_features_pyramid,
-            "visible_pcd_pyramid": visible_pcd_pyramid,
-            "query_features": query_features,
-            "instruction_features": instruction_features,
-            "instruction_dummy_pos": instruction_dummy_pos,
         }
 
     def _compute_visual_features(self, visible_rgb, visible_pcd, num_cameras):
@@ -543,3 +771,132 @@ class Baseline(nn.Module):
         gripper = torch.sigmoid(pred[:, self.rotation_dim:])
 
         return position, rotation, gripper
+
+    def _regress_action(self,
+                        gripper_pcd, gripper_features, gripper_pos,
+                        ghost_pcd, ghost_features, ghost_pos,
+                        ghost_context_pcd, ghost_context_features, ghost_context_pos,
+                        position, total_timesteps):
+        """Compute the predicted action (position, rotation, opening) from the 
+        gripper's visual features.  We contextualize the features by cross-
+        attending to ghost point and local context features.  To obatin geometrical
+        outputs, we add visual features with absolute positional encodings.
+
+        Args:
+            gripper_pcd: A tensor of shape (B, N, 3)
+            gripper_features: A tensor of shape (N, B, C)
+            gripper_pos: A tensor of shape (B, N, C, 2)
+            ghost_pcd: A tensor of shape (B, N, 3)
+            ghost_features: A tensor of shape (N, B, C)
+            ghost_pos: A tensor of shape (B, N, C, 2)
+            ghost_context_pcd: A tensor of shape (B, N, 3)
+            ghost_context_features: A tensor of shape (N, B, C)
+            ghost_context_pos: A tensor of shape (B, N, C, 2)
+            position: A tensor of shape (B, 3) indicating the predicted position
+                      from ghost points.
+        
+        Returns:
+            action, rotation, gripper
+        """
+        bs = gripper_pcd.shape[0]
+        deltas = torch.randn((bs, 3), dtype=gripper_pcd.dtype, device=gripper_pcd.device) * 0.01
+        gripper_pcd = self.normalize_pos(gripper_pcd + deltas[:, None, :])
+        ghost_pcd = self.normalize_pos(ghost_pcd + deltas[:, None, :])
+        ghost_context_pcd = self.normalize_pos(ghost_context_pcd + deltas[:, None, :])
+
+        abs_gripper_pos = self.absolute_pe_layer(gripper_pcd)
+        abs_ghost_pos = self.absolute_pe_layer(ghost_pcd)
+        abs_ghost_context_pos = self.absolute_pe_layer(ghost_context_pcd)
+
+        rel_gripper_pos = self.relative_pe_layer_2(gripper_pcd)
+        rel_ghost_pos = self.relative_pe_layer_2(ghost_pcd)
+        rel_ghost_context_pos = self.relative_pe_layer_2(ghost_context_pcd)
+
+        abs_ghost_pos = einops.rearrange(abs_ghost_pos, "b npts c -> npts b c")
+        abs_ghost_context_pos = einops.rearrange(abs_ghost_context_pos, "b npts c -> npts b c")
+        abs_gripper_pos = einops.rearrange(abs_gripper_pos, "b npts c -> npts b c")
+
+        gripper_features_with_abs_pos = torch.cat([gripper_features, abs_gripper_pos], dim=-1)
+        ghost_context_features_with_abs_pos = torch.cat([ghost_context_features, abs_ghost_context_pos], dim=-1)
+        ghost_features_with_abs_pos = torch.cat([ghost_features, abs_ghost_pos], dim=-1)
+        gripper_features_with_abs_pos = self.gripper_point_cross_attn(
+            query=gripper_features_with_abs_pos,
+            value_1=ghost_context_features_with_abs_pos,
+            value_2=ghost_features_with_abs_pos,
+            query_pos=rel_gripper_pos, value_pos_1=rel_ghost_context_pos, value_pos_2=rel_ghost_pos
+        )[-1]
+
+        features = einops.rearrange(gripper_features_with_abs_pos, "npts b c -> b npts c")
+        # features = features[:, 0, :]
+        features = features.mean(1)
+        features = self.feature_proj(features)
+
+        position = self.gripper_position_predictor(features)
+        position = self.unnormalize_pos(position) - deltas
+        pred = self.gripper_state_predictor(features)
+
+        if "quat" in self.rotation_parametrization:
+            rotation = normalise_quat(pred[:, :self.rotation_dim])
+        elif "6D" in self.rotation_parametrization:
+            rotation = compute_rotation_matrix_from_ortho6d(pred[:, :self.rotation_dim])
+
+        gripper = torch.sigmoid(pred[:, self.rotation_dim:])
+
+        return position, rotation, gripper
+
+
+if __name__ == '__main__':
+    import blosc
+    import pickle
+    from PIL import Image
+    from sklearn.cluster import KMeans
+
+    with open('/projects/katefgroup/datasets/rlbench/diffusion_trajectories_train/reach_target+0/ep0.dat', "rb") as f:
+        content = pickle.loads(blosc.decompress(f.read()))
+
+    num_cameras = 3
+    for i in range(len(content[0])):
+        pcd = torch.tensor(content[1][i, -1, 1])
+        rgb = torch.tensor(content[1][i, -1, 0])
+        gripper = torch.tensor(content[4][i][0, :3])
+        curr_action = torch.tensor(content[4][i])
+
+        vis_rgb = rgb.permute(1, 2, 0).mul(255).byte().data.cpu().numpy()
+
+        gripper_l2_pred_pos = (
+            (gripper[:, None, None] - pcd) ** 2
+        ).sum(0).sqrt()
+        gripper_l2_pred_pos = gripper_l2_pred_pos.flatten()
+        gripper_indices = gripper_l2_pred_pos.topk(
+            k=1024, dim=-1, largest=False
+        ).indices
+        mask = torch.zeros_like(gripper_l2_pred_pos)
+        mask[gripper_indices] = 1
+        mask = mask.view(vis_rgb.shape[:2])
+        mask = 255 * mask.data.cpu().numpy().astype(np.uint8)
+
+        vis_rgb[:, :, 0] = 0.5 * vis_rgb[:, :, 0] + 0.5 * mask
+        Image.fromarray(vis_rgb, mode='RGB').save('debug_mask.png')
+
+        selected_pcd = pcd.flatten(1)[:, gripper_indices]
+        selected_pcd = selected_pcd.permute(0, 1)
+
+        kmeans = KMeans(2).fit(selected_pcd.permute(1, 0).data.cpu().numpy())
+        # print(torch.tensor(kmeans.cluster_centers_) - gripper[None, :])
+
+        deltas = torch.tensor([
+            [0, 0, 0,],
+            [-0.0012, 0.04, 0.005],
+            [-0.0012, -0.04, 0.005]
+        ])
+        selected_pcd = gripper[None, :] + deltas
+        # print(selected_pcd)
+        selected_pcd = selected_pcd.permute(1, 0)
+
+        matrices = get_gripper_matrix_from_action(curr_action)
+        inv_matrices = torch.inverse(matrices)
+        selected_pcd = torch.cat([selected_pcd, torch.ones_like(selected_pcd[:1, ...])], dim=0)
+        selected_pcd = selected_pcd.unsqueeze(0)
+
+        results = inv_matrices @ selected_pcd
+        # print(results[0])

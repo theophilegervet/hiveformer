@@ -116,3 +116,28 @@ class LearnedAbsolutePositionEncoding3D(nn.Module):
             absolute_pe: (B, N, embedding_dim) tensor of the absolute position encoding
         """
         return self.absolute_pe_layer(xyz.permute(0, 2, 1)).permute(0, 2, 1)
+
+
+class LearnedAbsolutePositionEncoding3Dv2(nn.Module):
+    def __init__(self, input_dim, embedding_dim, norm="none"):
+        super().__init__()
+        norm_tb = {
+            "none": nn.Identity(),
+            "bn": nn.BatchNorm1d(embedding_dim),
+        }
+        self.absolute_pe_layer = nn.Sequential(
+            nn.Conv1d(input_dim, embedding_dim, kernel_size=1),
+            norm_tb[norm],
+            nn.ReLU(inplace=True),
+            nn.Conv1d(embedding_dim, embedding_dim, kernel_size=1)
+        )
+
+    def forward(self, xyz):
+        """
+        Arguments:
+            xyz: (B, N, 3) tensor of the (x, y, z) coordinates of the points
+
+        Returns:
+            absolute_pe: (B, N, embedding_dim) tensor of the absolute position encoding
+        """
+        return self.absolute_pe_layer(xyz.permute(0, 2, 1)).permute(0, 2, 1)

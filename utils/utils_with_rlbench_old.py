@@ -26,7 +26,6 @@ from pyrep.errors import IKError, ConfigurationPathError
 from pyrep.const import RenderMode
 from pyrep.objects.dummy import Dummy
 from pyrep.objects.vision_sensor import VisionSensor
-from tqdm import tqdm
 
 from .video_utils import CircleCameraMotion, TaskRecorder
 from model.released_hiveformer.network import Hiveformer
@@ -34,7 +33,6 @@ from model.keypose_optimization.baseline import Baseline
 from model.analogical_network.analogical_network import AnalogicalNetwork
 from .utils_without_rlbench import TASK_TO_ID
 from model.trajectory_optimization.diffusion_model import DiffusionPlanner
-from model.trajectory_optimization.regression_model import TrajectoryRegressor
 
 
 def task_file_to_task_class(task_file):
@@ -115,7 +113,7 @@ class Mover:
         # we execute the gripper action after re-tries
         action = target
         if (
-            not reward == 1.0
+            not reward
             and self._last_action is not None
             and action[7] != self._last_action[7]
         ):
@@ -141,47 +139,36 @@ class Mover:
 
 
 class Actioner:
-
     def __init__(
         self,
-        keypose_model=None,
-        traj_model=None,
-        instructions=None,
+        model: nn.Module,
+        instructions: Dict,
         apply_cameras=("left_shoulder", "right_shoulder", "wrist"),
-        action_dim=7,
-        predict_keypose=True,
-        predict_trajectory=False
     ):
-        self._keypose_model = keypose_model
-        self._traj_model = traj_model
-        self._instructions = instructions
+        self._model = model
         self._apply_cameras = apply_cameras
-        self._action_dim = action_dim
-        self._predict_keypose = predict_keypose
-        self._predict_trajectory = predict_trajectory
+        self._instructions = instructions
 
-        self._actions = {}
-        self._instr = None
-        self._task_str = None
+        self._actions: Dict = {}
+        self._instr: Optional[torch.Tensor] = None
+        self._task_str: Optional[str] = None
 
-        if predict_keypose:
-            assert keypose_model is not None
-            self._keypose_model.eval()
-        if predict_trajectory:
-            assert traj_model is not None
-            self._traj_model.eval()
+        self._model.eval()
 
-    def load_episode(self, task_str, variation):
+    def load_episode(
+        self, task_str: str, variation: int, demo_id: int, demo: Union[Demo, int]
+    ):
         self._task_str = task_str
         instructions = list(self._instructions[task_str][variation])
         self._instr = random.choice(instructions).unsqueeze(0)
         self._task_id = torch.tensor(TASK_TO_ID[task_str]).unsqueeze(0)
         self._actions = {}
 
-    def get_action_from_demo(self, demo):
+    def get_action_from_demo(self, demo: Demo):
         """
         Fetch the desired state and action based on the provided demo.
             :param demo: fetch each demo and save key-point observations
+            :param normalise_rgb: normalise rgb to (-1, 1)
             :return: a list of obs and action
         """
         key_frame = keypoint_discovery(demo)
@@ -197,24 +184,23 @@ class Actioner:
             trajectory_np = []
             for j in range(key_frame[i - 1] if i > 0 else 0, key_frame[i]):
                 obs = demo[j]
-                trajectory_np.append(np.concatenate([
-                    obs.gripper_pose, [obs.gripper_open]
-                ]))
+                trajectory_np.append(np.concatenate([obs.gripper_pose, [obs.gripper_open]]))
             trajectory_ls.append(np.stack(trajectory_np))
 
-        trajectory_mask_ls = [
-            torch.zeros(1, key_frame[i] - (key_frame[i - 1] if i > 0 else 0)).bool()
-            for i in range(len(key_frame))
-        ]
+        trajectory_mask_ls = [torch.zeros(1, key_frame[i] - (key_frame[i - 1] if i > 0 else 0)).bool()
+                              for i in range(len(key_frame))]
 
         return action_ls, trajectory_ls, trajectory_mask_ls
 
-    def predict(self, rgbs, pcds, gripper, gt_action, trajectory_mask):
+    def predict(
+        self, step_id: int, rgbs: torch.Tensor, pcds: torch.Tensor, gripper: torch.Tensor,
+        gt_action: torch.Tensor, trajectory_mask: torch.Tensor
+    ) -> Dict[str, Any]:
         padding_mask = torch.ones_like(rgbs[:, :, 0, 0, 0, 0]).bool()
-        output = {"action": None, "attention": {}}
+        output: Dict[str, Any] = {"action": None, "attention": {}}
 
         # Fix order of views for HiveFormer
-        rgbs = rgbs[:, :, [2, 0, 1]] / 2 + 0.5  # in [0, 1]
+        rgbs = rgbs[:, :, [2, 0, 1]]
         pcds = pcds[:, :, [2, 0, 1]]
 
         if self._instr is None:
@@ -223,9 +209,8 @@ class Actioner:
         self._instr = self._instr.to(rgbs.device)
         self._task_id = self._task_id.to(rgbs.device)
 
-        # Predict keypose
-        if self._predict_keypose:
-            pred = self._keypose_model(
+        if type(self._model) in [Hiveformer, Baseline]:
+            pred = self._model(
                 rgbs,
                 pcds,
                 padding_mask,
@@ -233,41 +218,45 @@ class Actioner:
                 gripper,
                 self._task_id,
             )
-            output["action"] = self._keypose_model.compute_action(pred)
-        else:
-            output["action"] = gt_action[:, -1]
+            output["action"] = self._model.compute_action(pred)  # type: ignore
 
-        # Predict trajectory
-        if self._predict_trajectory:
-            output["trajectory"] = self._traj_model.compute_trajectory(
+            # if pred.get("coarse_position") is not None:
+            #     output["coarse_position"] = pred["coarse_position"][-1, 0].cpu().numpy()
+            # if pred.get("fine_position") is not None:
+            #     output["fine_position"] = pred["fine_position"][-1, 0].cpu().numpy()
+            #
+            # if pred.get("coarse_visible_rgb_mask") is not None:
+            #     top_value = pred["coarse_visible_rgb_mask"][-1].flatten().topk(k=10000).values[-1]
+            #     output["top_coarse_rgb"] = (pred["coarse_visible_rgb_mask"][-1] >= top_value).cpu().numpy()
+            # if pred.get("fine_visible_rgb_mask") is not None:
+            #     top_value = pred["fine_visible_rgb_mask"][-1].flatten().topk(k=5000).values[-1]
+            #     output["top_fine_rgb"] = (pred["fine_visible_rgb_mask"][-1] >= top_value).cpu().numpy()
+
+        elif type(self._model) == DiffusionPlanner:
+            output["trajectory"] = self._model.compute_trajectory(
                 trajectory_mask,
                 rgbs[:, -1],
                 pcds[:, -1],
                 self._instr,
-                gripper[:, -1, :self._action_dim],
-                output["action"][..., :self._action_dim]
+                gripper[:, -1, :7],
+                gt_action[:, -1, :7],  # TODO Replace this with predicted keypoint
             )
-        else:
-            output["trajectory"] = None
+
+        elif type(self._model) == AnalogicalNetwork:
+            # TODO Implement evaluation with analogical network
+            raise NotImplementedError
 
         return output
 
     @property
     def device(self):
-        if self._model_type == 'full':
-            return next(self._model[0].parameters()).device
-        else:
-            return next(self._model.parameters()).device
+        return next(self._model.parameters()).device
 
 
-def obs_to_attn(obs, camera):
-    extrinsics_44 = torch.from_numpy(
-        obs.misc[f"{camera}_camera_extrinsics"]
-    ).float()
+def obs_to_attn(obs, camera: str) -> Tuple[int, int]:
+    extrinsics_44 = torch.from_numpy(obs.misc[f"{camera}_camera_extrinsics"]).float()
     extrinsics_44 = torch.linalg.inv(extrinsics_44)
-    intrinsics_33 = torch.from_numpy(
-        obs.misc[f"{camera}_camera_intrinsics"]
-    ).float()
+    intrinsics_33 = torch.from_numpy(obs.misc[f"{camera}_camera_intrinsics"]).float()
     intrinsics_34 = F.pad(intrinsics_33, (0, 1, 0, 0))
     gripper_pos_3 = torch.from_numpy(obs.gripper_pose[:3]).float()
     gripper_pos_41 = F.pad(gripper_pos_3, (0, 1), value=1).unsqueeze(1)
@@ -282,7 +271,6 @@ def obs_to_attn(obs, camera):
 
 
 class RLBenchEnv:
-
     def __init__(
         self,
         data_path,
@@ -294,7 +282,7 @@ class RLBenchEnv:
         headless=False,
         apply_cameras=("left_shoulder", "right_shoulder", "wrist", "front"),
         fine_sampling_ball_diameter=None,
-        collision_checking=False
+        collision_checking=False,
     ):
 
         # setup required inputs
@@ -322,8 +310,7 @@ class RLBenchEnv:
                 gripper_action_mode=Discrete(),
             )
         self.env = Environment(
-            self.action_mode, str(data_path), self.obs_config,
-            headless=headless
+            self.action_mode, str(data_path), self.obs_config, headless=headless
         )
         self.image_size = image_size
 
@@ -353,7 +340,9 @@ class RLBenchEnv:
         action = np.concatenate([obs.gripper_pose, [obs.gripper_open]])
         return state_dict, torch.from_numpy(action).float()
 
-    def get_rgb_pcd_gripper_from_obs(self, obs):
+    def get_rgb_pcd_gripper_from_obs(
+        self, obs: Observation
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Return rgb, pcd, and gripper from a given observation
         :param obs: an Observation from the env
@@ -366,7 +355,7 @@ class RLBenchEnv:
             "(m n ch) h w -> n m ch h w",
             ch=3,
             n=len(self.apply_cameras),
-            m=2
+            m=2,
         )
         rgb = state[:, 0].unsqueeze(0)  # 1, N, C, H, W
         pcd = state[:, 1].unsqueeze(0)  # 1, N, C, H, W
@@ -375,7 +364,7 @@ class RLBenchEnv:
         attns = torch.Tensor([])
         for cam in self.apply_cameras:
             u, v = obs_to_attn(obs, cam)
-            attn = torch.zeros(1, 1, 1, self.image_size[0], self.image_size[1])
+            attn = torch.zeros((1, 1, 1, self.image_size[0], self.image_size[1]))
             if not (u < 0 or u > self.image_size[1] - 1 or v < 0 or v > self.image_size[0] - 1):
                 attn[0, 0, 0, v, u] = 1
             attns = torch.cat([attns, attn], 1)
@@ -383,7 +372,7 @@ class RLBenchEnv:
 
         return rgb, pcd, gripper
 
-    def get_obs_action_from_demo(self, demo):
+    def get_obs_action_from_demo(self, demo: Demo):
         """
         Fetch the desired state and action based on the provided demo.
             :param demo: fetch each demo and save key-point observations
@@ -401,7 +390,7 @@ class RLBenchEnv:
             action_ls.append(action.unsqueeze(0))
         return state_ls, action_ls
 
-    def get_gripper_matrix_from_action(self, action):
+    def get_gripper_matrix_from_action(self, action: torch.Tensor):
         action = action.cpu().numpy()
         position = action[:3]
         quaternion = action[3:7]
@@ -426,7 +415,7 @@ class RLBenchEnv:
             variation_number=variation,
             amount=1,
             from_episode_number=episode_index,
-            random_selection=False
+            random_selection=False,
         )
         return demos
 
@@ -443,7 +432,7 @@ class RLBenchEnv:
         record_videos: bool = False,
         num_videos: int = 10,
         record_demo_video: bool = False,
-        offline: int = 0,
+        offline: bool = True,
         position_prediction_only: bool = False,
         verbose: bool = False,
         dense_interpolation=False,
@@ -489,7 +478,56 @@ class RLBenchEnv:
 
         return var_success_rates
 
-    @torch.no_grad()
+
+    def smooth_trajectory(self, trajectory, window_length=5, polyorder=2, quat=False):
+        # Making a copy of the original trajectory
+        trajectory = np.copy(trajectory)
+        original_trajectory = np.copy(trajectory)
+
+        # Applying the filter to each dimension
+        if quat:
+            dim = 7
+        else:
+            dim = 3
+
+        for i in range(dim):
+            trajectory[:, i] = savgol_filter(trajectory[:, i], window_length, polyorder)
+
+        # Preserving the first and last step
+        trajectory[0] = original_trajectory[0]
+        trajectory[-1] = original_trajectory[-1]
+
+        # normalize quat
+        if quat:
+            trajectory[:, 3:7] = self.normalise_quat(trajectory[:, 3:7])
+
+        return trajectory
+
+    def normalise_quat(self, traj):
+        return traj/np.linalg.norm(traj, axis=1, keepdims=True)
+
+    def resample_trajectory(self, trajectory, n_steps):
+        trajectory = np.array(trajectory)
+        # Calculate the current number of steps
+        old_num_steps = len(trajectory)
+
+        # Create a 1D array for the old and new steps
+        old_steps = np.linspace(0, 1, old_num_steps)
+        new_steps = np.linspace(0, 1, n_steps)
+
+        # Interpolate each dimension separately
+        resampled_trajectory = np.empty((n_steps, trajectory.shape[1]))
+        for i in range(trajectory.shape[1]):
+            if i == 7: # gripper opening
+                interpolator = interp1d(old_steps, trajectory[:, i])
+            else:
+                interpolator = CubicSpline(old_steps, trajectory[:, i])
+
+            resampled_trajectory[:, i] = interpolator(new_steps)
+
+        resampled_trajectory[:, 3:7] = self.normalise_quat(resampled_trajectory[:, 3:7])
+        return resampled_trajectory
+
     def _evaluate_task_on_one_variation(
         self,
         task_str: str,
@@ -504,18 +542,18 @@ class RLBenchEnv:
         record_videos: bool = False,
         num_videos: int = 10,
         record_demo_video: bool = False,
-        offline: int = 0,
+        offline: bool = True,
         position_prediction_only: bool = False,
         verbose: bool = False,
         dense_interpolation=False,
-        interpolation_length=100
+        interpolation_length=100,
     ):
         if record_videos:
             cam_placeholder = Dummy('cam_cinematic_placeholder')
-            cam = VisionSensor.create([1920, 1080])
+            cam = VisionSensor.create([480, 480])
             cam.set_pose(cam_placeholder.get_pose())
             cam.set_parent(cam_placeholder)
-            cam_motion = CircleCameraMotion(cam, Dummy('cam_cinematic_base'), 0.0)
+            cam_motion = CircleCameraMotion(cam, Dummy('cam_cinematic_base'), 0.005)
             task_recorder = TaskRecorder(
                 ("left_shoulder", "right_shoulder", "wrist"),
                 self.env, cam_motion,
@@ -526,8 +564,7 @@ class RLBenchEnv:
             )
             self.action_mode.arm_action_mode.set_callable_each_step(task_recorder.take_snap)
 
-            # Record demo video with keyframe actions
-            # for comparison with evaluation videos
+            # Record demo video with keyframe actions for comparison with evaluation videos
             if record_demo_video:
                 task_recorder._cam_motion.save_pose()
                 task.get_demos(
@@ -544,193 +581,203 @@ class RLBenchEnv:
 
         device = actioner.device
 
+        min_position = torch.tensor([
+            self.env._scene._workspace_minx + 0.01,
+            self.env._scene._workspace_miny + 0.01,
+            self.env._scene._workspace_minz + 0.01
+        ]).to(device)
+        max_position = torch.tensor([
+            self.env._scene._workspace_maxx - 0.01,
+            self.env._scene._workspace_maxy - 0.01,
+            self.env._scene._workspace_maxz - 0.01
+        ]).to(device)
+
         success_rate = 0
         missing_demos = 0
-        total_reward = 0
 
-        for demo_id in range(num_demos):
-            if verbose:
-                print()
-                print(f"Starting demo {demo_id}")
-            # try:
-            demo = self.get_demo(task_str, variation, episode_index=demo_id)[0]
-            # except:
-            #     missing_demos += 1
-            #     continue
-            if record_videos and demo_id < num_videos:
-                task_recorder._cam_motion.save_pose()
-
-            images = []
-            rgbs = torch.Tensor([]).to(device)
-            pcds = torch.Tensor([]).to(device)
-            grippers = torch.Tensor([]).to(device)
-
-            # descriptions, obs = task.reset()
-            descriptions, obs = task.reset_to_demo(demo)
-
-            lang_goal = descriptions[0]  # first description variant
-
-            actioner.load_episode(task_str, variation)
-
-            images.append(
-                {cam: getattr(obs, f"{cam}_rgb") for cam in self.apply_cameras}
-            )
-            move = Mover(task, max_tries=max_tries)
-            reward = None
-            max_reward = 0.0
-            gt_keyframe_actions, trajectories, gt_trajectory_masks = actioner.get_action_from_demo(demo)
-            max_steps = len(gt_keyframe_actions)
-            # max_steps = 1
-
-            gt_keyframe_gripper_matrices = np.stack([
-                self.get_gripper_matrix_from_action(a[-1])
-                for a in gt_keyframe_actions
-            ])
-            pred_keyframe_gripper_matrices = []
-
-            for step_id in range(max_steps):
-                if step_id == max_steps:
-                    step_id = max_steps - 1
-                # Fetch the current observation, and predict one action
-                rgb, pcd, gripper = self.get_rgb_pcd_gripper_from_obs(obs)
-                rgb = rgb.to(device)
-                pcd = pcd.to(device)
-                gripper = gripper.to(device)
-
-                rgbs = torch.cat([rgbs, rgb.unsqueeze(1)], dim=1)
-                pcds = torch.cat([pcds, pcd.unsqueeze(1)], dim=1)
-                grippers = torch.cat([grippers, gripper.unsqueeze(1)], dim=1)
-                if dense_interpolation:
-                    trajectory_mask = torch.full([1, interpolation_length], False).to(device)
-                else:
-                    trajectory_mask = gt_trajectory_masks[step_id].to(device)
-
-                output = actioner.predict(
-                    rgbs[:, -1:], pcds[:, -1:], grippers[:, -1:],
-                    gt_action=gt_keyframe_actions[step_id].unsqueeze(0).float().to(device),
-                    trajectory_mask=trajectory_mask)
-
-                if offline:
-                    # Follow demo
-                    action = gt_keyframe_actions[step_id]
-                    output["action"] = action
-                else:
-                    # Follow trained policy
-                    action = output["action"]
-
-                    if position_prediction_only:
-                        action[:, 3:] = gt_keyframe_actions[step_id][:, 3:]
-
+        with torch.no_grad():
+            for demo_id in range(num_demos):
                 if verbose:
-                    print(f"Step {step_id}")
-
-                if record_videos and demo_id < num_videos:
-                    pred_keyframe_gripper_matrices.append(self.get_gripper_matrix_from_action(output["action"][-1]))
-                    task_recorder.take_snap(
-                        obs,
-                        gt_keyframe_gripper_matrices=gt_keyframe_gripper_matrices[[step_id]] if step_id < len(gt_keyframe_gripper_matrices) else None,
-                        pred_keyframe_gripper_matrices=np.stack(pred_keyframe_gripper_matrices)[[-1]],
-
-                        pred_coarse_position=output.get("coarse_position"),
-                        pred_fine_position=output.get("fine_position"),
-                        top_coarse_rgb_heatmap=output.get("top_coarse_rgb"),
-                        top_fine_rgb_heatmap=output.get("top_fine_rgb")
-                    )
-
-                # Update the observation based on the predicted action
+                    print()
+                    print(f"Starting demo {demo_id}")
                 try:
-                    # Execute entire predicted trajectory step by step
-                    if output.get("trajectory", None) is not None:
-                        trajectory_np = output["trajectory"][-1].cpu().numpy()
+                    demo = self.get_demo(task_str, variation, episode_index=demo_id)[0]
+                except:
+                    missing_demos += 1
+                    continue
+                if record_videos and demo_id < num_videos:
+                    task_recorder._cam_motion.save_pose()
 
-                        if verbose:
-                            print("current gripper xyz")
-                            print(grippers[-1, step_id, :3])
-                            print()
-                            print("predicted trajectory xyz")
-                            print(trajectory_np[:5, :3])
-                            print("...")
-                            print(trajectory_np[-5:, :3])
-                            print()
-                            print("ground-truth trajectory xyz")
-                            print(trajectories[step_id][:5, :3])
-                            print("...")
-                            print(trajectories[step_id][-5:, :3])
-                            print()
-                            print("target gripper xyz")
-                            print(action[-1, :3].cpu().numpy())
-                            print()
+                images = []
+                rgbs = torch.Tensor([]).to(device)
+                pcds = torch.Tensor([]).to(device)
+                grippers = torch.Tensor([]).to(device)
 
-                        # append gripper action and next step
-                        trajectory_np_full = trajectory_np
-                        is_full = trajectory_np_full.shape[-1] == 8
-                        if not is_full:
-                            trajectory_np_full = np.concatenate([
-                                trajectory_np,
-                                np.tile(
-                                    grippers[-1, -1:, -1:].cpu().numpy(),
-                                    [trajectory_np.shape[0], 1]
-                                )
-                            ], axis=-1)
-                            trajectory_np_full = np.concatenate([
-                                trajectory_np_full,
-                                output['action'].cpu().numpy()
-                            ], axis=0)
-                        trajectory_np_full[:, -1] = trajectory_np_full[:, -1].round()
+                # descriptions, obs = task.reset()
+                descriptions, obs = task.reset_to_demo(demo)
 
-                        # execute
-                        for action_np in tqdm(trajectory_np_full[1:]):
-                            try:
-                                obs, reward, terminate, step_images = move(action_np)
-                            except:
-                                pass
+                lang_goal = descriptions[0]  # first description variant
 
-                    # Or plan to reach next predicted keypoint
+                actioner.load_episode(task_str, variation, demo_id, demo)
+
+                images.append(
+                    {cam: getattr(obs, f"{cam}_rgb") for cam in self.apply_cameras}
+                )
+                move = Mover(task, max_tries=max_tries)
+                reward = None
+                gt_keyframe_actions, trajectories, gt_trajectory_masks = actioner.get_action_from_demo(demo)
+                if offline:
+                    max_steps = len(gt_keyframe_actions)
+                gt_keyframe_gripper_matrices = np.stack([self.get_gripper_matrix_from_action(a[-1])
+                                                         for a in gt_keyframe_actions])
+                pred_keyframe_gripper_matrices = []
+
+                for step_id in range(max_steps):
+                    # Fetch the current observation, and predict one action
+                    rgb, pcd, gripper = self.get_rgb_pcd_gripper_from_obs(obs)
+
+                    rgb = rgb.to(device)
+                    pcd = pcd.to(device)
+                    gripper = gripper.to(device)
+
+                    rgbs = torch.cat([rgbs, rgb.unsqueeze(1)], dim=1)
+                    pcds = torch.cat([pcds, pcd.unsqueeze(1)], dim=1)
+                    grippers = torch.cat([grippers, gripper.unsqueeze(1)], dim=1)
+                    if dense_interpolation:
+                        trajectory_mask = torch.full([1, interpolation_length], False).to(device)
                     else:
-                        action_np = action[-1].detach().cpu().numpy()
-                        collision_checking = self._collision_checking(task_str, step_id)
-                        obs, reward, terminate, step_images = move(action_np, collision_checking=collision_checking)
+                        trajectory_mask = gt_trajectory_masks[step_id].to(device)
 
-                    images += step_images
-                    max_reward = max(max_reward, reward)
+                    output = actioner.predict(step_id, rgbs[:, -1:], pcds[:, -1:], grippers[:, -1:],
+                                              gt_action=gt_keyframe_actions[step_id].unsqueeze(0).float().to(device),
+                                              trajectory_mask=trajectory_mask)
 
-                    if reward == 1:
-                        success_rate += 1
+                    if offline:
+                        # Follow demo
+                        action = gt_keyframe_actions[step_id]
+                    else:
+                        # Follow trained policy
+                        action = output["action"]
+
+                        # Clamp position to workspace bounds
+                        # action[:, :3] = torch.clamp(action[:, :3], min_position, max_position)
+
+                        if position_prediction_only:
+                            action[:, 3:] = gt_keyframe_actions[step_id][:, 3:]
+
+                    if verbose:
+                        print(f"Step {step_id}")
+
+                    if record_videos and demo_id < num_videos:
+                        pred_keyframe_gripper_matrices.append(self.get_gripper_matrix_from_action(output["action"][-1]))
+                        task_recorder.take_snap(
+                            obs,
+                            # All past keyframe actions
+                            # gt_keyframe_gripper_matrices=gt_keyframe_gripper_matrices[:step_id + 1],
+                            # pred_keyframe_gripper_matrices=np.stack(pred_keyframe_gripper_matrices),
+
+                            # Just the last one
+                            gt_keyframe_gripper_matrices=gt_keyframe_gripper_matrices[[step_id]] if step_id < len(gt_keyframe_gripper_matrices) else None,
+                            pred_keyframe_gripper_matrices=np.stack(pred_keyframe_gripper_matrices)[[-1]],
+
+                            pred_coarse_position=output.get("coarse_position"),
+                            pred_fine_position=output.get("fine_position"),
+                            top_coarse_rgb_heatmap=output.get("top_coarse_rgb"),
+                            top_fine_rgb_heatmap=output.get("top_fine_rgb"),
+                        )
+
+                    # Update the observation based on the predicted action
+                    try:
+                        # Execute entire predicted trajectory step by step
+                        if "trajectory" in output:
+                            trajectory_np = output["trajectory"][-1].detach().cpu().numpy()
+
+                            if verbose:
+                                print("current gripper xyz")
+                                print(grippers[-1, step_id, :3])
+                                print()
+                                print("predicted trajectory xyz")
+                                print(trajectory_np[:5, :3])
+                                print("...")
+                                print(trajectory_np[-5:, :3])
+                                print()
+                                print("ground-truth trajectory xyz")
+                                print(trajectories[step_id][:5, :3])
+                                print("...")
+                                print(trajectories[step_id][-5:, :3])
+                                print()
+                                print("target gripper xyz")
+                                print(action[-1, :3].cpu().numpy())
+                                print()
+                                print("Metrics:")
+                                pos_l2 = np.sqrt(((trajectory_np[:, :3] - trajectories[step_id][:, :3]) ** 2).sum(1))
+                                rot_l1 = np.abs(trajectory_np[:, 3:7] - trajectories[step_id][:, 3:7]).sum(1)
+                                print("Mean pos L2", pos_l2.mean())
+                                print("Min pos L2", pos_l2.min())
+                                print("Max pos L2", pos_l2.max())
+                                print("Mean rot L1", rot_l1.mean())
+                                print("Min rot L1", rot_l1.min())
+                                print("Max rot L1", rot_l1.max())
+                                print()
+                                print()
+                                print()
+
+                            # smoothing
+                            # trajectory_np = self.smooth_trajectory(trajectory_np, 5, 2)
+
+                            # append gripper action and next step
+                            trajectory_np_full = np.concatenate([trajectory_np, np.tile(grippers[-1, -1:, -1:].cpu().numpy(), [trajectory_np.shape[0], 1])], axis=-1)
+                            trajectory_np_full = np.concatenate([trajectory_np_full, gt_keyframe_actions[step_id].numpy()], axis=0)
+                            trajectory_np_full_gt = np.concatenate([trajectories[step_id][1:], gt_keyframe_actions[step_id].numpy()], axis=0)
+                            # trajectory_np_full_gt = self.resample_trajectory(trajectory_np_full_gt, 100)
+                            if offline:
+                                for action_np in trajectory_np_full_gt:  # To execute ground-truth trajectory
+                                    obs, reward, terminate, step_images = move(action_np)
+                            else:
+                                for action_np in trajectory_np_full[1:]:
+                                    obs, reward, terminate, step_images = move(action_np)
+
+                        # Or plan to reach next predicted keypoint
+                        else:
+                            action_np = action[-1].detach().cpu().numpy()
+                            collision_checking = self._collision_checking(task_str, step_id)
+                            obs, reward, terminate, step_images = move(action_np, collision_checking=collision_checking)
+
+                        images += step_images
+
+                        if reward == 1:
+                            success_rate += 1
+                            break
+
+                        if terminate:
+                            print("The episode has terminated!")
+
+                    except (IKError, ConfigurationPathError, InvalidActionError) as e:
+                        print(task_str, demo, step_id, success_rate, e)
+                        reward = 0
                         break
 
-                    if terminate:
-                        print("The episode has terminated!")
+                # record video
+                if record_videos and demo_id < num_videos:
+                    record_video_file = os.path.join(
+                        log_dir,
+                        "videos",
+                        '%s_ep%s_rew%s' % (task_str, demo_id, reward)
+                    )
+                    task_recorder.save(record_video_file, lang_goal)
+                    task_recorder._cam_motion.restore_pose()
 
-                except (IKError, ConfigurationPathError, InvalidActionError) as e:
-                    print(task_str, demo, step_id, success_rate, e)
-                    reward = 0
-                    break
-
-            # record video
-            if record_videos and demo_id < num_videos:
-                record_video_file = os.path.join(
-                    log_dir,
-                    "videos",
-                    '%s_ep%s_rew%s' % (task_str, demo_id, reward)
+                print(
+                    task_str,
+                    "Variation",
+                    variation,
+                    "Demo",
+                    demo_id,
+                    "Reward",
+                    reward,
+                    f"SR: {success_rate}/{demo_id+1}",
+                    "Missing", missing_demos,
                 )
-                task_recorder.save(record_video_file, lang_goal)
-                task_recorder._cam_motion.restore_pose()
-
-            total_reward += max_reward
-            print(
-                task_str,
-                "Variation",
-                variation,
-                "Demo",
-                demo_id,
-                "Reward",
-                f"{reward:.2f}",
-                "max_reward",
-                f"{max_reward:.2f}",
-                f"SR: {success_rate}/{demo_id+1}",
-                f"SR: {total_reward:.2f}/{demo_id+1}",
-                "Missing", missing_demos,
-            )
 
         # Compensate for failed demos
         if (num_demos - missing_demos) == 0:
@@ -745,20 +792,20 @@ class RLBenchEnv:
     def _collision_checking(self, task_str, step_id):
         """Hard-coded collision checking for planner - we should predict this instead."""
         collision_checking = False
-        # if task_str == 'open_fridge' and step_id == 0:
-        #     collision_checking = True
-        # if task_str == 'open_oven' and step_id == 3:
-        #     collision_checking = True
-        # if task_str == 'hang_frame_on_hanger' and step_id == 0:
-        #     collision_checking = True
-        # if task_str == 'take_frame_off_hanger' and step_id == 0:
-        #     for i in range(300):
-        #         self.env._scene.step()
-        #     collision_checking = True
-        # if task_str == 'put_books_on_bookshelf' and step_id == 0:
-        #     collision_checking = True
-        # if task_str == 'slide_cabinet_open_and_place_cups' and step_id == 0:
-        #     collision_checking = True
+        if task_str == 'open_fridge' and step_id == 0:
+            collision_checking = True
+        if task_str == 'open_oven' and step_id == 3:
+            collision_checking = True
+        if task_str == 'hang_frame_on_hanger' and step_id == 0:
+            collision_checking = True
+        if task_str == 'take_frame_off_hanger' and step_id == 0:
+            for i in range(300):
+                self.env._scene.step()
+            collision_checking = True
+        if task_str == 'put_books_on_bookshelf' and step_id == 0:
+            collision_checking = True
+        if task_str == 'slide_cabinet_open_and_place_cups' and step_id == 0:
+            collision_checking = True
         return collision_checking
 
     def verify_demos(
