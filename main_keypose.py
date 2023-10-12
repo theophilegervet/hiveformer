@@ -16,6 +16,7 @@ from engine import BaseTrainTester
 from utils.utils_without_rlbench import (
     load_instructions, count_parameters, get_gripper_loc_bounds
 )
+from model import Act3D
 
 
 class Arguments(tap.Tap):
@@ -32,19 +33,18 @@ class Arguments(tap.Tap):
     accumulate_grad_batches: int = 1
     val_freq: int = 500
     gripper_loc_bounds: Optional[str] = None
+    eval_only: int = 0
 
     # Training and validation datasets
     dataset: Path
     valset: Path
 
     # Logging to base_log_dir/exp_log_dir/run_log_dir
-    logger: Optional[str] = "tensorboard"  # One of "tensorboard", None
     base_log_dir: Path = Path(__file__).parent / "train_logs"
     exp_log_dir: str = "exp"
     run_log_dir: str = "run"
 
     # Main training parameters
-    n_gpus: int = 0
     num_workers: int = 1
     batch_size: int = 16
     batch_size_val: int = 4
@@ -61,18 +61,37 @@ class Arguments(tap.Tap):
     image_rescale: str = "0.75,1.25"  # (min, max), "1.0,1.0" for no rescaling
     point_cloud_rotate_yaw_range: float = 0.0  # in degrees, 0.0 for no rot
 
-    # Model
-    action_dim: int = 7
-    backbone: str = "clip"  # one of "resnet", "clip"
+    # Loss
+    position_prediction_only: int = 0
+    position_loss: str = "ce"  # one of "ce" (our model), "mse" (HiveFormer)
+    ground_truth_gaussian_spread: float = 0.01
+    compute_loss_at_all_layers: int = 0
+    position_loss_coeff: float = 1.0
+    position_offset_loss_coeff: float = 10000.0
+    rotation_loss_coeff: float = 10.0
+    symmetric_rotation_loss: int = 0
+    gripper_loss_coeff: float = 1.0
+    label_smoothing: float = 0.0
+    regress_position_offset: int = 0
+
+    # Ghost points
     num_sampling_level: int = 3
+    fine_sampling_ball_diameter: float = 0.16
+    weight_tying: int = 1
+    gp_emb_tying: int = 1
+    num_ghost_points: int = 1000
+    num_ghost_points_val: int = 10000
+    use_ground_truth_position_for_sampling_train: int = 1  # considerably speeds up training
+    use_ground_truth_position_for_sampling_val: int = 0    # for debugging
+
+    # Model
+    backbone: str = "clip"  # one of "resnet", "clip"
     embedding_dim: int = 60
-    num_query_cross_attn_layers: int = 8
+    num_ghost_point_cross_attn_layers: int = 2
+    num_query_cross_attn_layers: int = 2
     num_vis_ins_attn_layers: int = 2
+    rotation_parametrization: str = "quat_from_query"
     use_instruction: int = 0
-    use_rgb: int = 1
-    feat_scales_to_use: int = 1
-    attn_rounds: int = 1
-    diffusion_head: str = "simple"
 
 
 class TrainTester(BaseTrainTester):
@@ -118,7 +137,7 @@ class TrainTester(BaseTrainTester):
             return_low_lvl_trajectory=False,
             dense_interpolation=False,
             interpolation_length=0,
-            action_dim=self.args.action_dim,
+            action_dim=8,
             predict_short=False
         )
         test_dataset = RLBenchDataset(
@@ -138,44 +157,52 @@ class TrainTester(BaseTrainTester):
             return_low_lvl_trajectory=False,
             dense_interpolation=False,
             interpolation_length=0,
-            action_dim=self.args.action_dim,
+            action_dim=8,
             predict_short=False
         )
         return train_dataset, test_dataset
 
     def get_model(self):
         """Initialize the model."""
-        # Select model class
-        if self.args.model == "diffusion":
-            from model import DiffusionHLPlanner
-            model_class = DiffusionHLPlanner
-        elif self.args.model == "regression":
-            from model import TrajectoryHLRegressor
-            model_class = TrajectoryHLRegressor
-
         # Initialize model with arguments
-        _model = model_class(
-            backbone=self.args.backbone,
-            image_size=tuple(int(x) for x in self.args.image_size.split(",")),
-            embedding_dim=self.args.embedding_dim,
-            output_dim=self.args.action_dim,
-            num_vis_ins_attn_layers=self.args.num_vis_ins_attn_layers,
-            num_query_cross_attn_layers=self.args.num_query_cross_attn_layers,
-            num_sampling_level=self.args.num_sampling_level,
-            use_instruction=bool(self.args.use_instruction),
-            use_rgb=bool(self.args.use_rgb),
-            feat_scales_to_use=self.args.feat_scales_to_use,
-            attn_rounds=self.args.attn_rounds,
+        args = self.args
+        _model = Act3D(
+            backbone=args.backbone,
+            image_size=tuple(int(x) for x in args.image_size.split(",")),
+            embedding_dim=args.embedding_dim,
+            num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,
+            num_query_cross_attn_layers=args.num_query_cross_attn_layers,
+            num_vis_ins_attn_layers=args.num_vis_ins_attn_layers,
+            rotation_parametrization=args.rotation_parametrization,
             gripper_loc_bounds=self.args.gripper_loc_bounds,
-            diffusion_head=self.args.diffusion_head
+            num_ghost_points=args.num_ghost_points,
+            num_ghost_points_val=args.num_ghost_points_val,
+            weight_tying=bool(args.weight_tying),
+            gp_emb_tying=bool(args.gp_emb_tying),
+            num_sampling_level=args.num_sampling_level,
+            fine_sampling_ball_diameter=args.fine_sampling_ball_diameter,
+            regress_position_offset=bool(args.regress_position_offset),
+            use_instruction=bool(args.use_instruction)
         )
         print("Model parameters:", count_parameters(_model))
 
         return _model
 
-    @staticmethod
-    def get_criterion():
-        return KeyposeCriterion()
+    def get_criterion(self):
+        args = self.args
+        return LossAndMetrics(
+            position_prediction_only=bool(args.position_prediction_only),
+            rotation_parametrization=args.rotation_parametrization,
+            position_loss=args.position_loss,
+            compute_loss_at_all_layers=bool(args.compute_loss_at_all_layers),
+            ground_truth_gaussian_spread=args.ground_truth_gaussian_spread,
+            label_smoothing=args.label_smoothing,
+            position_loss_coeff=args.position_loss_coeff,
+            position_offset_loss_coeff=args.position_offset_loss_coeff,
+            rotation_loss_coeff=args.rotation_loss_coeff,
+            gripper_loss_coeff=args.gripper_loss_coeff,
+            symmetric_rotation_loss=bool(args.symmetric_rotation_loss)
+        )
 
     def train_one_step(self, model, criterion, optimizer, step_id, sample):
         """Run a single training step."""
@@ -184,15 +211,17 @@ class TrainTester(BaseTrainTester):
 
         # Forward pass
         out = model(
-            sample["action"],
             sample["rgbs"],
             sample["pcds"],
             sample["instr"],
-            sample["curr_gripper"]
+            sample["curr_gripper"],
+            # Provide ground-truth action to bias ghost point sampling at training time
+            gt_action=sample["action"] if self.args.use_ground_truth_position_for_sampling_train else None
         )
 
         # Backward pass
-        loss = criterion.compute_loss(out)
+        loss = criterion.compute_loss(out, sample)
+        loss = sum(list(loss.values()))
         loss.backward()
 
         # Update
@@ -217,16 +246,16 @@ class TrainTester(BaseTrainTester):
                 break
 
             action = model(
-                sample["action"].to(device),
-                sample["rgbs"].to(device),
-                sample["pcds"].to(device),
-                sample["instr"].to(device),
-                sample["curr_gripper"].to(device),
-                run_inference=True
+                sample["rgbs"],
+                sample["pcds"],
+                sample["instr"],
+                sample["curr_gripper"],
+                # DO NOT provide ground-truth action to sample ghost points at validation time
+                gt_action=None
             )
-            losses, losses_B = criterion.compute_metrics(
+            losses = criterion.compute_metrics(
                 action,
-                sample["action"].to(device)
+                sample
             )
 
             # Gather global statistics
@@ -236,19 +265,10 @@ class TrainTester(BaseTrainTester):
                     values[key] = torch.Tensor([]).to(device)
                 values[key] = torch.cat([values[key], l.unsqueeze(0)])
 
-            # Gather per-task statistics
-            tasks = np.array(sample["task"])
-            for n, l in losses_B.items():
-                for task in np.unique(tasks):
-                    key = f"{split}-loss/{task}/{n}"
-                    l_task = l[tasks == task].mean()
-                    if key not in values:
-                        values[key] = torch.Tensor([]).to(device)
-                    values[key] = torch.cat([values[key], l_task.unsqueeze(0)])
-
         # Log all statistics
-        values = self.synchronize_between_processes(values)
-        values = {k: v.mean().item() for k, v in values.items()}
+        values = {
+            k: torch.as_tensor(v).mean().item() for k, v in values.items()
+        }
         if dist.get_rank() == 0:
             for key, val in values.items():
                 self.writer.add_scalar(key, val, step_id)
@@ -272,48 +292,194 @@ def keypose_collate_fn(batch):
     return ret_dict
 
 
-class KeyposeCriterion:
-
+class LossAndMetrics:
+    """
+    Each method expects two dictionaries:
+     - pred: {
+        'position': (B, 3) gripper position,
+        'rotation': (B, 4) gripper rotation,
+        'gripper': (B, 1) whether gripper should open/close (0/1),
+        'position_pyramid': list of 3 elements, (B, 1, 3) interm gripper pos,
+        'visible_rgb_mask_pyramid': not used in loss,
+        'ghost_pcd_masks_pyramid',
+        'ghost_pcd_pyramid',
+        'fine_ghost_pcd_offsets',
+        'task'
+     }
+     - sample: {
+        'frame_id',
+        'task_id',
+        'task',
+        'variation',
+        'rgbs',
+        'pcds',
+        'action': (B, 1, 8),
+        'padding_mask': (B, 1),
+        'instr',
+        'gripper'
+     }
+    """
     def __init__(
         self,
-        pos_loss_coeff=1.0,
-        rot_loss_coeff=10.0,
-        grp_loss_coeff=1.0
+        position_loss,
+        rotation_parametrization,
+        ground_truth_gaussian_spread,
+        position_prediction_only=False,
+        compute_loss_at_all_layers=False,
+        label_smoothing=0.0,
+        position_loss_coeff=1.0,
+        position_offset_loss_coeff=10000.0,
+        rotation_loss_coeff=10.0,
+        gripper_loss_coeff=1.0,
+        symmetric_rotation_loss=False,
     ):
-        self.pos_loss_coeff = pos_loss_coeff
-        self.rot_loss_coeff = rot_loss_coeff
-        self.grp_loss_coeff = grp_loss_coeff
+        assert position_loss in ["mse", "ce", "ce+mse"]
+        assert rotation_parametrization in [
+            "quat_from_top_ghost", "quat_from_query",
+            "6D_from_top_ghost", "6D_from_query"
+        ]
+        self.position_loss = position_loss
+        self.rotation_parametrization = rotation_parametrization
+        self.position_prediction_only = position_prediction_only
+        self.compute_loss_at_all_layers = compute_loss_at_all_layers
+        self.ground_truth_gaussian_spread = ground_truth_gaussian_spread
+        self.label_smoothing = label_smoothing
+        self.position_loss_coeff = position_loss_coeff
+        self.position_offset_loss_coeff = position_offset_loss_coeff
+        self.rotation_loss_coeff = rotation_loss_coeff
+        self.gripper_loss_coeff = gripper_loss_coeff
+        self.symmetric_rotation_loss = symmetric_rotation_loss
 
-    def compute_loss(self, pred, gt=None, is_loss=True):
-        if not is_loss:
-            assert gt is not None
-            return self.compute_metrics(pred, gt)[0]['action_mse']
-        return pred
+    def compute_loss(self, pred, sample):
+        device = pred["position"].device
+        # padding_mask = sample["padding_mask"].to(device)
+        gt_action = sample["action"].to(device)  # [padding_mask]
 
-    def compute_metrics(self, pred, gt):
-        # pred/gt are (B, 7)
-        pos_loss = F.mse_loss(pred[..., :3], gt[..., :3])
-        rot_loss = F.mse_loss(pred[..., 3:7], gt[..., 3:7])
-        grp_loss = 0  # F.mse_loss(pred[..., 7:8], gt[..., 7:8])
-        ret_dict = {
-            "action_mse": F.mse_loss(pred, gt),
-            "pos_mse": pos_loss * self.pos_loss_coeff,
-            "rot_mse": rot_loss * self.rot_loss_coeff,
-            # "grp_mse": grp_loss * self.grp_loss_coeff
-        }
-        pos_l2 = ((pred[..., :3] - gt[..., :3]) ** 2).sum(-1).sqrt()
-        quat_l1 = (pred[..., 3:7] - gt[..., 3:7]).abs().sum(-1)
-        batch_dict = {
-            'pos_l2': pos_l2,
-            'pos_acc_001': (pos_l2 < 0.01).float(),
-            'rot_l1': quat_l1,
-            'rot_acc_005': (quat_l1 < 0.05).float(),
-            'rot_acc_0025': (quat_l1 < 0.025).float(),
-            # 'gripper_acc': ((pred[..., 7] > 0.5) == gt[..., 7].bool()).float()
-        }
-        ret_dict.update({key: val.mean() for key, val in batch_dict.items()})
+        losses = {}
 
-        return ret_dict, batch_dict
+        self._compute_position_loss(pred, gt_action[:, :3], losses)
+
+        self._compute_rotation_loss(pred, gt_action[:, 3:7], losses)
+
+        losses["gripper"] = F.mse_loss(pred["gripper"], gt_action[:, 7:8])
+        losses["gripper"] *= self.gripper_loss_coeff
+
+        return losses
+
+    def _compute_rotation_loss(self, pred, gt_quat, losses):
+        if "quat" in self.rotation_parametrization:
+            if self.symmetric_rotation_loss:
+                gt_quat_ = -gt_quat.clone()
+                quat_loss = F.mse_loss(pred["rotation"], gt_quat, reduction='none').mean(1)
+                quat_loss_ = F.mse_loss(pred["rotation"], gt_quat_, reduction='none').mean(1)
+                select_mask = (quat_loss < quat_loss_).float()
+                losses['rotation'] = (select_mask * quat_loss + (1 - select_mask) * quat_loss_).mean()
+            else:
+                losses["rotation"] = F.mse_loss(pred["rotation"], gt_quat)
+
+        losses["rotation"] *= self.rotation_loss_coeff
+
+    def _compute_position_loss(self, pred, gt_position, losses):
+        if self.position_loss == "mse":
+            # Only used for original HiveFormer
+            losses["position_mse"] = F.mse_loss(pred["position"], gt_position) * self.position_loss_coeff
+
+        elif self.position_loss in ["ce", "ce+mse"]:
+            # Select a normalized Gaussian ball around the ground-truth
+            # as a proxy label for a soft cross-entropy loss
+            l2_pyramid = []
+            label_pyramid = []
+            for ghost_pcd_i in pred['ghost_pcd_pyramid']:
+                l2_i = ((ghost_pcd_i - gt_position.unsqueeze(-1)) ** 2).sum(1).sqrt()
+                label_i = torch.softmax(-l2_i / self.ground_truth_gaussian_spread, dim=-1).detach()
+                l2_pyramid.append(l2_i)
+                label_pyramid.append(label_i)
+
+            loss_layers = range(len(pred['ghost_pcd_masks_pyramid'][0])) if self.compute_loss_at_all_layers else [-1]
+
+            for j in loss_layers:
+                for i, ghost_pcd_masks_i in enumerate(pred["ghost_pcd_masks_pyramid"]):
+                    losses[f"position_ce_level{i}"] = F.cross_entropy(
+                        ghost_pcd_masks_i[j], label_pyramid[i],
+                        label_smoothing=self.label_smoothing
+                    ).mean() * self.position_loss_coeff / len(pred["ghost_pcd_masks_pyramid"])
+
+            # Supervise offset from the ghost point's position to the predicted position
+            num_sampling_level = len(pred['ghost_pcd_masks_pyramid'])
+            if pred.get("fine_ghost_pcd_offsets") is not None:
+                if pred["ghost_pcd_pyramid"][-1].shape[-1] != pred["ghost_pcd_pyramid"][0].shape[-1]:
+                    npts = pred["ghost_pcd_pyramid"][-1].shape[-1] // num_sampling_level
+                    pred_with_offset = (pred["ghost_pcd_pyramid"][-1] + pred["fine_ghost_pcd_offsets"])[:, :, -npts:]
+                else:
+                    pred_with_offset = (pred["ghost_pcd_pyramid"][-1] + pred["fine_ghost_pcd_offsets"])
+                losses["position_offset"] = F.mse_loss(
+                    pred_with_offset,
+                    gt_position.unsqueeze(-1).repeat(1, 1, pred_with_offset.shape[-1])
+                )
+                losses["position_offset"] *= (self.position_offset_loss_coeff * self.position_loss_coeff)
+
+            if self.position_loss == "ce":
+                # Clear gradient on pred["position"] to avoid a memory leak since we don't
+                # use it in the loss
+                pred["position"] = pred["position"].detach()
+            else:
+                losses["position_mse"] = (
+                    F.mse_loss(pred["position"], gt_position)
+                    * self.position_loss_coeff
+                )
+
+    def compute_metrics(self, pred, sample):
+        device = pred["position"].device
+        dtype = pred["position"].dtype
+        # padding_mask = sample["padding_mask"].to(device)
+        outputs = sample["action"].to(device)  # [padding_mask]
+
+        metrics = {}
+
+        tasks = np.array(sample["task"])
+
+        final_pos_l2 = ((pred["position"] - outputs[:, :3]) ** 2).sum(1).sqrt()
+        metrics["mean/pos_l2_final"] = final_pos_l2.to(dtype).mean()
+        metrics["mean/pos_l2_final<0.01"] = (final_pos_l2 < 0.01).to(dtype).mean()
+
+        for i in range(len(pred["position_pyramid"])):
+            pos_l2_i = ((pred["position_pyramid"][i].squeeze(1) - outputs[:, :3]) ** 2).sum(1).sqrt()
+            metrics[f"mean/pos_l2_level{i}"] = pos_l2_i.to(dtype).mean()
+
+        for task in np.unique(tasks):
+            task_l2 = final_pos_l2[tasks == task]
+            metrics[f"{task}/pos_l2_final"] = task_l2.to(dtype).mean()
+            metrics[f"{task}/pos_l2_final<0.01"] = (task_l2 < 0.01).to(dtype).mean()
+
+        # Gripper accuracy
+        pred_gripper = (pred["gripper"] > 0.5).squeeze(-1)
+        true_gripper = outputs[:, 7].bool()
+        acc = pred_gripper == true_gripper
+        metrics["gripper"] = acc.to(dtype).mean()
+
+        # Rotation accuracy
+        gt_quat = outputs[:, 3:7]
+        if "quat" in self.rotation_parametrization:
+            if self.symmetric_rotation_loss:
+                gt_quat_ = -gt_quat.clone()
+                l1 = (pred["rotation"] - gt_quat).abs().sum(1)
+                l1_ = (pred["rotation"] - gt_quat_).abs().sum(1)
+                select_mask = (l1 < l1_).float()
+                l1 = (select_mask * l1 + (1 - select_mask) * l1_)
+            else:
+                l1 = ((pred["rotation"] - gt_quat).abs().sum(1))
+
+        metrics["mean/rot_l1"] = l1.to(dtype).mean()
+        metrics["mean/rot_l1<0.05"] = (l1 < 0.05).to(dtype).mean()
+        metrics["mean/rot_l1<0.025"] = (l1 < 0.025).to(dtype).mean()
+
+        for task in np.unique(tasks):
+            task_l1 = l1[tasks == task]
+            metrics[f"{task}/rot_l1"] = task_l1.to(dtype).mean()
+            metrics[f"{task}/rot_l1<0.05"] = (task_l1 < 0.05).to(dtype).mean()
+            metrics[f"{task}/rot_l1<0.025"] = (task_l1 < 0.025).to(dtype).mean()
+
+        return metrics
 
 
 if __name__ == '__main__':
@@ -335,7 +501,6 @@ if __name__ == '__main__':
     args.log_dir = log_dir
     log_dir.mkdir(exist_ok=True, parents=True)
     print("Logging:", log_dir)
-    print("Args n_gpus:", args.n_gpus)
     print(
         "Available devices (CUDA_VISIBLE_DEVICES):",
         os.environ.get("CUDA_VISIBLE_DEVICES")

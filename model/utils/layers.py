@@ -12,7 +12,7 @@ class ParallelAttentionLayer(nn.Module):
                  cross_attention1=True, cross_attention2=True,
                  apply_ffn=True,
                  slot_attention12=False, slot_attention21=False,
-                 rotary_pe=False):
+                 rotary_pe=False, use_adaln=False):
         """Initialize layers, d_model is the encoder dimension."""
         super().__init__()
         self.pre_norm = pre_norm
@@ -25,6 +25,9 @@ class ParallelAttentionLayer(nn.Module):
 
         # Self-attention for seq1
         if self.self_attention1:
+            self.adaln_1 = None
+            if use_adaln:
+                self.adaln_1 = AdaLN(d_model)
             self.sa1 = MultiheadCustomAttention(
                 d_model, n_heads, dropout=dropout
             )
@@ -33,6 +36,9 @@ class ParallelAttentionLayer(nn.Module):
 
         # Self-attention for seq2
         if self.self_attention2:
+            self.adaln_2 = None
+            if use_adaln:
+                self.adaln_2 = AdaLN(d_model)
             self.sa2 = MultiheadCustomAttention(
                 d_model, n_heads, dropout=dropout
             )
@@ -42,6 +48,9 @@ class ParallelAttentionLayer(nn.Module):
         # Cross attention from seq1 to seq2
         self.norm_12 = None
         if cross_attention1:
+            self.adaln_12 = None
+            if use_adaln:
+                self.adaln_12 = AdaLN(d_model)
             self.cross_12 = MultiheadCustomAttention(
                 d_model, n_heads, dropout=dropout,
                 slot_competition=slot_attention12
@@ -52,6 +61,9 @@ class ParallelAttentionLayer(nn.Module):
         # Cross attention from seq2 to seq1
         self.norm_21 = None
         if cross_attention2:
+            self.adaln_21 = None
+            if use_adaln:
+                self.adaln_21 = AdaLN(d_model)
             self.cross_21 = MultiheadCustomAttention(
                 d_model, n_heads, dropout=dropout,
                 slot_competition=slot_attention21
@@ -61,6 +73,9 @@ class ParallelAttentionLayer(nn.Module):
 
         # FFN-1
         if self_attention1 or cross_attention1:
+            self.adaln_ff1 = None
+            if use_adaln:
+                self.adaln_ff1 = AdaLN(d_model)
             self.ffn_12 = nn.Sequential(
                 nn.Linear(d_model, 4 * d_model),
                 nn.ReLU(),
@@ -72,6 +87,9 @@ class ParallelAttentionLayer(nn.Module):
 
         # FFN-2
         if self_attention2 or cross_attention2:
+            self.adaln_ff2 = None
+            if use_adaln:
+                self.adaln_ff2 = AdaLN(d_model)
             self.ffn_21 = nn.Sequential(
                 nn.Linear(d_model, 4 * d_model),
                 nn.ReLU(),
@@ -89,10 +107,16 @@ class ParallelAttentionLayer(nn.Module):
     def with_pos_embed(self, tensor, pos=None):
         return tensor if pos is None else tensor + pos
 
+    def _adaln(self, x, layer, ada_sgnl):
+        if layer is not None and ada_sgnl is not None:
+            return layer(x, ada_sgnl)
+        return x
+
     def forward(self, seq1, seq1_key_padding_mask, seq2,
                 seq2_key_padding_mask,
                 seq1_pos=None, seq2_pos=None,
-                seq1_sem_pos=None, seq2_sem_pos=None):
+                seq1_sem_pos=None, seq2_sem_pos=None,
+                ada_sgnl=None):
         """Forward pass, seq1 (B, S1, F), seq2 (B, S2, F)."""
         rot_args = {}
 
@@ -112,7 +136,7 @@ class ParallelAttentionLayer(nn.Module):
             if self.rotary_pe:
                 rot_args['rotary_pe'] = (seq1_pos, seq2_pos)
             seq1b = self.cross_12(
-                query=q1.transpose(0, 1),
+                query=self._adaln(q1, self.adaln_12, ada_sgnl).transpose(0, 1),
                 key=k2.transpose(0, 1),
                 value=v2.transpose(0, 1),
                 attn_mask=None,
@@ -127,7 +151,7 @@ class ParallelAttentionLayer(nn.Module):
             if self.rotary_pe:
                 rot_args['rotary_pe'] = (seq2_pos, seq1_pos)
             seq2b = self.cross_21(
-                query=q2.transpose(0, 1),
+                query=self._adaln(q2, self.adaln_21, ada_sgnl).transpose(0, 1),
                 key=k1.transpose(0, 1),
                 value=v1.transpose(0, 1),
                 attn_mask=None,
@@ -147,9 +171,9 @@ class ParallelAttentionLayer(nn.Module):
             q1 = self.with_pos_embed(q1, seq1_sem_pos)
             k1 = self.with_pos_embed(k1, seq1_sem_pos)
             seq1b = self.sa1(
-                query=q1.transpose(0, 1),
-                key=k1.transpose(0, 1),
-                value=v1.transpose(0, 1),
+                query=self._adaln(q1, self.adaln_1, ada_sgnl).transpose(0, 1),
+                key=self._adaln(k1, self.adaln_1, ada_sgnl).transpose(0, 1),
+                value=self._adaln(v1, self.adaln_1, ada_sgnl).transpose(0, 1),
                 attn_mask=None,
                 key_padding_mask=seq1_key_padding_mask,  # (B, S1)
                 **rot_args
@@ -167,9 +191,9 @@ class ParallelAttentionLayer(nn.Module):
             q2 = self.with_pos_embed(q2, seq2_sem_pos)
             k2 = self.with_pos_embed(k2, seq2_sem_pos)
             seq2b = self.sa2(
-                query=q2.transpose(0, 1),
-                key=k2.transpose(0, 1),
-                value=v2.transpose(0, 1),
+                query=self._adaln(q2, self.adaln_2, ada_sgnl).transpose(0, 1),
+                key=self._adaln(k2, self.adaln_2, ada_sgnl).transpose(0, 1),
+                value=self._adaln(v2, self.adaln_2, ada_sgnl).transpose(0, 1),
                 attn_mask=None,
                 key_padding_mask=seq2_key_padding_mask,  # (B, S2)
                 **rot_args
@@ -180,12 +204,14 @@ class ParallelAttentionLayer(nn.Module):
         # FFN-1
         if (self.self_attention1 or self.cross_attention1) and self.apply_ffn:
             seq1 = self._norm(seq1, self.norm_122, self.pre_norm)
+            seq1 = self._adaln(seq1, self.adaln_ff1, ada_sgnl)
             seq1 = seq1 + self.ffn_12(seq1)
             seq1 = self._norm(seq1, self.norm_122, not self.pre_norm)
 
         # FFN-2
         if (self.self_attention2 or self.cross_attention2) and self.apply_ffn:
             seq2 = self._norm(seq2, self.norm_212, self.pre_norm)
+            seq2 = self._adaln(seq2, self.adaln_ff2, ada_sgnl)
             seq2 = seq2 + self.ffn_21(seq2)
             seq2 = self._norm(seq2, self.norm_212, not self.pre_norm)
 
@@ -201,7 +227,7 @@ class ParallelAttention(nn.Module):
                  cross_attention1=True, cross_attention2=True,
                  apply_ffn=True,
                  slot_attention12=False, slot_attention21=False,
-                 rotary_pe=False):
+                 rotary_pe=False, use_adaln=False):
         super().__init__()
         self.layers = nn.ModuleList()
         self.update_seq1 = self_attention1 or cross_attention1
@@ -219,26 +245,49 @@ class ParallelAttention(nn.Module):
                 apply_ffn=apply_ffn,
                 slot_attention12=slot_attention12,
                 slot_attention21=slot_attention21,
-                rotary_pe=rotary_pe
+                rotary_pe=rotary_pe,
+                use_adaln=use_adaln
             ))
 
     def forward(self, seq1, seq1_key_padding_mask, seq2,
                 seq2_key_padding_mask,
                 seq1_pos=None, seq2_pos=None,
-                seq1_sem_pos=None, seq2_sem_pos=None):
+                seq1_sem_pos=None, seq2_sem_pos=None,
+                ada_sgnl=None):
         """Forward pass, seq1 (B, S1, F), seq2 (B, S2, F)."""
         for layer in self.layers:
             seq1_, seq2_ = layer(
                 seq1=seq1, seq1_key_padding_mask=seq1_key_padding_mask,
                 seq2=seq2, seq2_key_padding_mask=seq2_key_padding_mask,
                 seq1_pos=seq1_pos, seq2_pos=seq2_pos,
-                seq1_sem_pos=seq1_sem_pos, seq2_sem_pos=seq2_sem_pos
+                seq1_sem_pos=seq1_sem_pos, seq2_sem_pos=seq2_sem_pos,
+                ada_sgnl=ada_sgnl
             )
             if self.update_seq1:
                 seq1 = seq1_
             if self.update_seq2:
                 seq2 = seq2_
         return seq1, seq2
+
+
+class AdaLN(nn.Module):
+    def __init__(self, embedding_dim):
+        super().__init__()
+        self.modulation = nn.Sequential(
+             nn.SiLU(), nn.Linear(embedding_dim, 2 * embedding_dim, bias=True)
+        )
+        nn.init.constant_(self.modulation[-1].weight, 0)
+        nn.init.constant_(self.modulation[-1].bias, 0)
+
+    def forward(self, x, t):
+        """
+        Args:
+            x: A tensor of shape (B, N, C)
+            t: A tensor of shape (B, C)
+        """
+        scale, shift = self.modulation(t).chunk(2, dim=-1)  # (B, C), (B, C)
+        x = x * (1 + scale.unsqueeze(1)) + shift.unsqueeze(1)
+        return x  # (B, N, C)
 
 
 class RelativeCrossAttentionLayer(nn.Module):

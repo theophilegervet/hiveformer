@@ -17,7 +17,7 @@ from model.utils.resnet import load_resnet50
 from model.utils.clip import load_clip
 
 
-class Baseline(nn.Module):
+class Act3D(nn.Module):
 
     def __init__(self,
                  backbone="clip",
@@ -42,7 +42,9 @@ class Baseline(nn.Module):
         assert backbone in ["resnet", "clip"]
         assert image_size in [(128, 128), (256, 256)]
         assert rotation_parametrization in [
-            "quat_from_top_ghost", "quat_from_query", "6D_from_top_ghost", "6D_from_query"]
+            "quat_from_top_ghost", "quat_from_query",
+            "6D_from_top_ghost", "6D_from_query"
+        ]
         assert num_sampling_level in [1, 2, 3, 4]
 
         self.image_size = image_size
@@ -162,11 +164,6 @@ class Baseline(nn.Module):
             nn.ReLU(),
             nn.Linear(embedding_dim, self.rotation_dim + 1)
         )
-        # self.pos_regressor = nn.Sequential(
-        #     nn.Linear(embedding_dim, embedding_dim),
-        #     nn.ReLU(),
-        #     nn.Linear(embedding_dim, 3)
-        # )
 
         # Instruction encoder
         if self.use_instruction:
@@ -266,7 +263,7 @@ class Baseline(nn.Module):
                     query=ghost_pcd_context_features_i, value=instruction_features,
                     query_pos=None, value_pos=None
                 )[-1]
-                
+
                 ghost_pcd_context_features_i = torch.cat(
                     [ghost_pcd_context_features_i, instruction_features], dim=0)
                 ghost_pcd_context_pos_i = torch.cat(
@@ -286,7 +283,7 @@ class Baseline(nn.Module):
 
             query_context_features_i = ghost_pcd_context_features_i
             query_context_pos_i = ghost_pcd_context_pos_i
-            
+
             if i == 0:
                 # Given the query is not localized yet, we don't use positional embeddings
                 query_pos_i = None
@@ -315,11 +312,6 @@ class Baseline(nn.Module):
             top_idx = torch.max(ghost_pcd_masks_i[-1], dim=-1).indices
             ghost_pcd_i = einops.rearrange(ghost_pcd_i, "b npts c -> b c npts")
             position_i = ghost_pcd_i[torch.arange(total_timesteps), :, top_idx].unsqueeze(1)
-            # from ipdb import set_trace
-            # set_trace()
-            # position_i = self.pos_regressor(query_features.squeeze(0))  # + torch.from_numpy(self.gripper_loc_bounds[0]).to(query_features.device)[None].float()
-            # position_i = position_i.unsqueeze(1)
-            # set_trace()
 
             ghost_pcd_pyramid.append(ghost_pcd_i)
             ghost_pcd_features_pyramid.append(ghost_pcd_features_i)
@@ -433,8 +425,6 @@ class Baseline(nn.Module):
                 a_min=self.gripper_loc_bounds[0], a_max=self.gripper_loc_bounds[1]
             )
             bounds = np.stack([bounds_min, bounds_max], axis=1)
-            # from ipdb import set_trace
-            # set_trace()
             uniform_pcd = np.stack([
                 sample_ghost_points_uniform_sphere(
                     center=anchor_[i],

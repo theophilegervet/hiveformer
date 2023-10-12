@@ -3,8 +3,7 @@
 import torch
 from torchvision import transforms
 from typing import Type, Union, List, Any
-from torchvision.models.resnet import _resnet, BasicBlock, Bottleneck, ResNet, model_urls
-from torch.hub import load_state_dict_from_url
+from torchvision.models.resnet import _resnet, BasicBlock, Bottleneck, ResNet
 
 
 def load_resnet50(pretrained: bool = False):
@@ -23,8 +22,13 @@ def _resnet(
 ) -> ResNet:
     model = ResNetFeatures(block, layers, **kwargs)
     if pretrained:
-        state_dict = load_state_dict_from_url(model_urls[arch], progress=progress)
-        model.load_state_dict(state_dict)
+        if int(torch.__version__[0]) <= 1:
+            from torch.hub import load_state_dict_from_url
+            from torchvision.models.resnet import model_urls
+            state_dict = load_state_dict_from_url(model_urls[arch], progress=progress)
+            model.load_state_dict(state_dict)
+        else:
+            raise NotImplementedError("Pretrained models not supported in PyTorch 2.0+")
     return model
 
 

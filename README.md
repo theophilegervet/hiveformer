@@ -7,12 +7,8 @@ Environment setup on both Matrix and locally:
 conda create -n analogical_manipulation python=3.9
 conda activate analogical_manipulation;
 conda install pytorch==1.13.1 torchvision==0.14.1 torchaudio==0.13.1 pytorch-cuda=11.6 -c pytorch -c nvidia;
-pip install numpy pillow einops typed-argument-parser tqdm transformers absl-py matplotlib scipy tensorboard opencv-python open3d trimesh wandb;
+pip install numpy pillow einops typed-argument-parser tqdm transformers absl-py matplotlib scipy tensorboard opencv-python diffusers blosc trimesh wandb open3d;
 pip install git+https://github.com/openai/CLIP.git;
-
-# PyTorch3D
-conda install -c fvcore -c iopath -c conda-forge fvcore iopath;
-conda install pytorch3d -c pytorch3d;
 ```
 
 To install RLBench locally:
@@ -40,10 +36,14 @@ sudo reboot  # Need to reboot for changes to take effect
 
 See `data_preprocessing` folder.
 
-## Training
+## Training Act3D
 
-See `scripts/launch_train_slurm.sh`.
+See `scripts/train_act3d.sh`.
+
+## Training a trajectory diffusion model
+
+See `scripts/train_trajectory.sh`.
 
 ## Evaluation
 
-See `scripts/launch_eval_local.sh`.
+See `online_evaluation/eval.sh`.

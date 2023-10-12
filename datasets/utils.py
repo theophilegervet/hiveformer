@@ -8,10 +8,7 @@ from scipy.interpolate import CubicSpline, interp1d
 import torch
 import torchvision.transforms as transforms
 import torchvision.transforms.functional as transforms_f
-try:
-    from pytorch3d import transforms as torch3d_tf
-except:
-    pass
+import utils.pytorch3d_transforms as torch3d_tf
 
 from model.utils.utils import normalise_quat
 
@@ -27,6 +24,13 @@ def loader(file):
         try:
             with open(file, "rb") as f:
                 content = pickle.loads(blosc.decompress(f.read()))
+            return content
+        except UnpicklingError as e:
+            print(f"Can't load {file}: {e}")
+    elif str(file).endswith(".pkl"):
+        try:
+            with open(file, 'rb') as f:
+                content = pickle.load(f)
             return content
         except UnpicklingError as e:
             print(f"Can't load {file}: {e}")
@@ -68,8 +72,8 @@ class Resize:
 
         # If resized image is smaller than original, pad it with a reflection
         if raw_h > resized_size[0] or raw_w > resized_size[1]:
-            right_pad, bottom_pad = max(raw_h - resized_size[1], 0), max(
-                raw_w - resized_size[0], 0
+            right_pad, bottom_pad = max(raw_w - resized_size[1], 0), max(
+                raw_h - resized_size[0], 0
             )
             kwargs = {
                 n: transforms_f.pad(

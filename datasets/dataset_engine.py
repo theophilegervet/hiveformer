@@ -18,7 +18,7 @@ class RLBenchDataset(Dataset):
         self,
         # required
         root,
-        instructions,
+        instructions=None,
         # dataset specification
         taskvar=[('close_door', 0)],
         max_episode_length=5,
@@ -42,7 +42,6 @@ class RLBenchDataset(Dataset):
         self._cache_size = cache_size
         self._cameras = cameras
         self._max_episode_length = max_episode_length
-        self._max_episodes_per_task = max_episodes_per_task
         self._num_iters = num_iters
         self._training = training
         self._taskvar = taskvar
@@ -55,6 +54,7 @@ class RLBenchDataset(Dataset):
 
         # For trajectory optimization, initialize interpolation tools
         if return_low_lvl_trajectory:
+            assert dense_interpolation or self._predict_short
             self._interpolate_traj = TrajectoryInterpolator(
                 use=dense_interpolation,
                 interpolation_length=interpolation_length
@@ -66,10 +66,9 @@ class RLBenchDataset(Dataset):
         for root, (task, var) in itertools.product(self._root, taskvar):
             data_dir = root / f"{task}+{var}"
             if data_dir.is_dir():
-                self._instructions[task][var] = instructions[task][var]
+                if instructions is not None:
+                    self._instructions[task][var] = instructions[task][var]
                 self._num_vars[task] += 1
-            else:
-                print(f"Can't find dataset folder {data_dir}")
 
         # If training, initialize augmentation classes
         if self._training:
@@ -78,6 +77,7 @@ class RLBenchDataset(Dataset):
                 gripper_loc_bounds=gripper_loc_bounds,
                 yaw_range=point_cloud_rotate_yaw_range
             )
+            assert point_cloud_rotate_yaw_range == 0.
 
         # File-names of episodes per-task and variation
         self._data_dirs = []
@@ -89,11 +89,13 @@ class RLBenchDataset(Dataset):
                 continue
             npy_episodes = [(task, var, ep) for ep in data_dir.glob("*.npy")]
             dat_episodes = [(task, var, ep) for ep in data_dir.glob("*.dat")]
-            episodes = npy_episodes + dat_episodes
+            pkl_episodes = [(task, var, ep) for ep in data_dir.glob("*.pkl")]
+            episodes = npy_episodes + dat_episodes + pkl_episodes
             # Split episodes equally into task variations
-            episodes = episodes[
-                :self._max_episodes_per_task // self._num_vars[task] + 1
-            ]
+            if max_episodes_per_task > -1:
+                episodes = episodes[
+                    :max_episodes_per_task // self._num_vars[task] + 1
+                ]
             if len(episodes) == 0:
                 print(f"Can't find episodes at folder {data_dir}")
                 continue
@@ -104,8 +106,8 @@ class RLBenchDataset(Dataset):
         self._episodes = []
         self._num_episodes = 0
         for task, eps in episodes_by_task.items():
-            if len(eps) > self._max_episodes_per_task:
-                eps = random.sample(eps, self._max_episodes_per_task)
+            if len(eps) > max_episodes_per_task and max_episodes_per_task > -1:
+                eps = random.sample(eps, max_episodes_per_task)
             self._episodes += eps
             self._num_episodes += len(eps)
 
@@ -153,6 +155,7 @@ class RLBenchDataset(Dataset):
         episode = self.read_from_cache(file)
         if episode is None:
             return None
+
         # Dynamic chunking so as not to overload GPU memory
         chunk = random.randint(
             0, math.ceil(len(episode[0]) / self._max_episode_length) - 1
@@ -172,12 +175,12 @@ class RLBenchDataset(Dataset):
         ])
 
         # Camera ids
-        cameras = list(episode[3][0].keys())
-        assert all(c in cameras for c in self._cameras)
-        index = torch.tensor([cameras.index(c) for c in self._cameras])
-
-        # Re-map states based on camera ids
-        states = states[:, index]
+        if episode[3]:
+            cameras = list(episode[3][0].keys())
+            assert all(c in cameras for c in self._cameras)
+            index = torch.tensor([cameras.index(c) for c in self._cameras])
+            # Re-map states based on camera ids
+            states = states[:, index]
 
         # Split RGB and XYZ
         rgbs = states[:, :, 0]
@@ -188,11 +191,21 @@ class RLBenchDataset(Dataset):
         action = torch.cat([episode[2][i] for i in frame_ids])
 
         # Sample one instruction feature
-        instr = random.choice(self._instructions[task][variation])
-        instr = instr[None].repeat(len(rgbs), 1, 1)
+        if self._instructions:
+            instr = random.choice(self._instructions[task][variation])
+            instr = instr[None].repeat(len(rgbs), 1, 1)
+        else:
+            instr = torch.zeros((rgbs.shape[0], 53, 512))
 
         # Get gripper tensors for respective frame ids
         gripper = torch.cat([episode[4][i] for i in frame_ids])
+
+        # gripper history
+        gripper_history = torch.stack([
+            torch.cat([episode[4][max(0, i-2)] for i in frame_ids]),
+            torch.cat([episode[4][max(0, i-1)] for i in frame_ids]),
+            gripper
+        ], dim=1)
 
         # Low-level trajectory
         traj, traj_lens = None, 0
@@ -207,6 +220,9 @@ class RLBenchDataset(Dataset):
             )
             for i, item in enumerate(traj_items):
                 traj[i, :len(item)] = item
+            traj_mask = torch.zeros(traj.shape[:-1])
+            for i, len_ in enumerate(traj_lens.long()):
+                traj_mask[i, len_:] = 1
 
         # Augmentations
         if self._training:
@@ -226,12 +242,13 @@ class RLBenchDataset(Dataset):
             "pcds": pcds,  # e.g. tensor (n_frames, n_cam, 3, H, W)
             "action": action[..., :self._action_dim],  # e.g. tensor (n_frames, 8), target pose
             "instr": instr,  # a (n_frames, 53, 512) tensor
-            "curr_gripper": gripper[..., :self._action_dim]
+            "curr_gripper": gripper[..., :self._action_dim],
+            "curr_gripper_history": gripper_history[..., :self._action_dim]
         }
         if self._return_low_lvl_trajectory:
             ret_dict.update({
-                "trajectory": traj[..., :self._action_dim],  # e.g. tensor (n_frames, 67, 8)
-                "trajectory_len": traj_lens  # e.g. tensor (n_frames,)
+                "trajectory": traj[..., :self._action_dim],  # e.g. tensor (n_frames, T, 8)
+                "trajectory_mask": traj_mask.bool()  # e.g. tensor (n_frames, T)
             })
         return ret_dict
 

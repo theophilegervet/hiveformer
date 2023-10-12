@@ -110,8 +110,8 @@ def cross_product(u, v):
     i = u[:, 1] * v[:, 2] - u[:, 2] * v[:, 1]
     j = u[:, 2] * v[:, 0] - u[:, 0] * v[:, 2]
     k = u[:, 0] * v[:, 1] - u[:, 1] * v[:, 0]
-    out = torch.cat((i.view(batch, 1), j.view(batch, 1), k.view(batch, 1)), 1)  # batch*3
-    return out
+    out = torch.cat((i.view(batch, 1), j.view(batch, 1), k.view(batch, 1)), 1)
+    return out  # batch*3
 
 
 def compute_rotation_matrix_from_ortho6d(ortho6d):
@@ -138,6 +138,7 @@ def get_ortho6d_from_rotation_matrix(matrix):
     ortho6d = matrix[:, :, :2].permute(0, 2, 1).flatten(-2)
     return ortho6d
 
+
 def orthonormalize_by_gram_schmidt(matrix):
     """Post-processing a 9D matrix with Gram-Schmidt orthogonalization.
 
@@ -157,3 +158,42 @@ def orthonormalize_by_gram_schmidt(matrix):
     b3 = F.normalize(b3, dim=-1)
 
     return torch.stack([b1, b2, b3], dim=-1)
+
+
+def rotation_from_svd(points1, points2, center1=None, center2=None):
+    """Compute rotation matrix from two point clouds using SVD.
+
+    Args:
+        points1: A tensor of shape (..., npts, 3)
+        points2: A tensor of shape (..., npts, 3)
+        cetner1: A tensor of shape (..., 3) representing the center of points1.
+        cetner2: A tensor of shape (..., 3) representing the center of points2.
+
+    Returns:
+        A tensor of shape (..., 3, 3) representing the rotation matrix.
+    """
+    if center1 is None:
+        points1 = points1 - points1.mean(dim=-2, keepdim=True)
+    else:
+        points1 = points1 - center1.unsqueeze(-2)
+
+    if center2 is None:
+        points2 = points2 - points2.mean(dim=-2, keepdim=True)
+    else:
+        points2 = points2 - center2.unsqueeze(-2)
+
+    # compute svd
+    H = points2.transpose(-2, -1) @ points1
+    U, S, Vh = torch.linalg.svd(H)
+    V = Vh.transpose(-2, -1)
+    R = V @ U.transpose(-2, -1)
+
+    # if the determinant(R) < 0, multiply the 3rd column of V with -1
+    inverse_V = torch.stack([
+        V[..., 0], V[..., 1], -V[..., 2]
+    ], dim=-1)
+    V = torch.where(torch.linalg.det(R).unsqueeze(-1).unsqueeze(-1) < 0,
+                    inverse_V, V)
+    R = V @ U.transpose(-2, -1)
+
+    return R

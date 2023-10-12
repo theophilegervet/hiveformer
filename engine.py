@@ -63,7 +63,7 @@ class BaseTrainTester:
         test_sampler = DistributedSampler(test_dataset, shuffle=True)
         test_loader = DataLoader(
             test_dataset,
-            batch_size=self.args.batch_size,
+            batch_size=self.args.batch_size_val,
             shuffle=False,
             num_workers=0,
             worker_init_fn=seed_worker,
@@ -128,6 +128,19 @@ class BaseTrainTester:
         if self.args.checkpoint:
             assert os.path.isfile(self.args.checkpoint)
             start_iter, best_loss = self.load_checkpoint(model, optimizer)
+
+        # Eval only
+        if bool(self.args.eval_only):
+            print("Test evaluation.......")
+            model.eval()
+            new_loss = self.evaluate_nsteps(
+                model, criterion, test_loader, step_id=-1,
+                val_iters=max(
+                    5,
+                    int(4 * len(self.args.tasks)/self.args.batch_size_val)
+                )
+            )
+            return model
 
         # Training loop
         iter_loader = iter(train_loader)

@@ -1,5 +1,2 @@
+from .keypose_optimization.act3d import Act3D
 from .trajectory_optimization.diffusion_model import DiffusionPlanner
-from .trajectory_optimization.diffusion_continuous import DiffusionContinuous
-from .keypose_optimization.diffusion_model import DiffusionHLPlanner
-from .keypose_optimization.trajectory_model import TrajectoryHLRegressor
-from .trajectory_optimization.regression_model import TrajectoryRegressor

@@ -14,14 +14,16 @@ import torch
 import torch.distributed as dist
 from torch.nn import functional as F
 
+from datasets import RLBenchDataset
 from engine import BaseTrainTester
+from model import DiffusionPlanner
 from utils.utils_without_rlbench import (
     load_instructions, count_parameters, get_gripper_loc_bounds
 )
 
 
 class Arguments(tap.Tap):
-    local_rank: int
+    # local_rank: int
     cameras: Tuple[str, ...] = ("wrist", "left_shoulder", "right_shoulder")
     image_size: str = "256,256"
     max_episodes_per_task: int = 100
@@ -33,17 +35,15 @@ class Arguments(tap.Tap):
     accumulate_grad_batches: int = 1
     val_freq: int = 500
     gripper_loc_bounds: Optional[str] = None
+    eval_only: int = 0
 
     # Training and validation datasets
     dataset: Path
     valset: Path
     dense_interpolation: int = 0
     interpolation_length: int = 100
-    predict_short: Optional[int] = None
-    train_diffusion_on_whole: int = 0
 
     # Logging to base_log_dir/exp_log_dir/run_log_dir
-    logger: Optional[str] = "tensorboard"  # One of "tensorboard", None
     base_log_dir: Path = Path(__file__).parent / "train_logs"
     exp_log_dir: str = "exp"
     run_log_dir: str = "run"
@@ -58,9 +58,6 @@ class Arguments(tap.Tap):
     train_iters: int = 200_000
     max_episode_length: int = 5  # -1 for no limit
 
-    # Toggle to switch between our models
-    model: str = "diffusion"  # one of "diffusion", "regression"
-
     # Data augmentations
     image_rescale: str = "0.75,1.25"  # (min, max), "1.0,1.0" for no rescaling
     point_cloud_rotate_yaw_range: float = 0.0  # in degrees, 0.0 for no rot
@@ -68,9 +65,8 @@ class Arguments(tap.Tap):
     # Model
     action_dim: int = 7
     backbone: str = "clip"  # one of "resnet", "clip"
-    num_sampling_level: int = 3
-    embedding_dim: int = 60
-    num_query_cross_attn_layers: int = 8
+    embedding_dim: int = 120
+    num_query_cross_attn_layers: int = 6
     num_vis_ins_attn_layers: int = 2
     use_instruction: int = 0
     use_goal: int = 0
@@ -78,7 +74,8 @@ class Arguments(tap.Tap):
     feat_scales_to_use: int = 1
     attn_rounds: int = 1
     weight_tying: int = 0
-    diffusion_head: str = "simple"
+    rotation_parametrization: str = 'quat'
+    diffusion_timesteps: int = 100
 
 
 class TrainTester(BaseTrainTester):
@@ -105,19 +102,8 @@ class TrainTester(BaseTrainTester):
                 for var in var_instr.keys()
             ]
 
-        # Select dataset class
-        if self.args.train_diffusion_on_whole:
-            from datasets import RLBenchOpenLoopDataset
-            dataset_class = RLBenchOpenLoopDataset
-        elif self.args.predict_short is not None:
-            from datasets import RLBenchShortTermDataset
-            dataset_class = RLBenchShortTermDataset
-        else:
-            from datasets import RLBenchDataset
-            dataset_class = RLBenchDataset
-
         # Initialize datasets with arguments
-        train_dataset = dataset_class(
+        train_dataset = RLBenchDataset(
             root=self.args.dataset,
             instructions=instruction,
             taskvar=taskvar,
@@ -136,9 +122,9 @@ class TrainTester(BaseTrainTester):
             dense_interpolation=bool(self.args.dense_interpolation),
             interpolation_length=self.args.interpolation_length,
             action_dim=self.args.action_dim,
-            predict_short=self.args.predict_short
+            predict_short=False
         )
-        test_dataset = dataset_class(
+        test_dataset = RLBenchDataset(
             root=self.args.valset,
             instructions=instruction,
             taskvar=taskvar,
@@ -156,25 +142,14 @@ class TrainTester(BaseTrainTester):
             dense_interpolation=bool(self.args.dense_interpolation),
             interpolation_length=self.args.interpolation_length,
             action_dim=self.args.action_dim,
-            predict_short=self.args.predict_short
+            predict_short=False
         )
         return train_dataset, test_dataset
 
     def get_model(self):
         """Initialize the model."""
-        # Select model class
-        if self.args.model == "diffusion":
-            from model import DiffusionPlanner
-            model_class = DiffusionPlanner
-        elif self.args.model == "regression":
-            from model import TrajectoryRegressor
-            model_class = TrajectoryRegressor
-        elif self.args.model == "continuous_diffusion":
-            from model import DiffusionContinuous
-            model_class = DiffusionContinuous
-
         # Initialize model with arguments
-        _model = model_class(
+        _model = DiffusionPlanner(
             backbone=self.args.backbone,
             image_size=tuple(int(x) for x in self.args.image_size.split(",")),
             embedding_dim=self.args.embedding_dim,
@@ -188,7 +163,8 @@ class TrainTester(BaseTrainTester):
             attn_rounds=self.args.attn_rounds,
             weight_tying=bool(self.args.weight_tying),
             gripper_loc_bounds=self.args.gripper_loc_bounds,
-            diffusion_head=self.args.diffusion_head
+            rotation_parametrization=self.args.rotation_parametrization,
+            diffusion_timesteps=self.args.diffusion_timesteps
         )
         print("Model parameters:", count_parameters(_model))
 
@@ -240,7 +216,7 @@ class TrainTester(BaseTrainTester):
                 break
 
             action = model(
-                None,
+                sample["trajectory"].to(device),
                 sample["trajectory_mask"].to(device),
                 sample["rgbs"].to(device),
                 sample["pcds"].to(device),
@@ -273,7 +249,7 @@ class TrainTester(BaseTrainTester):
                     values[key] = torch.cat([values[key], l_task.unsqueeze(0)])
 
             # Generate visualizations
-            if i == 0 and dist.get_rank() == 0:
+            if i == 0 and dist.get_rank() == 0 and step_id > -1:
                 viz_key = f'{split}-viz/viz'
                 viz = generate_visualizations(
                     action,
@@ -286,38 +262,29 @@ class TrainTester(BaseTrainTester):
         values = self.synchronize_between_processes(values)
         values = {k: v.mean().item() for k, v in values.items()}
         if dist.get_rank() == 0:
-            for key, val in values.items():
-                self.writer.add_scalar(key, val, step_id)
+            if step_id > -1:
+                for key, val in values.items():
+                    self.writer.add_scalar(key, val, step_id)
 
             # Also log to terminal
             print(f"Step {step_id}:")
             for key, value in values.items():
                 print(f"{key}: {value:.03f}")
 
-        return values.get('val-losses/action_mse', None)
+        return values.get('val-losses/traj_action_mse', None)
 
 
 def traj_collate_fn(batch):
-    # Dynamic padding for trajectory
-    max_len = max(batch[b]['trajectory_len'].max() for b in range(len(batch)))
-    for item in batch:
-        h, n, c = item['trajectory'].shape
-        traj = torch.zeros(h, max_len, c)
-        traj[:, :n] = item['trajectory']
-        item['trajectory'] = traj
-
-    # Unfold multi-step demos to form a longer batch
     keys = [
-        "trajectory", "trajectory_len",
+        "trajectory", "trajectory_mask",
         "rgbs", "pcds", "curr_gripper", "action", "instr"
     ]
-    ret_dict = {key: torch.cat([item[key] for item in batch]) for key in keys}
-
-    # Trajectory mask
-    trajectory_mask = torch.zeros(ret_dict['trajectory'].shape[:-1])
-    for i, len_ in enumerate(ret_dict['trajectory_len']):
-        trajectory_mask[i, len_:] = 1
-    ret_dict["trajectory_mask"] = trajectory_mask.bool()
+    ret_dict = {
+        key: torch.cat([
+            item[key].float() if key != 'trajectory_mask' else item[key]
+            for item in batch
+        ]) for key in keys
+    }
 
     ret_dict["task"] = []
     for item in batch:
@@ -340,7 +307,11 @@ class TrajectoryCriterion:
     def compute_metrics(pred, gt, mask):
         # pred/gt are (B, L, 7), mask (B, L)
         pos_l2 = ((pred[..., :3] - gt[..., :3]) ** 2).sum(-1).sqrt()
+        # symmetric quaternion eval
         quat_l1 = (pred[..., 3:7] - gt[..., 3:7]).abs().sum(-1)
+        quat_l1_ = (pred[..., 3:7] + gt[..., 3:7]).abs().sum(-1)
+        select_mask = (quat_l1 < quat_l1_).float()
+        quat_l1 = (select_mask * quat_l1 + (1 - select_mask) * quat_l1_)
         tr = 'traj_'
 
         # Trajectory metrics
@@ -360,6 +331,9 @@ class TrajectoryCriterion:
         # Keypose metrics (useful when not goal-conditioned)
         pos_l2 = ((pred[:, -1, :3] - gt[:, -1, :3]) ** 2).sum(-1).sqrt()
         quat_l1 = (pred[:, -1, 3:7] - gt[:, -1, 3:7]).abs().sum(-1)
+        quat_l1_ = (pred[:, -1, 3:7] + gt[:, -1, 3:7]).abs().sum(-1)
+        select_mask = (quat_l1 < quat_l1_).float()
+        quat_l1 = (select_mask * quat_l1 + (1 - select_mask) * quat_l1_)
         ret_1.update({
             'pos_l2': pos_l2.mean(),
             'pos_acc_001': (pos_l2 < 0.01).float().mean(),
@@ -435,6 +409,7 @@ if __name__ == '__main__':
         os.environ.get("CUDA_VISIBLE_DEVICES")
     )
     print("Device count", torch.cuda.device_count())
+    args.local_rank = int(os.environ["LOCAL_RANK"])
 
     # Seeds
     torch.manual_seed(args.seed)

@@ -122,7 +122,7 @@ class Encoder(nn.Module):
 
         Returns:
             - rgb_feats_pyramid: [(B, ncam, F, H_i, W_i)]
-            - pcd_pyramid: [(B, ncam * H_i * W_i, F)]
+            - pcd_pyramid: [(B, ncam * H_i * W_i, 3)]
         """
         num_cameras = rgb.shape[1]
 

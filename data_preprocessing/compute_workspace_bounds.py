@@ -12,9 +12,9 @@ import json
 
 from utils.utils_without_rlbench import (
     load_instructions,
-    get_max_episode_length,
+    get_max_episode_length
 )
-from dataset import RLBenchDataset
+from datasets.dataset_engine import RLBenchDataset
 
 
 class Arguments(tap.Tap):
@@ -27,16 +27,16 @@ class Arguments(tap.Tap):
     out_file: str = "location_bounds.json"
 
     tasks: Tuple[str, ...] = (
-        "pick_and_lift",
-        "pick_up_cup",
-        "push_button",
-        "put_knife_on_chopping_board",
-        "put_money_in_safe",
-        "reach_target",
-        "slide_block_to_target",
-        "stack_wine",
-        "take_money_out_safe",
-        "take_umbrella_out_of_umbrella_stand",
+        "unplug_charger",
+        "close_door",
+        "open_box",
+        "open_fridge",
+        "take_frame_off_hanger",
+        "open_oven",
+        "put_books_on_bookshelf",
+        "wipe_desk",
+        "slide_cabinet_open_and_place_cups",
+        "take_shoes_out_of_box"
     )
     variations: Tuple[int, ...] = (0,)
 
@@ -60,24 +60,27 @@ if __name__ == "__main__":
 
         dataset = RLBenchDataset(
             root=args.dataset,
-            image_size=tuple(int(x) for x in args.image_size.split(",")),  # type: ignore
-            taskvar=taskvar,
             instructions=instruction,
+            taskvar=taskvar,
             max_episode_length=max_episode_length,
-            max_episodes_per_task=args.max_episodes_per_task,
             cache_size=args.cache_size,
+            max_episodes_per_task=args.max_episodes_per_task,
             cameras=args.cameras,  # type: ignore
             return_low_lvl_trajectory=True,
+            dense_interpolation=True,
+            interpolation_length=50,
             training=False
         )
 
-        print(f"Computing gripper location bounds for task {task} from dataset of "
-              f"length {len(dataset)}")
+        print(
+            f"Computing gripper location bounds for task {task} "
+            f"from dataset of length {len(dataset)}"
+        )
 
         for i in range(len(dataset)):
             ep = dataset[i]
-            bounds[ep["task"]].append(ep["action"][ep["padding_mask"], :3])
-            bounds[ep["task"]].append(ep["trajectory"][ep["padding_mask"], :, :3].reshape([-1, 3]))
+            bounds[task].append(ep["action"][:, :3])
+            bounds[task].append(ep["trajectory"][..., :3].reshape([-1, 3]))
 
     bounds = {
         task: [
